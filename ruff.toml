@@ -1,0 +1,13 @@
+[lint]
+    select = ["ALL"]
+    ignore = [
+        # multi-line-summary-second-line
+        "D213",
+        # one-blank-line-before-class
+        "D203",
+        # flake8-todos
+        "TD",
+    ]
+
+    [lint.pydocstyle]
+        convention = "numpy"
