@@ -1,6 +1,11 @@
 # Example of using the environment wrapper
 
-The example files are in `docs/environments`
+
+## Environment config
+
+Each tool is associated with a environment context script. For a topic `$TOPIC` and a tool `$TOOL`, the environment context script file is: `DATA_DIR/$TOPIC/$TOOL/env_wrapper.sh`.
+
+The example file is in `docs/environments`
 
 ## Script to describe the environment context
 
@@ -37,11 +42,7 @@ unload cluster_binary/0.1.2
 
 ```
 
-## Environment config
-
-Each tool is associated with a environment context script.For a topic `$TOPIC` and a tool `$TOOL`, the environment context script file is: `DATA_DIR/$TOPIC/$TOOL/env_wrapper.sh`.
-
-## Test the environment wrapper
+## Tests on the environment wrapper
 
 ### Iterate over the script lines that init the environment
 
