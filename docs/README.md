@@ -123,9 +123,7 @@ The help column provide potential solution.
 
 #### Experiment errors list
 
-<!-- TODO generalize OR NOT format and do it -->
-
-The `$exp_name/logs/errors.tsv` file contains the list of samples with missing inputs or error during the slurm execution:
+The `$exp_name/errors.tsv` file contains the list of samples with missing inputs or error during the slurm execution:
 
 ```python
 sample_id            reason
