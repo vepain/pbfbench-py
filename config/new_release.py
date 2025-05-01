@@ -56,6 +56,7 @@ DEFAULT_DEV_BRANCH = "develop"
 class ChangesLevel(str, Enum):
     """Changes level."""
 
+    INIT = "init"
     PATCH = "patch"
     MINOR = "minor"
     MAJOR = "major"
@@ -142,6 +143,8 @@ def get_new_version(current_version: Version, changes_level: ChangesLevel) -> Ve
             return Version(
                 f"{current_version.major + 1}.0.0",
             )
+        case ChangesLevel.INIT:
+            return Version("0.0.0")
 
 
 def new_release_branch(new_version: Version) -> None:
