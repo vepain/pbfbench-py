@@ -22,7 +22,7 @@ DATA_DIR/WORK_DIR
 │       │   │   └── YYYY-MM-DD_HH-MM-SS_run.sh  # Slurm run script according to the horodatage
 │       │   ├── errors.tsv  # Lists of samples with error (missing inputs or error during slurm run)
 │       │   └── exp_config.yaml  # Configurations of the experiment on the tool for the topic
-│       └── env_wrapper.sh  # Tool environment wrapper script (In DATA_DIR tree, mirrored in WORK_DIR tree)
+│       └── env_wrapper.sh  # Tool environment wrapper script (only in DATA_DIR tree)
 └── samples.tsv  # Only in DATA_DIR
 ```
 

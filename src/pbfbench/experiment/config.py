@@ -5,8 +5,8 @@ Wrapper for exp_cfg.yaml files.
 
 from __future__ import annotations
 
-from abc import ABC
-from typing import Any, Self, get_args
+from abc import ABC, abstractmethod
+from typing import Any, Self
 
 import pbfbench.abc.tool.config as tool_cfg
 from pbfbench import slurm
@@ -21,9 +21,10 @@ class Config[ToolConfig: tool_cfg.Config](YAMLInterface, ABC):
     KEY_SLURM = "slurm"
 
     @classmethod
+    @abstractmethod
     def tool_cfg_type(cls) -> type[ToolConfig]:
         """Get tool config type."""
-        return get_args(cls)[0]
+        raise NotImplementedError
 
     @classmethod
     def from_yaml_load(cls, obj_dict: dict[str, Any]) -> Self:

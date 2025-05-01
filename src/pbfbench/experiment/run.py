@@ -7,8 +7,9 @@ import shutil
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-import pbfbench.abc.tool.inputs as abc_tool_inputs
+import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.visitor as abc_tool_visitor
+import pbfbench.abc.topic.results.items as abc_topic_results
 import pbfbench.experiment.checks as exp_checks
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.errors as exp_errors
@@ -71,7 +72,7 @@ class RunStats:
 class ErrorStatus(StrEnum):
     """Experiment error status."""
 
-    NOT_RUN = "not_run"
+    NO_TOOL_ENV_WRAPPER_SCRIPT = "no_tool_env_wrapper_script"
     DIFFERENT_EXPERIMENT = "different_experiment"
 
 
@@ -85,23 +86,18 @@ def run_experiment_on_samples(
     tool_connector: abc_tool_visitor.Connector,
 ) -> Status:
     """Run the experiment."""
-    _config_type: type[exp_cfg.Config] = tool_connector.config_type()
-    exp_config = _config_type.from_yaml(exp_config_yaml)
+    exp_config = tool_connector.read_config(exp_config_yaml)
 
-    data_exp_fs_manager, working_exp_fs_manager = exp_fs.data_and_working_managers(
+    match preparation_result := _prepare_experiment_file_systems(
         data_dir,
         working_dir,
-        tool_connector.tool_description(),
-        exp_config.name(),
-    )
-
-    _fs_status = _prepare_experiment_file_systems(
-        data_exp_fs_manager,
-        working_exp_fs_manager,
+        tool_connector,
         exp_config,
-    )
-    if _fs_status is not None:
-        return _fs_status
+    ):
+        case ErrorStatus():
+            return preparation_result
+        case _:
+            data_exp_fs_manager, working_exp_fs_manager = preparation_result
 
     run_stats = RunStats.new()
 
@@ -148,25 +144,30 @@ def run_experiment_on_samples(
         samples_to_run,
     )
 
-    _LOGGER.info(
-        "Running stats:\n"
-        "* Number of samples to run: %d\n"
-        "* Samples with missing inputs: %d\n"
-        "* Samples with errors: %d",
-        run_stats.number_of_samples_to_run(),
-        len(run_stats.samples_with_missing_inputs()),
-        len(run_stats.samples_with_errors()),
-    )
-
     return run_stats
 
 
 def _prepare_experiment_file_systems[C: exp_cfg.Config](
-    data_exp_fs_manager: exp_fs.Manager,
-    working_exp_fs_manager: exp_fs.Manager,
+    data_dir: Path,
+    working_dir: Path,
+    tool_connector: abc_tool_visitor.Connector,
     exp_config: C,
-) -> ErrorStatus | None:
+) -> ErrorStatus | tuple[exp_fs.Manager, exp_fs.Manager]:
     """Prepare experiment file systems."""
+    data_exp_fs_manager, working_exp_fs_manager = exp_fs.data_and_working_managers(
+        data_dir,
+        working_dir,
+        tool_connector.tool_description(),
+        exp_config.name(),
+    )
+
+    if not data_exp_fs_manager.tool_env_script_sh().exists():
+        _LOGGER.critical(
+            "The experiment in the data directory"
+            " does not have the tool environment wrapper script.",
+        )
+        return ErrorStatus.NO_TOOL_ENV_WRAPPER_SCRIPT
+
     if exp_checks.exists(data_exp_fs_manager):
         if not exp_checks.is_same_experiment(data_exp_fs_manager, exp_config):
             _LOGGER.critical(
@@ -186,7 +187,7 @@ def _prepare_experiment_file_systems[C: exp_cfg.Config](
     for fs_manager in (data_exp_fs_manager, working_exp_fs_manager):
         fs_manager.scripts_dir().mkdir(parents=True, exist_ok=True)
 
-    return None
+    return data_exp_fs_manager, working_exp_fs_manager
 
 
 def _get_samples_to_run(
@@ -217,13 +218,10 @@ def _filter_missing_inputs(
 ) -> tuple[
     list[smp_fs.RowNumberedItem],
     list[smp_fs.RowNumberedItem],
-    abc_tool_inputs.Inputs,
+    dict[abc_tool_cfg.Names, abc_topic_results.Result],
 ]:
     """Filter missing inputs."""
-    tool_inputs: abc_tool_inputs.Inputs = tool_connector.config_to_inputs(
-        exp_config,
-        data_exp_fs_manager.root_dir(),
-    )
+    tool_inputs = tool_connector.config_to_inputs(exp_config, data_exp_fs_manager)
 
     checked_inputs_samples_to_run, samples_with_missing_inputs = (
         exp_checks.checked_input_samples_to_run(
@@ -262,7 +260,7 @@ def _write_experiment_missing_inputs(
 
 def _create_and_run_sbatch_script(  # noqa: PLR0913
     tool_connector: abc_tool_visitor.Connector,
-    tool_inputs: abc_tool_inputs.Inputs,
+    tool_inputs: dict[abc_tool_cfg.Names, abc_topic_results.Result],
     exp_config: exp_cfg.Config,
     checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
     data_exp_fs_manager: exp_fs.Manager,
@@ -275,9 +273,9 @@ def _create_and_run_sbatch_script(  # noqa: PLR0913
         working_exp_fs_manager,
     )
     script_path = exp_shell.create_run_script(
-        smp_fs.samples_tsv(data_exp_fs_manager.root_dir()),
-        checked_inputs_samples_to_run,
+        data_exp_fs_manager,
         working_exp_fs_manager,
+        checked_inputs_samples_to_run,
         exp_config.slurm_config(),
         tool_commands,
     )

@@ -2,27 +2,35 @@
 
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Self, get_args
+from typing import TYPE_CHECKING, Any, Self
 
 from pbfbench.yaml_interface import YAMLInterface
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
+    import pbfbench.abc.topic.visitor as topic_visitor
+
 
 class Names(StrEnum):
     """Tool names."""
+
+    @abstractmethod
+    def topic_tools(self) -> type[topic_visitor.Tools]:
+        """Get topic tools."""
+        raise NotImplementedError
 
 
 class Arguments[N: Names](YAMLInterface, ABC):
     """Tool arguments configuration."""
 
     @classmethod
+    @abstractmethod
     def names_type(cls) -> type[N]:
         """Get names type."""
-        return get_args(cls)[0]
+        raise NotImplementedError
 
     @classmethod
     def from_yaml_load(cls, pyyaml_obj: dict[str, list[str]]) -> Self:
@@ -102,38 +110,33 @@ Options = YAMLInterface
 class Config[Args: Arguments, Opts: Options](YAMLInterface):
     """Tool config module."""
 
-    KEY_NAME = "name"
     KEY_ARGUMENTS = "arguments"
     KEY_OPTIONS = "options"
 
     @classmethod
+    @abstractmethod
     def arguments_type(cls) -> type[Args]:
         """Get argument arguments type."""
-        return get_args(cls)[0]
+        raise NotImplementedError
 
     @classmethod
+    @abstractmethod
     def options_type(cls) -> type[Opts]:
         """Get options type."""
-        return get_args(cls)[1]
+        raise NotImplementedError
 
     @classmethod
     def from_yaml_load(cls, obj_dict: dict[str, Any]) -> Self:
         """Convert dict to object."""
         return cls(
-            obj_dict[cls.KEY_NAME],
             cls.arguments_type().from_yaml_load(obj_dict[cls.KEY_ARGUMENTS]),
             cls.options_type().from_yaml_load(obj_dict[cls.KEY_OPTIONS]),
         )
 
-    def __init__(self, name: str, arguments: Args, options: Opts) -> None:
+    def __init__(self, arguments: Args, options: Opts) -> None:
         """Initialize."""
-        self.__name = name
         self.__arguments = arguments
         self.__options = options
-
-    def name(self) -> str:
-        """Get name."""
-        return self.__name
 
     def arguments(self) -> Args:
         """Get arguments."""
@@ -146,7 +149,6 @@ class Config[Args: Arguments, Opts: Options](YAMLInterface):
     def to_yaml_dump(self) -> dict[str, Any]:
         """Convert to dict."""
         return {
-            self.KEY_NAME: self.__name,
             self.KEY_ARGUMENTS: self.__arguments.to_yaml_dump(),
             self.KEY_OPTIONS: self.__options.to_yaml_dump(),
         }

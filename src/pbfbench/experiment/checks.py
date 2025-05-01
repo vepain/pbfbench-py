@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import pbfbench.abc.tool.config as tool_cfg
-import pbfbench.abc.tool.inputs as abc_tool_inputs
+import pbfbench.abc.topic.results.items as abc_topic_results
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.samples.file_system as smp_fs
@@ -78,7 +78,7 @@ def samples_to_format_result(
 def checked_input_samples_to_run(
     working_exp_fs_manager: exp_fs.Manager,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
-    tool_inputs: abc_tool_inputs.Inputs,
+    tool_inputs: dict[tool_cfg.Names, abc_topic_results.Result],
 ) -> tuple[list[smp_fs.RowNumberedItem], list[smp_fs.RowNumberedItem]]:
     """Return row numbered samples to run and those with missing inputs."""
     checked_samples_to_run: list[smp_fs.RowNumberedItem] = []
@@ -103,7 +103,7 @@ def checked_input_samples_to_run(
 
 
 def missing_inputs[N: tool_cfg.Names](
-    inputs: abc_tool_inputs.Inputs[N],
+    tool_inputs: dict[tool_cfg.Names, abc_topic_results.Result],
     sample_item: smp_items.Item,
 ) -> list[smp_miss_in.MissingInput]:
     """Check input(s) and return True if OK, False otherwise.
@@ -111,7 +111,7 @@ def missing_inputs[N: tool_cfg.Names](
     In case the input is missing or not valid, it logs a helper message.
     """
     list_missing_inputs: list[smp_miss_in.MissingInput] = []
-    for arg_name, tool_input in inputs.names_with_inputs():
+    for arg_name, tool_input in tool_inputs.items():
         input_status = tool_input.check(sample_item)
         if isinstance(input_status, smp_status.ErrorStatus):
             missing_input = smp_miss_in.MissingInput.from_tool_input(

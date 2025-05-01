@@ -10,6 +10,7 @@ import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.items as smp_items
 
 
+# REFACTOR should be good to make difference between data and work fs manager
 class Manager:
     """Experiment manager base."""
 
