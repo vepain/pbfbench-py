@@ -1,0 +1,23 @@
+[build-system]
+    requires = ["setuptools>=61.0.0", "wheel"]
+    build-backend = "setuptools.build_meta"
+
+[project]
+    name = "pbfbench"
+    version = "0.0.0"
+    description = "PlasBin-flow benchmarking framework."
+    authors = [
+        { name = "vepain", email = "victorepain@disroot.org" },
+        { name = "acme92", email = "amane@sfu.ca" },
+    ]
+    readme = "README.md"
+    license = { file = "LICENSE" }
+    requires-python = ">=3.13"
+
+    dependencies = ["PyYAML >=6.0, < 6.1", "typer >=0.15, <0.16"]
+
+    [project.scripts]
+        pbfbench = "pbfbench.__main__:main"
+
+[tool.setuptools.package-data]
+    pbfbench = ["py.typed"]
