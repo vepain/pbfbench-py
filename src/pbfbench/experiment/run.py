@@ -178,6 +178,7 @@ def _prepare_experiment_file_systems[C: exp_cfg.Config](
         data_exp_fs_manager.exp_dir().mkdir(parents=True, exist_ok=True)
         exp_config.to_yaml(data_exp_fs_manager.config_yaml())
 
+    shutil.rmtree(working_exp_fs_manager.exp_dir(), ignore_errors=True)
     working_exp_fs_manager.exp_dir().mkdir(parents=True, exist_ok=True)
     exp_config.to_yaml(working_exp_fs_manager.config_yaml())
     working_exp_fs_manager.tmp_slurm_logs_dir().mkdir(parents=True, exist_ok=True)
