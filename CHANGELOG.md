@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.0.1] - 2025-05-01
+
+### Added
+
+* `run` command now verifies the tool environment script existence
+
+### Changed
+
+* Simplify API
+
 ## [0.0.0] - 2025-05-01
 
 Init release.
