@@ -22,12 +22,12 @@
     "editor.formatOnSave": false,
     "files.exclude": {
         "**/__pycache__": true,
-        ".mypy_cache": true,
-        ".pytest_cache": true,
+        "**/.mypy_cache": true,
         ".nextflow": true,
-        ".ruff_cache": true
+        ".pytest_cache": true,
+        ".ruff_cache": true,
+        "**/*.egg-info": true
     },
-    "ltex.checkFrequency": "manual",
     "markdownlint.config": {
         "MD024": false
     },
