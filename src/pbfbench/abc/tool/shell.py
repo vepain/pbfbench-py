@@ -25,29 +25,32 @@ class ArgBashLinesBuilder[R: abc_topic_results.Result](ABC):
         return self.__tool_data_result
 
     @abstractmethod
-    def sh_init_lines(self) -> Iterator[str]:
+    def init_lines(self) -> Iterator[str]:
         """Get shell input init lines."""
         raise NotImplementedError
 
     @abstractmethod
-    def sh_param_lines(self) -> Iterator[str]:
+    def argument(self) -> str:
         """Get shell input param lines."""
         raise NotImplementedError
 
     @abstractmethod
-    def sh_close_lines(self) -> Iterator[str]:
+    def close_lines(self) -> Iterator[str]:
         """Get shell input close lines."""
         raise NotImplementedError
 
 
-class Commands[O: tool_cfg.Options](ABC):
+class Commands[N: tool_cfg.Names, O: tool_cfg.Options](ABC):
     """Tool command."""
 
     def __init__(
         self,
+        arg_names_with_checked_inputs: dict[N, ArgBashLinesBuilder],
         options: O,
         working_exp_fs_manager: exp_fs.Manager,
     ) -> None:
+        """Initialize."""
+        self.__arg_names_with_sh_lines_builders = arg_names_with_checked_inputs
         self.__options = options
         self.__working_exp_fs_manager = working_exp_fs_manager
 
@@ -59,7 +62,25 @@ class Commands[O: tool_cfg.Options](ABC):
         """Get working experiment file system manager."""
         return self.__working_exp_fs_manager
 
-    @abstractmethod
     def commands(self) -> Iterator[str]:
+        """Iterate over the tool commands."""
+        for result_lines_builder in self.__arg_names_with_sh_lines_builders.values():
+            yield from result_lines_builder.init_lines()
+        yield ("")
+        yield from self.core_commands()
+        yield ("")
+        for result_lines_builder in self.__arg_names_with_sh_lines_builders.values():
+            yield from result_lines_builder.close_lines()
+
+    @abstractmethod
+    def core_commands(self) -> Iterator[str]:
         """Iterate over the tool command lines."""
         raise NotImplementedError
+
+    def lines_builder(self, name: N) -> ArgBashLinesBuilder:
+        """Get result."""
+        return self.__arg_names_with_sh_lines_builders[name]
+
+    def argument(self, name: N) -> str:
+        """Get result."""
+        return self.lines_builder(name).argument()

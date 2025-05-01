@@ -19,16 +19,16 @@ if TYPE_CHECKING:
 
 
 def create_run_script(
-    samples_file: Path,
-    samples_to_run: Iterable[smp_fs.RowNumberedItem],
+    data_fs_manager: exp_fs.Manager,
     work_fs_manager: exp_fs.Manager,
+    samples_to_run: Iterable[smp_fs.RowNumberedItem],
     slurm_cfg: slurm.Config,
     tool_cmd: abc_tool_shell.Commands,
 ) -> Path:
     """Create the run script."""
     script_path = work_fs_manager.script_sh()
     tool_bash_env_wrapper = abc_tools_envs.BashEnvWrapper(
-        work_fs_manager.tool_env_script_sh(),
+        data_fs_manager.tool_env_script_sh(),
     )
     sample_fs_manager = smp_sh.sample_sh_var_fs_manager(work_fs_manager)
 
@@ -47,7 +47,9 @@ def create_run_script(
             ),
             (
                 smp_sh.exit_error(line, work_fs_manager, sample_fs_manager)
-                for line in smp_sh.SpeSmpIDLinesBuilder(samples_file).lines()
+                for line in smp_sh.SpeSmpIDLinesBuilder(
+                    smp_fs.samples_tsv(data_fs_manager.root_dir()),
+                ).lines()
             ),
             (
                 smp_sh.exit_error(line, work_fs_manager, sample_fs_manager)

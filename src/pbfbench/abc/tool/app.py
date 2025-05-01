@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Annotated, get_args
+from typing import Annotated
 
 import typer
 
@@ -71,11 +71,6 @@ class Arguments:
 class RunApp[Connector: abc_tool_visitor.Connector]:
     """Run application."""
 
-    @classmethod
-    def connector_type(cls) -> type[abc_tool_visitor.Connector]:
-        """Get connector type."""
-        return get_args(cls)[0]
-
     def __init__(self, connector: Connector) -> None:
         """Initialize."""
         self.__connector = connector
@@ -102,9 +97,22 @@ class RunApp[Connector: abc_tool_visitor.Connector]:
         #
         # Use the tool connector to run the experiment
         #
-        exp_run.run_experiment_on_samples(
+        match result := exp_run.run_experiment_on_samples(
             data_dir,
             work_dir,
             exp_config_yaml,
             self.__connector,
-        )
+        ):
+            case exp_run.RunStats():
+                _LOGGER.info(
+                    "Running stats:\n"
+                    "* Number of samples to run: %d\n"
+                    "* Samples with missing inputs: %d\n"
+                    "* Samples with errors: %d",
+                    result.number_of_samples_to_run(),
+                    len(result.samples_with_missing_inputs()),
+                    len(result.samples_with_errors()),
+                )
+                typer.Exit(0)
+            case exp_run.ErrorStatus():
+                typer.Exit(1)

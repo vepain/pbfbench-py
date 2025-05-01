@@ -25,7 +25,7 @@ class Variable:
         return f"{self.__name}={value}"
 
 
-def path_to_str(path: Path) -> str:
+def path_to_str(path: Path | str) -> str:
     """Convert path to string."""
     return f'"{path}"'
 
