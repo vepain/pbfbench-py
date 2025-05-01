@@ -1,0 +1,1 @@
+"""Topic result abstract module."""

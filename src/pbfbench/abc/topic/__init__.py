@@ -1,0 +1,1 @@
+"""Topics abstract module."""
