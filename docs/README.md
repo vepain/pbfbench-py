@@ -31,25 +31,18 @@ DATA_DIR/WORK_DIR
 A typical call to the command is:
 <!-- DOCU fix command args order -->
 ```sh
-pbfbench $topic_cmd $tool_cmd run $data_dir $work_dir $slurm_cfg_yaml $exp_cfg_yaml [--rerun]
+pbfbench $topic_cmd $tool_cmd run $data_dir $work_dir $exp_cfg_yaml [--rerun]
 ```
 
-where:
+The command is composed of:
 
-* `topic_cmd` is the command associated to the topic (e.g. `asm` for assembly)
-* `tool_cmd` is the command associated to the tool (e.g. `unicycler` for Unicycler)
-* `data_dir` is the path to the data directory
-* `work_dir` is the path to the working directory
-* `slurm_cfg_yaml` is the path to the SLURM configuration file
-* `exp_cfg_yaml` is the path to the experiment configuration file
-
-The `slurm_cfg_yaml` provides the SLURM configuration:
-
-```yaml
-- "--mem=36"
-- "--cpus-per-task=16"
-...  # except options for array jobs, which are automatically set
-```
+* sub-commands:
+  * `topic_cmd` is the command associated to the topic (e.g. `asm` for assembly)
+  * `tool_cmd` is the command associated to the tool (e.g. `unicycler` for Unicycler)
+* arguments:
+  * `data_dir` is the **absolute** path to the data directory
+  * `work_dir` is the **absolute** path to the working directory
+  * `exp_cfg_yaml` is the **absolute** path to the experiment configuration File
 
 ## Tool environment wrapper script
 
@@ -64,30 +57,44 @@ The structure is defined bellow, and the examples are for a binning tool:
 
 ```yaml
 name: $exp_name  # e.g. MinLen1000
-arguments:  # tool arguments
-  $topic_name:  # e.g. ASSEMBLY
-    - $tool_name  # e.g. UNICYCLER
-    - $exp_name  # e.g. default
-  ...
-options:  # tool options
-  # Sub YAML structure when the tool uses a YAML config file for the options
-  # e.g.
-  # min_length: 1000
-  # OR
-  - "--long-option value"  # e.g. "--min-length=1000"
-  ...
+tool:
+  arguments:  # tool arguments
+    $topic_name:  # e.g. ASSEMBLY
+      - $tool_name  # e.g. UNICYCLER
+      - $exp_name  # e.g. default
+    ...
+  options:  # tool options
+    # Sub YAML structure when the tool uses a YAML config file for the options
+    # e.g.
+    # min_length: 1000
+    # OR
+    - "--long-option value"  # e.g. "--min-length=1000"
+    ...
+slurm:
+  - "--mem=36"
+  - "--cpus-per-task=16"
+  ...  # all but options for array jobs and logs which are automatically set
 ```
 
 Example for producing seeds with Platon:
 
+```sh
+pbfbench seeds platon run $data_dir $work_dir $exp_cfg_yaml [--rerun]
+```
+
 ```yaml
 name: default
-arguments:  # Platon arguments
-  GENOME:  # Name of the argument given by Platon's DOCU
-    - UNICYCLER  # Name of a tool providing a gunzip FASTA file
-    - default  # Unicycler experiment name
-options:  # Platon options
-  "--db \"/absolute/path/to/platon/db\""  # Escape quotes because of YAML
+tool:
+  arguments:  # Platon arguments
+    GENOME:  # Name of the argument given by Platon's DOCU
+      - UNICYCLER  # Name of a tool providing a gunzip FASTA file
+      - default  # Unicycler experiment name
+  options:  # Platon options
+    "--db \"/absolute/path/to/platon/db\""  # Escape quotes because of YAML
+slurm:
+  - "--mem=36"
+  - "--cpus-per-task=16"
+  ...  # all but options for array jobs and logs which are automatically set
 ```
 
 ### Experiment outputs
