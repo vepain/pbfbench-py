@@ -3,7 +3,7 @@
 Usage
 -----
 ```sh
-python3.10 config/new_release.py --help
+python3.13 config/new_release.py --help
 ```
 
 Warning:
@@ -49,7 +49,7 @@ DEFAULT_EXECUTE = False
 #
 # Git
 #
-DEFAULT_MAIN_BRANCH = "master"
+DEFAULT_MAIN_BRANCH = "main"
 DEFAULT_DEV_BRANCH = "develop"
 
 
@@ -188,7 +188,7 @@ def make_release_changes(new_version: Version) -> None:
         "* Update the content of the `CHANGELOG.md` file\n"
         "    * Release version and date"
         f" `[{new_version}] -"
-        f" {datetime.datetime.now(tz=datetime.timezone.utc).date()}`\n"
+        f" {datetime.datetime.now(tz=datetime.UTC).date()}`\n"
         "    * Please be carefull of the content\n"
         "* Then enter `y`\n",
     )
