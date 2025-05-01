@@ -8,3 +8,4 @@ dependencies:
     - -e ../.  # Specific to dev, different for users
     - -r requirements-linters.txt  # Dev only
     - -r requirements-figures.txt  # Dev only (can become necessary for users)
+    - tomli  # Dev only (for config/new_release.py)
