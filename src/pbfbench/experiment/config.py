@@ -57,6 +57,10 @@ class Config[ToolConfig: tool_cfg.Config](YAMLInterface, ABC):
         """Get slurm config."""
         return self.__slurm_config
 
+    def is_same(self, other: Self) -> bool:
+        """Check if experiment is the same."""
+        return self.to_yaml_dump() == other.to_yaml_dump()
+
     def to_yaml_dump(self) -> dict[str, Any]:
         """Convert to dict."""
         return {

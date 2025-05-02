@@ -73,6 +73,7 @@ class ErrorStatus(StrEnum):
     """Experiment error status."""
 
     NO_TOOL_ENV_WRAPPER_SCRIPT = "no_tool_env_wrapper_script"
+    WRONG_EXPERIMENT_CONFIG_SYNTAX = "wrong_experiment_config_syntax"
     DIFFERENT_EXPERIMENT = "different_experiment"
 
 
@@ -86,7 +87,10 @@ def run_experiment_on_samples(
     tool_connector: abc_tool_visitor.Connector,
 ) -> Status:
     """Run the experiment."""
-    exp_config = tool_connector.read_config(exp_config_yaml)
+    try:
+        exp_config = tool_connector.read_config(exp_config_yaml)
+    except Exception:  # noqa: BLE001
+        return ErrorStatus.WRONG_EXPERIMENT_CONFIG_SYNTAX
 
     match preparation_result := _prepare_experiment_file_systems(
         data_dir,
@@ -162,19 +166,16 @@ def _prepare_experiment_file_systems[C: exp_cfg.Config](
     )
 
     if not data_exp_fs_manager.tool_env_script_sh().exists():
-        _LOGGER.critical(
-            "The experiment in the data directory"
-            " does not have the tool environment wrapper script.",
-        )
         return ErrorStatus.NO_TOOL_ENV_WRAPPER_SCRIPT
 
     if exp_checks.exists(data_exp_fs_manager):
-        if not exp_checks.is_same_experiment(data_exp_fs_manager, exp_config):
-            _LOGGER.critical(
-                "The experiment in the data directory"
-                " does not have the same configuration of the current experiment.",
-            )
-            return ErrorStatus.DIFFERENT_EXPERIMENT
+        same_exp_result = exp_checks.is_same_experiment(data_exp_fs_manager, exp_config)
+        if same_exp_result is not None:
+            match same_exp_result:
+                case exp_checks.SameExperimentError.DIFFERENT_SYNTAX:
+                    return ErrorStatus.WRONG_EXPERIMENT_CONFIG_SYNTAX
+                case exp_checks.SameExperimentError.NOT_SAME:
+                    return ErrorStatus.DIFFERENT_EXPERIMENT
     else:
         data_exp_fs_manager.exp_dir().mkdir(parents=True, exist_ok=True)
         exp_config.to_yaml(data_exp_fs_manager.config_yaml())

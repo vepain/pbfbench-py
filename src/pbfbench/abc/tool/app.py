@@ -114,5 +114,19 @@ class RunApp[Connector: abc_tool_visitor.Connector]:
                     len(result.samples_with_errors()),
                 )
                 typer.Exit(0)
-            case exp_run.ErrorStatus():
+            case exp_run.ErrorStatus.NO_TOOL_ENV_WRAPPER_SCRIPT:
+                _LOGGER.critical(
+                    "The experiment in the data directory"
+                    " does not have the tool environment wrapper script.",
+                )
                 typer.Exit(1)
+            case exp_run.ErrorStatus.WRONG_EXPERIMENT_CONFIG_SYNTAX:
+                _LOGGER.critical(
+                    "The experiment configuration file has a wrong syntax.",
+                )
+                typer.Exit(1)
+            case exp_run.ErrorStatus.DIFFERENT_EXPERIMENT:
+                _LOGGER.critical(
+                    "The experiment in the data directory"
+                    " does not have the same configuration of the current experiment.",
+                )

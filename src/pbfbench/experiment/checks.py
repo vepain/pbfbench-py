@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 import pbfbench.abc.tool.config as tool_cfg
@@ -25,18 +26,29 @@ def exists(data_manager: exp_fs.Manager) -> bool:
     return data_manager.config_yaml().exists()
 
 
+class SameExperimentError(StrEnum):
+    """Same experiment error."""
+
+    DIFFERENT_SYNTAX = "different_syntax"
+    NOT_SAME = "not_same"
+
+
 def is_same_experiment[C: exp_cfg.Config](
     data_fs_manager: exp_fs.Manager,
     config: C,
-) -> bool:
+) -> None | SameExperimentError:
     """Check if experiment is the same."""
     try:
         config_in_data: C = type(config).from_yaml(
             data_fs_manager.config_yaml(),
         )
-    except BaseException:  # FIXME test this
-        return False
-    return config == config_in_data
+    except Exception:  # noqa: BLE001
+        return SameExperimentError.DIFFERENT_SYNTAX
+
+    if not config.is_same(config_in_data):
+        return SameExperimentError.NOT_SAME
+
+    return None
 
 
 def samples_with_error_status(
