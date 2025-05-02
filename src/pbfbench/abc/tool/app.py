@@ -120,6 +120,12 @@ class RunApp[Connector: abc_tool_visitor.Connector]:
                     len(result.samples_with_errors()),
                 )
                 typer.Exit(0)
+            case exp_run.ErrorStatus.NO_WRITE_ACCESS:
+                _LOGGER.info("Please check you have the write access.")
+                typer.Exit(1)
+            case exp_run.ErrorStatus.NO_READ_ACCESS:
+                _LOGGER.info("Please check you have the read access.")
+                typer.Exit(1)
             case exp_run.ErrorStatus.NO_TOOL_ENV_WRAPPER_SCRIPT:
                 _LOGGER.critical(
                     "The experiment in the data directory"

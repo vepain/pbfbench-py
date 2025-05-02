@@ -85,6 +85,8 @@ class RunStats:
 class ErrorStatus(StrEnum):
     """Experiment error status."""
 
+    NO_WRITE_ACCESS = "no_write_access"
+    NO_READ_ACCESS = "no_read_access"
     NO_TOOL_ENV_WRAPPER_SCRIPT = "no_tool_env_wrapper_script"
     WRONG_EXPERIMENT_CONFIG_SYNTAX = "wrong_experiment_config_syntax"
     DIFFERENT_EXPERIMENT = "different_experiment"
@@ -100,6 +102,10 @@ def run_experiment_on_samples(
     tool_connector: abc_tool_visitor.Connector,
 ) -> Status:
     """Run the experiment."""
+    rw_check_result = _check_read_write_access(data_dir, working_dir)
+    if rw_check_result is not None:
+        return rw_check_result
+
     try:
         exp_config = tool_connector.read_config(exp_config_yaml)
     except Exception:  # noqa: BLE001
@@ -180,6 +186,29 @@ def run_experiment_on_samples(
         )
 
     return run_stats
+
+
+def _check_read_write_access(data_dir: Path, working_dir: Path) -> None | ErrorStatus:
+    """Check read and write access."""
+    #
+    # Check read/write access to data_dir and working_dir
+    #
+    for test_dir in (data_dir, working_dir):
+        file_test = test_dir / "test_read_write.txt"
+        try:
+            file_test.write_text("test")
+        except OSError:
+            _LOGGER.critical("No write access to %s", test_dir)
+            return ErrorStatus.NO_WRITE_ACCESS
+        try:
+            file_test.read_text()
+        except OSError:
+            _LOGGER.critical("No read access to %s", test_dir)
+            file_test.unlink()
+            return ErrorStatus.NO_READ_ACCESS
+        file_test.unlink()
+
+    return None
 
 
 def _log_config(
