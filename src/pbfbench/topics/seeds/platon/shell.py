@@ -1,6 +1,7 @@
 """Platon Bash script logics."""
 
 from collections.abc import Iterator
+from pathlib import Path
 from typing import final
 
 import pbfbench.abc.tool.shell as abc_tool_shell
@@ -19,14 +20,22 @@ class GenomeInputLinesBuilder(
     FASTA_GZ_VAR = sh.Variable("fasta_gz")
     FASTA_VAR = sh.Variable("fasta")
 
+    def __fasta_tmp_file(self) -> Path:
+        """Return a tmp FASTA path with sample name is a sh variable."""
+        return self._sample_sh_var_fs_manager.sample_dir() / "tmp_assembly.fasta"
+
     def init_lines(self) -> Iterator[str]:
         """Get shell input init lines."""
         fasta_gz_path = self._tool_data_result.fasta_gz(
             smp_sh.SpeSmpIDLinesBuilder.SPE_SMP_ID_VAR.eval(),
         )
         yield self.FASTA_GZ_VAR.set(sh.path_to_str(fasta_gz_path))
-        yield f"gunzip -k {sh.path_to_str(self.FASTA_GZ_VAR.eval())}"
-        yield self.FASTA_VAR.set(sh.path_to_str(f"${{{self.FASTA_GZ_VAR.name()}%.gz}}"))
+        yield self.FASTA_VAR.set(sh.path_to_str(self.__fasta_tmp_file()))
+        yield (
+            "gunzip -k -c"
+            f" {sh.path_to_str(self.FASTA_GZ_VAR.eval())}"
+            f"> {sh.path_to_str(self.FASTA_VAR.eval())}"
+        )
 
     def argument(self) -> str:
         """Get shell input param lines."""
