@@ -178,7 +178,7 @@ class MissingInputsTSVWriter:
                 missing_input.tool_description().name(),
                 missing_input.experiment_name(),
                 missing_input.reason(),
-                f'"{missing_input.help()}"',
+                missing_input.help(),
             ],
         )
 
