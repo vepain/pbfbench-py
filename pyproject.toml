@@ -4,7 +4,7 @@
 
 [project]
     name = "pbfbench"
-    version = "0.0.2"
+    version = "0.0.3"
     description = "PlasBin-flow benchmarking framework."
     authors = [
         { name = "vepain", email = "victorepain@disroot.org" },
