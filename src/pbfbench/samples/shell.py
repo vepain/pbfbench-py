@@ -16,7 +16,7 @@ class SpeSmpIDLinesBuilder:
     The bash variable name is: `cls.SPE_SAM_ID_VARNAME`
 
     The species-sample id is defined as:
-    `{species_id}_{sample_id}`
+    `{species_id}-{sample_id}`
     """
 
     SAMPLES_FILE_VAR = sh.Variable("samples_file")
