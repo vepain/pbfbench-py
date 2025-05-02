@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.0.5] - 2025-05-01
+
+### Fixed
+
+* Assembly result classes were not original final class `Result`
+
 ## [0.0.4] - 2025-05-01
 
 ### Fixed
