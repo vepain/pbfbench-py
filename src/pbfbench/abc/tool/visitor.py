@@ -14,6 +14,7 @@ import pbfbench.abc.tool.description as abc_tool_desc
 import pbfbench.abc.tool.shell as abc_tool_shell
 import pbfbench.abc.topic.results.items as abc_topic_results
 import pbfbench.abc.topic.visitor as abc_topic_visitor
+import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
 
 
@@ -67,15 +68,15 @@ class ArgumentPath[
 
 class Connector[
     ArgNames: abc_tool_config.Names,
-    Config: abc_tool_config.Config,
+    ExpConfig: exp_cfg.Config,
     Commands: abc_tool_shell.Commands,
 ](ABC):
     """Tool connectors."""
 
     @classmethod
     @abstractmethod
-    def config_type(cls) -> type[Config]:
-        """Get config type."""
+    def config_type(cls) -> type[ExpConfig]:
+        """Get experiment config type."""
         raise NotImplementedError
 
     @classmethod
@@ -91,7 +92,7 @@ class Connector[
         raise NotImplementedError
 
     @classmethod
-    def read_config(cls, config_path: Path) -> Config:
+    def read_config(cls, config_path: Path) -> ExpConfig:
         """Read config."""
         return cls.config_type().from_yaml(config_path)
 
@@ -104,11 +105,12 @@ class Connector[
 
     def config_to_inputs(
         self,
-        config: Config,
+        config: ExpConfig,
         data_fs_manager: exp_fs.Manager,
     ) -> dict[abc_tool_config.Names, abc_topic_results.Result]:
         """Convert config to inputs."""
-        arguments: abc_tool_config.Arguments = config.arguments()
+        tool_config: abc_tool_config.Config = config.tool_configs()
+        arguments: abc_tool_config.Arguments = tool_config.arguments()
         return {
             name: arg_path.arg_to_checkable_input(
                 data_fs_manager.root_dir(),
@@ -120,7 +122,7 @@ class Connector[
 
     def inputs_to_commands(
         self,
-        config: Config,
+        config: ExpConfig,
         arg_names_with_checked_inputs: dict[
             abc_tool_config.Names,
             abc_topic_results.Result,
@@ -128,6 +130,8 @@ class Connector[
         working_exp_fs_manager: exp_fs.Manager,
     ) -> Commands:
         """Convert inputs to commands."""
+        tool_config: abc_tool_config.Config = config.tool_configs()
+        options: abc_tool_config.Options = tool_config.options()
         return self.commands_type()(
             {
                 name: arg_path.input_to_sh_lines_builder(
@@ -135,6 +139,6 @@ class Connector[
                 )
                 for name, arg_path in self.__arg_names_and_paths.items()
             },
-            config,
+            options,
             working_exp_fs_manager,
         )

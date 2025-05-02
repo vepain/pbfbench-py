@@ -15,16 +15,16 @@ import pbfbench.topics.seeds.platon.shell as platon_sh
 class Connector(
     abc_tool_visitor.Connector[
         platon_cfg.Names,
-        platon_cfg.Config,
+        platon_cfg.ExpConfig,
         platon_sh.Commands,
     ],
 ):
     """Platon connectors."""
 
     @classmethod
-    def config_type(cls) -> type[platon_cfg.Config]:
+    def config_type(cls) -> type[platon_cfg.ExpConfig]:
         """Get config type."""
-        return platon_cfg.Config
+        return platon_cfg.ExpConfig
 
     @classmethod
     def commands_type(cls) -> type[platon_sh.Commands]:
