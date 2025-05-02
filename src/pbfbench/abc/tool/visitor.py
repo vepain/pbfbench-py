@@ -61,9 +61,13 @@ class ArgumentPath[
             exp_fs.Manager(data_dir, tool.to_description(), exp_name),
         )
 
-    def input_to_sh_lines_builder(self, checked_input: R) -> S:
+    def input_to_sh_lines_builder(
+        self,
+        checked_input: R,
+        working_exp_fs_manager: exp_fs.Manager,
+    ) -> S:
         """Convert input to shell lines builder."""
-        return self.sh_lines_builder_type()(checked_input)
+        return self.sh_lines_builder_type()(checked_input, working_exp_fs_manager)
 
 
 class Connector[
@@ -136,6 +140,7 @@ class Connector[
             {
                 name: arg_path.input_to_sh_lines_builder(
                     arg_names_with_checked_inputs[name],
+                    working_exp_fs_manager,
                 )
                 for name, arg_path in self._arg_names_and_paths.items()
             },

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pbfbench.abc.tool.config as tool_cfg
 import pbfbench.abc.topic.results.items as abc_topic_results
 import pbfbench.experiment.file_system as exp_fs
+import pbfbench.samples.shell as smp_sh
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -16,13 +17,29 @@ if TYPE_CHECKING:
 class ArgBashLinesBuilder[R: abc_topic_results.Result](ABC):
     """Argument bash lines builder."""
 
-    def __init__(self, tool_data_result: R) -> None:
+    def __init__(
+        self,
+        tool_data_result: R,
+        working_exp_fs_manager: exp_fs.Manager,
+    ) -> None:
         """Initialize."""
         self._tool_data_result = tool_data_result
+        self._working_exp_fs_manager = working_exp_fs_manager
+        self._sample_sh_var_fs_manager = smp_sh.sample_sh_var_fs_manager(
+            self._working_exp_fs_manager,
+        )
 
     def tool_data_result(self) -> R:
         """Get tool data result."""
         return self._tool_data_result
+
+    def working_exp_fs_manager(self) -> exp_fs.Manager:
+        """Get working experiment file system manager."""
+        return self._working_exp_fs_manager
+
+    def sample_sh_var_fs_manager(self) -> smp_sh.smp_fs.Manager:
+        """Get sample shell variable file system manager."""
+        return self._sample_sh_var_fs_manager
 
     @abstractmethod
     def init_lines(self) -> Iterator[str]:
