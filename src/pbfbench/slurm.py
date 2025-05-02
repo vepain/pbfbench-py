@@ -114,7 +114,7 @@ def err_log_sbatch_comment_path(work_fs_manager: exp_fs.Manager) -> Path:
 
 def err_log_job_var_path(work_fs_manager: exp_fs.Manager) -> Path:
     """Get slurm log variable path."""
-    return out_log_path(work_fs_manager, SLURM_JOB_ID_FROM_VARS)
+    return err_log_path(work_fs_manager, SLURM_JOB_ID_FROM_VARS)
 
 
 def sbatch_option_log_lines(work_fs_manager: exp_fs.Manager) -> Iterator[str]:
@@ -124,10 +124,16 @@ def sbatch_option_log_lines(work_fs_manager: exp_fs.Manager) -> Iterator[str]:
 
 
 SACCT_CMD = "sacct"
+BASH_CMD = "bash"
 
 
 def write_slurm_stats(job_id: str, psv_path: Path) -> None:
     """Write sbatch stats."""
-    cmd_path = subprocess_lib.command_path(SACCT_CMD)
-    cli_line = [cmd_path, "--long", "--jobs", job_id, "--parsable2", ">", psv_path]
-    subprocess_lib.run_cmd(cli_line, SACCT_CMD)
+    tmp_bash_script_path = psv_path.with_suffix(".sh")
+    with tmp_bash_script_path.open("w") as f:
+        f.write(sh.BASH_SHEBANG + "\n")
+        f.write(f"{SACCT_CMD} --long --jobs {job_id} --parsable2 > {psv_path}")
+    cmd_path = subprocess_lib.command_path(BASH_CMD)
+    cli_line = [cmd_path, tmp_bash_script_path]
+    subprocess_lib.run_cmd(cli_line, BASH_CMD)
+    tmp_bash_script_path.unlink()
