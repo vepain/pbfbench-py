@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import logging
 import shutil
+import time
 from enum import StrEnum
 from typing import TYPE_CHECKING
+
+import rich.progress as rich_prog
 
 import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.visitor as abc_tool_visitor
@@ -17,7 +20,7 @@ import pbfbench.experiment.file_system as exp_fs
 import pbfbench.experiment.shell as exp_shell
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.status as smp_status
-from pbfbench import slurm, subprocess_lib
+from pbfbench import root_logging, slurm, subprocess_lib
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -132,6 +135,8 @@ def run_experiment_on_samples(
         data_exp_fs_manager,
         working_exp_fs_manager,
     )
+
+    _wait_all_job_finish(checked_inputs_samples_to_run, working_exp_fs_manager)
 
     _write_experiment_errors(
         checked_inputs_samples_to_run,
@@ -296,6 +301,38 @@ def _create_and_run_sbatch_script(  # noqa: PLR0913
     cmd_path = subprocess_lib.command_path(slurm.SBATCH_CMD)
     cli_line = [cmd_path, script_path]
     subprocess_lib.run_cmd(cli_line, slurm.SBATCH_CMD)
+
+
+def _wait_all_job_finish(
+    checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
+    working_exp_fs_manager: exp_fs.Manager,
+) -> None:
+    """Wait all job finish."""
+    in_running_jobs = checked_inputs_samples_to_run.copy()
+
+    with rich_prog.Progress(console=root_logging.CONSOLE) as progress:
+        slurm_running_task = progress.add_task(
+            "Slurm running",
+            total=len(in_running_jobs),
+        )
+        while in_running_jobs:
+            time.sleep(60)
+            _tmp_running_jobs = []
+            for job in in_running_jobs:
+                sample_fs_manager = working_exp_fs_manager.sample_fs_manager(
+                    job.item(),
+                )
+                if (
+                    smp_status.get_status(sample_fs_manager)
+                    == smp_status.ErrorStatus.NOT_RUN
+                ):
+                    _tmp_running_jobs.append(job)
+
+            progress.update(
+                slurm_running_task,
+                advance=(len(in_running_jobs) - len(_tmp_running_jobs)),
+            )
+            in_running_jobs = _tmp_running_jobs
 
 
 def _write_experiment_errors(
