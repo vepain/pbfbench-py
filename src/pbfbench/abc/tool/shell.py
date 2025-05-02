@@ -18,11 +18,11 @@ class ArgBashLinesBuilder[R: abc_topic_results.Result](ABC):
 
     def __init__(self, tool_data_result: R) -> None:
         """Initialize."""
-        self.__tool_data_result = tool_data_result
+        self._tool_data_result = tool_data_result
 
     def tool_data_result(self) -> R:
         """Get tool data result."""
-        return self.__tool_data_result
+        return self._tool_data_result
 
     @abstractmethod
     def init_lines(self) -> Iterator[str]:
@@ -50,26 +50,26 @@ class Commands[N: tool_cfg.Names, O: tool_cfg.Options](ABC):
         working_exp_fs_manager: exp_fs.Manager,
     ) -> None:
         """Initialize."""
-        self.__arg_names_with_sh_lines_builders = arg_names_with_checked_inputs
-        self.__options = options
-        self.__working_exp_fs_manager = working_exp_fs_manager
+        self._arg_names_with_sh_lines_builders = arg_names_with_checked_inputs
+        self._options = options
+        self._working_exp_fs_manager = working_exp_fs_manager
 
     def options(self) -> O:
         """Get options."""
-        return self.__options
+        return self._options
 
     def working_exp_fs_manager(self) -> exp_fs.Manager:
         """Get working experiment file system manager."""
-        return self.__working_exp_fs_manager
+        return self._working_exp_fs_manager
 
     def commands(self) -> Iterator[str]:
         """Iterate over the tool commands."""
-        for result_lines_builder in self.__arg_names_with_sh_lines_builders.values():
+        for result_lines_builder in self._arg_names_with_sh_lines_builders.values():
             yield from result_lines_builder.init_lines()
         yield ("")
         yield from self.core_commands()
         yield ("")
-        for result_lines_builder in self.__arg_names_with_sh_lines_builders.values():
+        for result_lines_builder in self._arg_names_with_sh_lines_builders.values():
             yield from result_lines_builder.close_lines()
 
     @abstractmethod
@@ -79,7 +79,7 @@ class Commands[N: tool_cfg.Names, O: tool_cfg.Options](ABC):
 
     def lines_builder(self, name: N) -> ArgBashLinesBuilder:
         """Get result."""
-        return self.__arg_names_with_sh_lines_builders[name]
+        return self._arg_names_with_sh_lines_builders[name]
 
     def argument(self, name: N) -> str:
         """Get result."""
