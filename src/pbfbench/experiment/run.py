@@ -34,17 +34,23 @@ class RunStats:
     """Experiment run stats."""
 
     @classmethod
-    def new(cls) -> RunStats:
+    def new(cls, data_exp_fs_manager: exp_fs.Manager) -> RunStats:
         """Create new run stats."""
-        return cls(0, None, None)
+        with smp_fs.TSVReader.open(
+            smp_fs.samples_tsv(data_exp_fs_manager.root_dir()),
+        ) as smp_tsv_in:
+            number_of_samples = sum(1 for _ in smp_tsv_in.iter_row_numbered_items())
+        return cls(number_of_samples, 0, None, None)
 
     def __init__(
         self,
+        number_of_samples: int,
         number_of_samples_to_run: int,
         samples_with_missing_inputs: Iterable[str] | None,
         samples_with_errors: Iterable[str] | None,
     ) -> None:
         """Init run stats."""
+        self.__number_of_samples = number_of_samples
         self.__number_of_samples_to_run = number_of_samples_to_run
         self.__samples_with_missing_inputs = (
             list(samples_with_missing_inputs)
@@ -54,6 +60,10 @@ class RunStats:
         self.__samples_with_errors = (
             list(samples_with_errors) if samples_with_errors is not None else []
         )
+
+    def number_of_samples(self) -> int:
+        """Get number of samples."""
+        return self.__number_of_samples
 
     def number_of_samples_to_run(self) -> int:
         """Get number of samples to run."""
@@ -106,7 +116,7 @@ def run_experiment_on_samples(
         case _:
             data_exp_fs_manager, working_exp_fs_manager = preparation_result
 
-    run_stats = RunStats.new()
+    run_stats = RunStats.new(data_exp_fs_manager)
 
     samples_to_run = _get_samples_to_run(data_exp_fs_manager, run_stats)
 
@@ -159,6 +169,13 @@ def run_experiment_on_samples(
         data_exp_fs_manager,
         samples_to_run,
     )
+
+    if run_stats.samples_with_missing_inputs() or run_stats.samples_with_errors():
+        _LOGGER.info(
+            "The list of samples with missing inputs"
+            " or which exit with errors is written to file: %s",
+            data_exp_fs_manager.errors_tsv(),
+        )
 
     return run_stats
 
