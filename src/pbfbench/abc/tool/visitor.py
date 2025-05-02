@@ -114,7 +114,7 @@ class Connector[
         return {
             name: arg_path.arg_to_checkable_input(
                 data_fs_manager.root_dir(),
-                name.topic_tools(),
+                name.topic_tools()(arguments[name].tool_name()),
                 arguments[name].exp_name(),
             )
             for name, arg_path in self.__arg_names_and_paths.items()
