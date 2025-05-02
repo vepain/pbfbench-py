@@ -107,6 +107,8 @@ def run_experiment_on_samples(
 
     samples_to_run = _get_samples_to_run(data_exp_fs_manager, run_stats)
 
+    _prepare_sample_directories(samples_to_run, working_exp_fs_manager)
+
     checked_inputs_samples_to_run, samples_with_missing_inputs, tool_inputs = (
         _filter_missing_inputs(
             tool_connector,
@@ -208,6 +210,16 @@ def _get_samples_to_run(
     run_stats.add_samples_to_run(len(samples_to_run))
 
     return samples_to_run
+
+
+def _prepare_sample_directories(
+    samples_to_run: Iterable[smp_fs.RowNumberedItem],
+    working_exp_fs_manager: exp_fs.Manager,
+) -> None:
+    """Prepare sample directories."""
+    for run_sample in samples_to_run:
+        sample_fs_manager = working_exp_fs_manager.sample_fs_manager(run_sample.item())
+        sample_fs_manager.sample_dir().mkdir(parents=True, exist_ok=True)
 
 
 def _filter_missing_inputs(
