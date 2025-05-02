@@ -105,6 +105,8 @@ def run_experiment_on_samples(
     except Exception:  # noqa: BLE001
         return ErrorStatus.WRONG_EXPERIMENT_CONFIG_SYNTAX
 
+    _log_config(exp_config, tool_connector)
+
     match preparation_result := _prepare_experiment_file_systems(
         data_dir,
         working_dir,
@@ -178,6 +180,20 @@ def run_experiment_on_samples(
         )
 
     return run_stats
+
+
+def _log_config(
+    exp_config: exp_cfg.Config,
+    tool_connector: abc_tool_visitor.Connector,
+) -> None:
+    """Log config."""
+    _LOGGER.info(
+        "Running experiment %s with tool %s for the topic %s.",
+        exp_config.name(),
+        tool_connector.tool_description().name(),
+        tool_connector.tool_description().topic().name(),
+    )
+    _LOGGER.debug("Experiment config:\n%s", exp_config.to_yaml_dump())
 
 
 def _prepare_experiment_file_systems[C: exp_cfg.Config](
