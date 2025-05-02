@@ -121,11 +121,16 @@ def run_experiment_on_samples(
             working_exp_fs_manager,
         )
     )
+
     _write_experiment_missing_inputs(
         samples_with_missing_inputs,
         working_exp_fs_manager,
         run_stats,
     )
+
+    if not checked_inputs_samples_to_run:
+        _LOGGER.info("No samples to run")
+        return run_stats
 
     _create_and_run_sbatch_script(
         tool_connector,
@@ -261,6 +266,9 @@ def _write_experiment_missing_inputs(
     run_stats.samples_with_missing_inputs().extend(
         sample.item().exp_sample_id() for sample in samples_with_missing_inputs
     )
+
+    _LOGGER.error("Samples with missing inputs: %d", len(samples_with_missing_inputs))
+
     with exp_errors.ErrorsTSVWriter.open(
         working_exp_fs_manager.errors_tsv(),
         "w",
@@ -347,6 +355,8 @@ def _write_experiment_errors(
         )
         if smp_status.get_status(sample_fs_manager) == smp_status.ErrorStatus.ERROR:
             run_stats.samples_with_errors().append(run_sample.item().exp_sample_id())
+
+    _LOGGER.error("Samples with errors: %d", len(run_stats.samples_with_errors()))
 
     with exp_errors.ErrorsTSVWriter.open(
         working_exp_fs_manager.errors_tsv(),
