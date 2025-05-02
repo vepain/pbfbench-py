@@ -77,3 +77,5 @@ if __name__ == "__main__":
         typer.echo(arg_name)
         typer.echo(f"* {arg.tool_name()}")
         typer.echo(f"* {arg.exp_name()}")
+
+    exp_config.to_yaml(p.parent / "platon_exp_cfg2.yaml")

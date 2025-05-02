@@ -32,7 +32,7 @@ class Config(list[str], YAMLInterface):
 
     def to_yaml_dump(self) -> list[str]:
         """Convert to list."""
-        return self
+        return list(self)
 
 
 def comment_lines(

@@ -90,7 +90,7 @@ tool:
       - UNICYCLER  # Name of a tool providing a gunzip FASTA file
       - default  # Unicycler experiment name
   options:  # Platon options
-    "--db \"/absolute/path/to/platon/db\""  # Escape quotes because of YAML
+    - "--db \"/absolute/path/to/platon/db\""  # Escape quotes because of YAML
 slurm:
   - "--mem=36"
   - "--cpus-per-task=16"
