@@ -41,24 +41,19 @@ def create_run_script(
                 (sample.row_number() + 2 for sample in samples_to_run),
                 work_fs_manager,
             ),
-            (
-                smp_sh.exit_error(line, work_fs_manager, sample_fs_manager)
-                for line in tool_bash_env_wrapper.init_env_lines()
-            ),
-            (
-                smp_sh.exit_error(line, work_fs_manager, sample_fs_manager)
-                for line in smp_sh.SpeSmpIDLinesBuilder(
+            smp_sh.exit_error_function_lines(work_fs_manager, sample_fs_manager),
+            map(smp_sh.exit_error, tool_bash_env_wrapper.init_env_lines()),
+            map(
+                smp_sh.exit_error,
+                smp_sh.SpeSmpIDLinesBuilder(
                     smp_fs.samples_tsv(data_fs_manager.root_dir()),
-                ).lines()
+                ).lines(),
             ),
             (
-                smp_sh.exit_error(line, work_fs_manager, sample_fs_manager)
+                smp_sh.exit_error(line)
                 for line in (smp_sh.write_slurm_job_id(sample_fs_manager),)
             ),
-            (
-                smp_sh.exit_error(line, work_fs_manager, sample_fs_manager)
-                for line in tool_cmd.commands()
-            ),
+            (smp_sh.exit_error(line) for line in tool_cmd.commands()),
             tool_bash_env_wrapper.close_env_lines(),
         ):
             script_out.write(line + "\n")

@@ -20,6 +20,9 @@ SBATCH_COMMENT = "#SBATCH"
 
 SLURM_ARRAY_JOB_ID_VAR = sh.Variable("SLURM_ARRAY_JOB_ID")
 SLURM_ARRAY_TASK_ID_VAR = sh.Variable("SLURM_ARRAY_TASK_ID")
+SLURM_JOB_ID_FROM_VARS = (
+    f"{SLURM_ARRAY_JOB_ID_VAR.eval()}_{SLURM_ARRAY_TASK_ID_VAR.eval()}"
+)
 
 
 class Config(list[str], YAMLInterface):
@@ -41,11 +44,14 @@ def comment_lines(
     work_fs_manager: exp_fs.Manager,
 ) -> Iterator[str]:
     """Iterate over the slurm comment lines."""
-    return chain(
-        job_name_lines(work_fs_manager),
-        iter(slurm_config),
-        job_array_lines(samples_to_run_indices),
-        log_lines(work_fs_manager),
+    return (
+        f"{SBATCH_COMMENT} {line}"
+        for line in chain(
+            job_name_lines(work_fs_manager),
+            iter(slurm_config),
+            job_array_lines(samples_to_run_indices),
+            sbatch_option_log_lines(work_fs_manager),
+        )
     )
 
 
@@ -58,19 +64,19 @@ def job_name_lines(work_fs_manager: exp_fs.Manager) -> Iterator[str]:
             work_fs_manager.experiment_name(),
         ],
     )
-    yield f"{SBATCH_COMMENT} --job-name={job_name}"
+    yield f"--job-name={job_name}"
 
 
 def job_array_lines(samples_to_run_indices: Iterable[int]) -> Iterator[str]:
     """Iterate over the job array comment lines."""
-    array_job_str = f"{SBATCH_COMMENT} --array=" + ",".join(
+    array_job_str = "--array=" + ",".join(
         str(sample_index) for sample_index in samples_to_run_indices
     )
     yield array_job_str
 
 
 PREFIX_SLURM_LOG = "slurm"
-JOB_ID_VARIABLE = "%A_%a"
+SBATCH_COMMENT_JOB_ID = "%A_%a"
 OUT_EXTENSION = "out"
 ERR_EXTENSION = "err"
 
@@ -83,9 +89,14 @@ def out_log_path(work_fs_manager: exp_fs.Manager, job_id: str) -> Path:
     )
 
 
-def out_log_var_path(work_fs_manager: exp_fs.Manager) -> Path:
+def out_log_sbatch_comment_path(work_fs_manager: exp_fs.Manager) -> Path:
     """Get slurm log variable path."""
-    return out_log_path(work_fs_manager, JOB_ID_VARIABLE)
+    return out_log_path(work_fs_manager, SBATCH_COMMENT_JOB_ID)
+
+
+def out_log_job_var_path(work_fs_manager: exp_fs.Manager) -> Path:
+    """Get slurm log variable path."""
+    return out_log_path(work_fs_manager, SLURM_JOB_ID_FROM_VARS)
 
 
 def err_log_path(work_fs_manager: exp_fs.Manager, job_id: str) -> Path:
@@ -96,15 +107,20 @@ def err_log_path(work_fs_manager: exp_fs.Manager, job_id: str) -> Path:
     )
 
 
-def err_log_var_path(work_fs_manager: exp_fs.Manager) -> Path:
+def err_log_sbatch_comment_path(work_fs_manager: exp_fs.Manager) -> Path:
     """Get slurm log variable path."""
-    return err_log_path(work_fs_manager, JOB_ID_VARIABLE)
+    return err_log_path(work_fs_manager, SBATCH_COMMENT_JOB_ID)
 
 
-def log_lines(work_fs_manager: exp_fs.Manager) -> Iterator[str]:
-    """Iterate over the slurm log lines."""
-    yield f"{SBATCH_COMMENT} --output={out_log_var_path(work_fs_manager)}"
-    yield f"{SBATCH_COMMENT} --error={err_log_var_path(work_fs_manager)}"
+def err_log_job_var_path(work_fs_manager: exp_fs.Manager) -> Path:
+    """Get slurm log variable path."""
+    return out_log_path(work_fs_manager, SLURM_JOB_ID_FROM_VARS)
+
+
+def sbatch_option_log_lines(work_fs_manager: exp_fs.Manager) -> Iterator[str]:
+    """Iterate over the sbatch log option lines."""
+    yield f"--output={out_log_sbatch_comment_path(work_fs_manager)}"
+    yield f"--error={err_log_sbatch_comment_path(work_fs_manager)}"
 
 
 SACCT_CMD = "sacct"

@@ -76,30 +76,30 @@ def sample_sh_var_fs_manager(exp_fs_manager: exp_fs.Manager) -> smp_fs.Manager:
 def write_slurm_job_id(sample_fs_manager: smp_fs.Manager) -> str:
     """Return new command that exits the whole pipeline if first command fails."""
     return (
-        f"echo"
-        f' "{slurm.SLURM_ARRAY_JOB_ID_VAR.eval()}'
-        f'_{slurm.SLURM_ARRAY_TASK_ID_VAR.eval()}"'
-        f' > "{sample_fs_manager.slurm_job_id_file()}"'
+        f"echo {slurm.SLURM_JOB_ID_FROM_VARS}"
+        f"> {sh.path_to_str(sample_fs_manager.slurm_job_id_file())}"
     )
 
 
-def exit_error(
-    command: str,
+EXIT_ERROR_FN_NAME = "exit_error"
+
+
+def exit_error_function_lines(
     work_fs_manager: exp_fs.Manager,
     sample_fs_manager: smp_fs.Manager,
-) -> str:
+) -> Iterator[str]:
+    """Iterate over bash lines describing the exit error function."""
+    yield f"function {EXIT_ERROR_FN_NAME}" + " {"
+    yield f'  cp "{slurm.err_log_job_var_path(work_fs_manager)}" "{sample_fs_manager.errors_log()}"'  # noqa: E501
+    yield "  exit 1"
+    yield "}"
+
+
+def exit_error(command: str) -> str:
     """Return new command that exits the whole pipeline if first command fails."""
-    return " ".join(
-        [
-            command,
-            "||",
-            "cp",
-            str(slurm.err_log_var_path(work_fs_manager)),
-            str(sample_fs_manager.errors_log()),
-            ";",
-            "exit 1",
-        ],
-    )
+    if sh.is_a_command(command):
+        return command + " || " + EXIT_ERROR_FN_NAME
+    return command
 
 
 def write_done_log(
@@ -108,7 +108,8 @@ def write_done_log(
 ) -> str:
     """Return new command that exits the whole pipeline if first command fails."""
     return (
-        f"cp {slurm.out_log_var_path(work_fs_manager)} {sample_fs_manager.done_log()}"
+        f"cp {slurm.out_log_job_var_path(work_fs_manager)}"
+        f" {sample_fs_manager.done_log()}"
     )
 
 

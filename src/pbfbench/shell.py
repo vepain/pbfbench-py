@@ -30,6 +30,12 @@ def path_to_str(path: Path | str) -> str:
     return f'"{path}"'
 
 
+def is_a_command(bash_line: str) -> bool:
+    """Check if bash line is a command."""
+    lstrip = bash_line.lstrip()
+    return len(lstrip) > 0 and lstrip[0] != "#"
+
+
 if __name__ == "__main__":
     from rich.markdown import Markdown as Md
 
