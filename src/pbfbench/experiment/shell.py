@@ -69,6 +69,10 @@ def _write_command_script(
         ):
             command_out.write(sh.exit_on_error(line) + "\n")
 
+        command_out.write(
+            smp_sh.write_done_log(work_fs_manager, sample_fs_manager) + "\n",
+        )
+
 
 def _add_x_permissions_to_command_script(cmd_sh_path: Path) -> None:
     """Chmod +x the subscript (called by `srun`) for everyone."""
@@ -84,8 +88,8 @@ def _write_sbatch_script(
     tool_bash_env_wrapper: abc_tools_envs.BashEnvWrapper,
 ) -> None:
     """Write the sbatch script."""
-    with work_fs_manager.sbatch_sh_script().open("w") as script_out:
-        script_out.write(f"{sh.BASH_SHEBANG}\n")
+    with work_fs_manager.sbatch_sh_script().open("w") as sbatch_out:
+        sbatch_out.write(f"{sh.BASH_SHEBANG}\n")
 
         for line in chain(
             slurm.comment_lines(
@@ -104,8 +108,4 @@ def _write_sbatch_script(
             ),
             tool_bash_env_wrapper.close_env_lines(),
         ):
-            script_out.write(line + "\n")
-
-        script_out.write(
-            smp_sh.write_done_log(work_fs_manager, sample_fs_manager) + "\n",
-        )
+            sbatch_out.write(line + "\n")

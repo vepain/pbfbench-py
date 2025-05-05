@@ -104,6 +104,9 @@ class RunApp[Connector: abc_tool_visitor.Connector]:
             self.__connector,
         ):
             case exp_run.RunStats():
+                _number_of_running_samples = result.number_of_samples_to_run() - len(
+                    result.samples_with_missing_inputs(),
+                )
                 _LOGGER.info(
                     "Total number of samples: %d\n"
                     "* Number of already done samples: %d\n"
@@ -114,9 +117,8 @@ class RunApp[Connector: abc_tool_visitor.Connector]:
                     result.number_of_samples(),
                     result.number_of_samples() - result.number_of_samples_to_run(),
                     len(result.samples_with_missing_inputs()),
-                    result.number_of_samples_to_run(),
-                    result.number_of_samples_to_run()
-                    - len(result.samples_with_errors()),
+                    _number_of_running_samples,
+                    _number_of_running_samples - len(result.samples_with_errors()),
                     len(result.samples_with_errors()),
                 )
                 typer.Exit(0)
