@@ -82,9 +82,13 @@ class Manager:
         """Get config file."""
         return self.exp_dir() / self.CONFIG_YAML_NAME
 
-    def script_sh(self) -> Path:
-        """Get the script file path."""
-        return self.scripts_dir() / f"{self.__date_str}.sh"
+    def sbatch_sh_script(self) -> Path:
+        """Get the sbatch script file path."""
+        return self.scripts_dir() / f"{self.__date_str}_sbatch.sh"
+
+    def command_sh_script(self) -> Path:
+        """Get the command script file path."""
+        return self.scripts_dir() / f"{self.__date_str}_command.sh"
 
     def errors_tsv(self) -> Path:
         """Get errors file."""

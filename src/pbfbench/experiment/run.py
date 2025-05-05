@@ -360,7 +360,7 @@ def _create_and_run_sbatch_script(  # noqa: PLR0913
         tool_inputs,
         working_exp_fs_manager,
     )
-    script_path = exp_shell.create_run_script(
+    exp_shell.create_run_script(
         data_exp_fs_manager,
         working_exp_fs_manager,
         checked_inputs_samples_to_run,
@@ -369,7 +369,7 @@ def _create_and_run_sbatch_script(  # noqa: PLR0913
     )
 
     cmd_path = subprocess_lib.command_path(slurm.SBATCH_CMD)
-    cli_line = [cmd_path, script_path]
+    cli_line = [cmd_path, working_exp_fs_manager.sbatch_sh_script()]
     subprocess_lib.run_cmd(cli_line, slurm.SBATCH_CMD)
 
 
@@ -480,8 +480,11 @@ def _move_work_to_data(
     #
     # Move experiment scripts
     #
-    for work_script_file in working_exp_fs_manager.scripts_dir().iterdir():
-        shutil.move(work_script_file, data_exp_fs_manager.scripts_dir())
+    for sh_script in (
+        working_exp_fs_manager.sbatch_sh_script(),
+        working_exp_fs_manager.command_sh_script(),
+    ):
+        shutil.move(sh_script, data_exp_fs_manager.scripts_dir())
     #
     # Move experiment errors
     #

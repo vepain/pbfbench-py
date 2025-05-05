@@ -30,6 +30,11 @@ def path_to_str(path: Path | str) -> str:
     return f'"{path}"'
 
 
+def exit_on_error(bash_line: str) -> str:
+    """Return new command that exits the script if the command fails."""
+    return bash_line + " || exit 1"
+
+
 def is_a_command(bash_line: str) -> bool:
     """Check if bash line is a command."""
     lstrip = bash_line.lstrip()

@@ -95,7 +95,7 @@ def exit_error_function_lines(
     yield "}"
 
 
-def exit_error(command: str) -> str:
+def manage_error_and_exit(command: str) -> str:
     """Return new command that exits the whole pipeline if first command fails."""
     if sh.is_a_command(command):
         return command + " || " + EXIT_ERROR_FN_NAME

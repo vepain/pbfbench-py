@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import stat
 from itertools import chain
 from typing import TYPE_CHECKING
 
@@ -24,15 +25,66 @@ def create_run_script(
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
     slurm_cfg: slurm.Config,
     tool_cmd: abc_tool_shell.Commands,
-) -> Path:
+) -> None:
     """Create the run script."""
-    script_path = work_fs_manager.script_sh()
     tool_bash_env_wrapper = abc_tools_envs.BashEnvWrapper(
         data_fs_manager.tool_env_script_sh(),
     )
     sample_fs_manager = smp_sh.sample_sh_var_fs_manager(work_fs_manager)
 
-    with script_path.open("w") as script_out:
+    _write_command_script(
+        data_fs_manager,
+        work_fs_manager,
+        sample_fs_manager,
+        tool_cmd,
+    )
+
+    _add_x_permissions_to_command_script(work_fs_manager.command_sh_script())
+
+    _write_sbatch_script(
+        work_fs_manager,
+        sample_fs_manager,
+        slurm_cfg,
+        samples_to_run,
+        tool_bash_env_wrapper,
+    )
+
+
+def _write_command_script(
+    data_fs_manager: exp_fs.Manager,
+    work_fs_manager: exp_fs.Manager,
+    sample_fs_manager: smp_fs.Manager,
+    tool_cmd: abc_tool_shell.Commands,
+) -> None:
+    """Write the command script (which `srun` will call)."""
+    cmd_sh_path = work_fs_manager.command_sh_script()
+    with cmd_sh_path.open("w") as command_out:
+        command_out.write(f"{sh.BASH_SHEBANG}\n\n")
+        for line in chain(
+            smp_sh.SpeSmpIDLinesBuilder(
+                smp_fs.samples_tsv(data_fs_manager.root_dir()),
+            ).lines(),
+            iter((smp_sh.write_slurm_job_id(sample_fs_manager),)),
+            tool_cmd.commands(),
+        ):
+            command_out.write(sh.exit_on_error(line) + "\n")
+
+
+def _add_x_permissions_to_command_script(cmd_sh_path: Path) -> None:
+    """Chmod +x the subscript (called by `srun`) for everyone."""
+    st = cmd_sh_path.stat()
+    cmd_sh_path.chmod(st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+
+def _write_sbatch_script(
+    work_fs_manager: exp_fs.Manager,
+    sample_fs_manager: smp_fs.Manager,
+    slurm_cfg: slurm.Config,
+    samples_to_run: Iterable[smp_fs.RowNumberedItem],
+    tool_bash_env_wrapper: abc_tools_envs.BashEnvWrapper,
+) -> None:
+    """Write the sbatch script."""
+    with work_fs_manager.sbatch_sh_script().open("w") as script_out:
         script_out.write(f"{sh.BASH_SHEBANG}\n")
 
         for line in chain(
@@ -42,18 +94,14 @@ def create_run_script(
                 work_fs_manager,
             ),
             smp_sh.exit_error_function_lines(work_fs_manager, sample_fs_manager),
-            map(smp_sh.exit_error, tool_bash_env_wrapper.init_env_lines()),
-            map(
-                smp_sh.exit_error,
-                smp_sh.SpeSmpIDLinesBuilder(
-                    smp_fs.samples_tsv(data_fs_manager.root_dir()),
-                ).lines(),
+            map(smp_sh.manage_error_and_exit, tool_bash_env_wrapper.init_env_lines()),
+            iter(
+                (
+                    smp_sh.manage_error_and_exit(
+                        f"srun {work_fs_manager.command_sh_script()}",
+                    ),
+                ),
             ),
-            (
-                smp_sh.exit_error(line)
-                for line in (smp_sh.write_slurm_job_id(sample_fs_manager),)
-            ),
-            (smp_sh.exit_error(line) for line in tool_cmd.commands()),
             tool_bash_env_wrapper.close_env_lines(),
         ):
             script_out.write(line + "\n")
@@ -61,4 +109,3 @@ def create_run_script(
         script_out.write(
             smp_sh.write_done_log(work_fs_manager, sample_fs_manager) + "\n",
         )
-    return script_path
