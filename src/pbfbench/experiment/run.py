@@ -193,6 +193,12 @@ def _check_read_write_access(data_dir: Path, working_dir: Path) -> None | ErrorS
     #
     # Check read/write access to data_dir and working_dir
     #
+    try:
+        working_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        _LOGGER.critical("No write access to %s", working_dir)
+        return ErrorStatus.NO_WRITE_ACCESS
+
     for test_dir in (data_dir, working_dir):
         file_test = test_dir / "test_read_write.txt"
         try:
