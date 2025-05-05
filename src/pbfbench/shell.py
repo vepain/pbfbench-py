@@ -32,7 +32,9 @@ def path_to_str(path: Path | str) -> str:
 
 def exit_on_error(bash_line: str) -> str:
     """Return new command that exits the script if the command fails."""
-    return bash_line + " || exit 1"
+    if is_a_command(bash_line):
+        return bash_line + " || exit 1"
+    return bash_line
 
 
 def is_a_command(bash_line: str) -> bool:

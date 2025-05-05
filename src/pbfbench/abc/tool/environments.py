@@ -62,7 +62,7 @@ class BashEnvWrapper:
                 k += 1
             # Yield the lines until the end magic comment
             while k < self.__end_line_index:
-                yield line
+                yield line.rstrip()
                 line = next(iter_lines)
                 k += 1
             # Add the end magic comment
