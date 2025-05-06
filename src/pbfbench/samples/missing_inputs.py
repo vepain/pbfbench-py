@@ -36,8 +36,8 @@ class MissingInput:
         """Create missing input from tool input."""
         return cls(
             str(arg_name),
-            tool_input.exp_fs_manager().tool_description(),
-            tool_input.exp_fs_manager().experiment_name(),
+            tool_input.fs_manager().tool_description(),
+            tool_input.fs_manager().experiment_name(),
             reason,
             tool_input.origin_cmd(),
         )
@@ -178,7 +178,7 @@ class MissingInputsTSVWriter:
                 missing_input.tool_description().name(),
                 missing_input.experiment_name(),
                 missing_input.reason(),
-                f'"{missing_input.help()}"',
+                missing_input.help(),
             ],
         )
 

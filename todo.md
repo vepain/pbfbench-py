@@ -1,4 +1,3 @@
 # To-dos
 
-* [ ] Check absolute paths
-* [ ] Help to create an experiment config
+* [ ] Copy and remove instead of moving files from work to data.

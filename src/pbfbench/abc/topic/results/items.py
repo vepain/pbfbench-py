@@ -13,14 +13,14 @@ class Result(ABC):
 
     def __init__(
         self,
-        exp_fs_manager: exp_fs.Manager,
+        fs_manager: exp_fs.Manager,
     ) -> None:
         """Initialize."""
-        self.__exp_fs_manager = exp_fs_manager
+        self._fs_manager = fs_manager
 
-    def exp_fs_manager(self) -> exp_fs.Manager:
-        """Get data file system manager."""
-        return self.__exp_fs_manager
+    def fs_manager(self) -> exp_fs.Manager:
+        """Get data/work file system manager."""
+        return self._fs_manager
 
     @abstractmethod
     def origin_cmd(self) -> str:
@@ -43,8 +43,8 @@ class Original(Result):
         return " ".join(
             [
                 "pbfbench",
-                self.exp_fs_manager().tool_description().topic().cmd(),
-                self.exp_fs_manager().tool_description().cmd(),
+                self.fs_manager().tool_description().topic().cmd(),
+                self.fs_manager().tool_description().cmd(),
                 "run",
                 "--help",
             ],
@@ -52,7 +52,7 @@ class Original(Result):
 
     def check(self, sample_item: smp_items.Item) -> smp_status.Status:
         """Check input(s)."""
-        sample_fs_manager = self.exp_fs_manager().sample_fs_manager(sample_item)
+        sample_fs_manager = self.fs_manager().sample_fs_manager(sample_item)
         return smp_status.get_status(sample_fs_manager)
 
 
@@ -66,11 +66,11 @@ class Formatted(Result):
     ) -> None:
         """Initialize."""
         super().__init__(exp_fs_manager)
-        self.__in_need_tool_description = in_need_tool_description
+        self._in_need_tool_description = in_need_tool_description
 
     def in_need_tool_description(self) -> abc_tool_desc.Description:
         """Get in need tool description."""
-        return self.__in_need_tool_description
+        return self._in_need_tool_description
 
     def origin_cmd(self) -> str:
         """Get origin command."""

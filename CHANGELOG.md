@@ -24,6 +24,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.1.0] - 2025-05-05
+
+### Added
+
+* `config` subcommand to obtain experiment draft configuration
+* Log prints
+
+### Changed
+
+* Exp sample dir name separator from `_` to `-` to be coherent with already existing experiments
+* Decompose the sbatch script and call the command part with `srun`
+
+### Fixed
+
+* Script line writting process
+* Check read/write permissions of data and working directories
+
 ## [0.0.5] - 2025-05-01
 
 ### Fixed

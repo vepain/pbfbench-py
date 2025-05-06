@@ -19,7 +19,7 @@ class FastaGZ(tools_results.Original):
 
     def fasta_gz(self, sample_dirname: str) -> Path:
         """Get assembly FASTA file."""
-        return self.__exp_fs_manager.sample_dir(sample_dirname) / self.FASTA_GZ_NAME
+        return self._fs_manager.sample_dir(sample_dirname) / self.FASTA_GZ_NAME
 
 
 @final
@@ -30,6 +30,4 @@ class AsmGraphGZ(tools_results.Original):
 
     def gfa_gz(self, sample_dirname: str) -> Path:
         """Get assembly GFA file."""
-        return (
-            self.__exp_fs_manager.sample_dir(sample_dirname) / self.ASSEMBLY_GFA_GZ_NAME
-        )
+        return self._fs_manager.sample_dir(sample_dirname) / self.ASSEMBLY_GFA_GZ_NAME

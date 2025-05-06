@@ -22,10 +22,13 @@ class Item:
         return fmt_exp_sample_id(self.__species_id, self.__sample_id)
 
 
+EXP_SAMPLE_ID_SEP = "-"
+
+
 def fmt_exp_sample_id(species_id: str, sample_id: str) -> str:
     """Get species-sample ID directory name.
 
     * `species_id` can be directly the species ID or a variable name.
     * `sample_id` can be directly the sample ID or a variable name.
     """
-    return f"{species_id}_{sample_id}"
+    return f"{species_id}{EXP_SAMPLE_ID_SEP}{sample_id}"

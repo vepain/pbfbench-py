@@ -44,11 +44,11 @@ class BashEnvWrapper:
                 k += 1
             # Yield the lines until the mid magic comment
             while k < self.__mid_line_index:
-                yield line
+                yield line.rstrip()
                 line = next(iter_lines)
                 k += 1
             # Add the mid magic comment
-            yield line
+            yield line.rstrip()
 
     def close_env_lines(self) -> Iterator[str]:
         """Iterate over the script lines that close the environment."""
@@ -62,11 +62,11 @@ class BashEnvWrapper:
                 k += 1
             # Yield the lines until the end magic comment
             while k < self.__end_line_index:
-                yield line
+                yield line.rstrip()
                 line = next(iter_lines)
                 k += 1
             # Add the end magic comment
-            yield line
+            yield line.rstrip()
 
     def __index_script(self) -> None:
         """Index the script lines."""

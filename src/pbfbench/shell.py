@@ -30,6 +30,19 @@ def path_to_str(path: Path | str) -> str:
     return f'"{path}"'
 
 
+def exit_on_error(bash_line: str) -> str:
+    """Return new command that exits the script if the command fails."""
+    if is_a_command(bash_line):
+        return bash_line + " || exit 1"
+    return bash_line
+
+
+def is_a_command(bash_line: str) -> bool:
+    """Check if bash line is a command."""
+    lstrip = bash_line.lstrip()
+    return len(lstrip) > 0 and lstrip[0] != "#"
+
+
 if __name__ == "__main__":
     from rich.markdown import Markdown as Md
 

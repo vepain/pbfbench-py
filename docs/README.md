@@ -10,7 +10,7 @@ DATA_DIR/WORK_DIR
 ├── $TOPIC_NAME  # e.g. ASSEMBLY
 │   └── $TOOL_NAME  # e.g. UNICYCLER
 │       ├── $exp_name  # e.g. default
-│       │   ├── $SAMPLE_DIRNAME  # e.g. ecol_SAMN10432165
+│       │   ├── $SAMPLE_DIRNAME  # e.g. ecol-SAMN10432165
 │       │   │   ├── ...  # e.g. Unicycler output files
 │       │   │   ├── slurm_%A_%a.out  # Slurm stdout for each sample
 │       │   │   ├── slurm_%A_%a.err  # Slurm stderr for each sample
@@ -19,7 +19,8 @@ DATA_DIR/WORK_DIR
 │       │   │   └── done.log | errors.log | missing_inputs.tsv  # to mark the status of the sample experiment
 │       │   ├── ...  # Other samples
 │       │   ├── scripts  # Slurm run scripts
-│       │   │   └── YYYY-MM-DD_HH-MM-SS_run.sh  # Slurm run script according to the horodatage
+│       │   │   ├── YYYY-MM-DD_HH-MM-SS_sbatch.sh  # Slurm run script according to the horodatage
+│       │   │   └── YYYY-MM-DD_HH-MM-SS_command.sh  # srun commands without init and close tool environment processes
 │       │   ├── errors.tsv  # Lists of samples with error (missing inputs or error during slurm run)
 │       │   └── exp_config.yaml  # Configurations of the experiment on the tool for the topic
 │       └── env_wrapper.sh  # Tool environment wrapper script (only in DATA_DIR tree)

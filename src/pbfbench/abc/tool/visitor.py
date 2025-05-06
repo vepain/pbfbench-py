@@ -32,23 +32,23 @@ class ArgumentPath[
         sh_lines_builder_type: type[S],
     ) -> None:
         """Initialize."""
-        self.__topic_tools = topic_tools
-        self.__fn_result_visitor = fn_result_visitor
-        self.__sh_lines_builder_type = sh_lines_builder_type
+        self._topic_tools = topic_tools
+        self._fn_result_visitor = fn_result_visitor
+        self._sh_lines_builder_type = sh_lines_builder_type
 
     def topic_tools(self) -> type[T]:
         """Get topic tools."""
-        return self.__topic_tools
+        return self._topic_tools
 
     def fn_result_visitor(
         self,
     ) -> Callable[[T], type[R]]:
         """Get result visitor function."""
-        return self.__fn_result_visitor
+        return self._fn_result_visitor
 
     def sh_lines_builder_type(self) -> type[S]:
         """Get shell lines builder type."""
-        return self.__sh_lines_builder_type
+        return self._sh_lines_builder_type
 
     def arg_to_checkable_input(
         self,
@@ -61,9 +61,13 @@ class ArgumentPath[
             exp_fs.Manager(data_dir, tool.to_description(), exp_name),
         )
 
-    def input_to_sh_lines_builder(self, checked_input: R) -> S:
+    def input_to_sh_lines_builder(
+        self,
+        checked_input: R,
+        working_exp_fs_manager: exp_fs.Manager,
+    ) -> S:
         """Convert input to shell lines builder."""
-        return self.sh_lines_builder_type()(checked_input)
+        return self.sh_lines_builder_type()(checked_input, working_exp_fs_manager)
 
 
 class Connector[
@@ -101,7 +105,7 @@ class Connector[
         arg_names_and_paths: dict[ArgNames, ArgumentPath],
     ) -> None:
         """Initialize."""
-        self.__arg_names_and_paths = dict(arg_names_and_paths)
+        self._arg_names_and_paths = dict(arg_names_and_paths)
 
     def config_to_inputs(
         self,
@@ -117,7 +121,7 @@ class Connector[
                 name.topic_tools()(arguments[name].tool_name()),
                 arguments[name].exp_name(),
             )
-            for name, arg_path in self.__arg_names_and_paths.items()
+            for name, arg_path in self._arg_names_and_paths.items()
         }
 
     def inputs_to_commands(
@@ -136,8 +140,9 @@ class Connector[
             {
                 name: arg_path.input_to_sh_lines_builder(
                     arg_names_with_checked_inputs[name],
+                    working_exp_fs_manager,
                 )
-                for name, arg_path in self.__arg_names_and_paths.items()
+                for name, arg_path in self._arg_names_and_paths.items()
             },
             options,
             working_exp_fs_manager,
