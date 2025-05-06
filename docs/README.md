@@ -10,7 +10,7 @@ DATA_DIR/WORK_DIR
 ├── $TOPIC_NAME  # e.g. ASSEMBLY
 │   └── $TOOL_NAME  # e.g. UNICYCLER
 │       ├── $exp_name  # e.g. default
-│       │   ├── $SAMPLE_DIRNAME  # e.g. ecol_SAMN10432165
+│       │   ├── $SAMPLE_DIRNAME  # e.g. ecol-SAMN10432165
 │       │   │   ├── ...  # e.g. Unicycler output files
 │       │   │   ├── slurm_%A_%a.out  # Slurm stdout for each sample
 │       │   │   ├── slurm_%A_%a.err  # Slurm stderr for each sample
