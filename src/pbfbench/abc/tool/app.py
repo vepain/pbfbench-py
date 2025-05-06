@@ -11,9 +11,11 @@ from typing import Annotated
 
 import typer
 
+import pbfbench.abc.tool.config as abc_tool_config
 import pbfbench.abc.tool.visitor as abc_tool_visitor
+import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.run as exp_run
-from pbfbench import root_logging
+from pbfbench import root_logging, slurm
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,13 +27,6 @@ class InitCommand:
     HELP = "Initialize the tool experiment (format, etc.)"
 
 
-class RunCommand:
-    """Run command."""
-
-    NAME = "run"
-    HELP = "Run the tool experiment"
-
-
 class CheckCommand:
     """Check command."""
 
@@ -40,16 +35,17 @@ class CheckCommand:
 
 
 def build_application[Connector: abc_tool_visitor.Connector](
-    run_app: RunApp[Connector],
+    connector: Connector,
 ) -> typer.Typer:
     """Build topic application."""
-    tool_description = run_app.connector().tool_description()
+    tool_description = connector.tool_description()
     app = typer.Typer(
         name=tool_description.cmd(),
         help=f"Subcommand for tool `{tool_description.name()}`",
         rich_markup_mode="rich",
     )
-    app.command(name=RunCommand.NAME, help=RunCommand.HELP)(run_app.run)
+    app.command(name=RunApp.NAME, help=RunApp.HELP)(RunApp(connector).run)
+    app.command(name=ConfigApp.NAME, help=ConfigApp.HELP)(ConfigApp(connector).config)
     # TODO add check when ready
     return app
 
@@ -70,6 +66,9 @@ class Arguments:
 
 class RunApp[Connector: abc_tool_visitor.Connector]:
     """Run application."""
+
+    NAME = "run"
+    HELP = "Run the tool experiment"
 
     def __init__(self, connector: Connector) -> None:
         """Initialize."""
@@ -144,3 +143,70 @@ class RunApp[Connector: abc_tool_visitor.Connector]:
                     "The experiment in the data directory"
                     " does not have the same configuration of the current experiment.",
                 )
+
+
+class ConfigApp[Connector: abc_tool_visitor.Connector]:
+    """Run application."""
+
+    NAME = "config"
+    HELP = "Get draft tool configuration to complete"
+
+    def __init__(self, connector: Connector) -> None:
+        """Initialize."""
+        self.__connector = connector
+
+    def connector(self) -> Connector:
+        """Get connector."""
+        return self.__connector
+
+    def config(
+        self,
+        config_exp_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
+    ) -> None:
+        """Get draft config."""
+        _cfg_type: type[exp_cfg.Config] = self.__connector.config_type()
+        _tool_cfg_type: type[abc_tool_config.Config] = _cfg_type.tool_cfg_type()
+        _tool_args_type: type[abc_tool_config.Arguments] = (
+            _tool_cfg_type.arguments_type()
+        )
+        _tool_opts_type: type[abc_tool_config.Options] = _tool_cfg_type.options_type()
+
+        arguments = self._create_args(_tool_args_type)
+        if _tool_opts_type == abc_tool_config.StringOpts:
+            tool_opts = abc_tool_config.StringOpts(
+                ("--options1=value1", "--options2=value2"),
+            )
+        else:
+            tool_opts = abc_tool_config.StringOpts(
+                (
+                    "You must parse a sub YAML structure"
+                    " corresponding to the config tool configuration",
+                ),
+            )
+        tool_configs = _tool_cfg_type(arguments, tool_opts)
+        slurm_config = slurm.Config(
+            [
+                "--mem=4096",
+                "--cpus-per-task=4",
+                "--time=1:00:00",
+                "--account=my-account_name",
+            ],
+        )
+        config = _cfg_type("$experiment_name", tool_configs, slurm_config)
+
+        config.to_yaml(config_exp_yaml)
+
+    def _create_args(
+        self,
+        tool_args_type: type[abc_tool_config.Arguments],
+    ) -> abc_tool_config.Arguments:
+        """Create arguments."""
+        _tool_arg_names_type: type[abc_tool_config.Names] = tool_args_type.names_type()
+        args: dict[abc_tool_config.Names, abc_tool_config.Arg] = {}
+        for name in _tool_arg_names_type:
+            topic_tools = name.topic_tools()
+            tool_choice = " | ".join(
+                tool.to_description().name() for tool in topic_tools
+            )
+            args[name] = abc_tool_config.Arg(tool_choice, "input_experiment_name")
+        return tool_args_type(args)
