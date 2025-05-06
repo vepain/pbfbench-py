@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.1.1] - 2025-05-05
+
+### Fixed
+
+* `config` app now gives only tools providing topic results
+
 ## [0.1.0] - 2025-05-05
 
 ### Added
