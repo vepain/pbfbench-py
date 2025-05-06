@@ -13,6 +13,7 @@ import typer
 
 import pbfbench.abc.tool.config as abc_tool_config
 import pbfbench.abc.tool.visitor as abc_tool_visitor
+import pbfbench.abc.topic.visitor as abc_topic_visitor
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.run as exp_run
 from pbfbench import root_logging, slurm
@@ -162,8 +163,10 @@ class ConfigApp[Connector: abc_tool_visitor.Connector]:
     def config(
         self,
         config_exp_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
+        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
     ) -> None:
         """Get draft config."""
+        root_logging.init_logger(_LOGGER, "Tool config helper", debug)
         _cfg_type: type[exp_cfg.Config] = self.__connector.config_type()
         _tool_cfg_type: type[abc_tool_config.Config] = _cfg_type.tool_cfg_type()
         _tool_args_type: type[abc_tool_config.Arguments] = (
@@ -195,18 +198,24 @@ class ConfigApp[Connector: abc_tool_visitor.Connector]:
         config = _cfg_type("$experiment_name", tool_configs, slurm_config)
 
         config.to_yaml(config_exp_yaml)
+        _LOGGER.info("Tool configuration written to %s", config_exp_yaml)
 
     def _create_args(
         self,
         tool_args_type: type[abc_tool_config.Arguments],
     ) -> abc_tool_config.Arguments:
         """Create arguments."""
-        _tool_arg_names_type: type[abc_tool_config.Names] = tool_args_type.names_type()
         args: dict[abc_tool_config.Names, abc_tool_config.Arg] = {}
-        for name in _tool_arg_names_type:
-            topic_tools = name.topic_tools()
-            tool_choice = " | ".join(
-                tool.to_description().name() for tool in topic_tools
-            )
-            args[name] = abc_tool_config.Arg(tool_choice, "input_experiment_name")
+        for arg_name, arg_path in self.__connector.arg_names_and_paths():
+            tool_choices = []
+            topic_tools: type[abc_topic_visitor.Tools] = arg_path.topic_tools()
+            for tool in topic_tools:
+                try:
+                    arg_path.fn_result_visitor()(tool)
+                except ValueError:
+                    pass
+                else:
+                    tool_choices.append(tool.to_description().name())
+            tool_choice = " | ".join(tool_choices)
+            args[arg_name] = abc_tool_config.Arg(tool_choice, "$input_experiment_name")
         return tool_args_type(args)

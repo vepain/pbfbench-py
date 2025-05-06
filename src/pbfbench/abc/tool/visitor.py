@@ -6,7 +6,7 @@ Make the connexion between:
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pbfbench.abc.tool.config as abc_tool_config
@@ -106,6 +106,10 @@ class Connector[
     ) -> None:
         """Initialize."""
         self._arg_names_and_paths = dict(arg_names_and_paths)
+
+    def arg_names_and_paths(self) -> Iterator[tuple[ArgNames, ArgumentPath]]:
+        """Get argument names and paths."""
+        yield from self._arg_names_and_paths.items()
 
     def config_to_inputs(
         self,
