@@ -475,7 +475,7 @@ def _move_work_to_data(
             run_sample.item(),
         )
         shutil.rmtree(data_sample_fs_manager.sample_dir(), ignore_errors=True)
-        shutil.copy(
+        shutil.copytree(
             work_sample_fs_manager.sample_dir(),
             data_sample_fs_manager.sample_dir(),
         )
@@ -483,12 +483,12 @@ def _move_work_to_data(
     #
     # Move experiment scripts
     #
-    for sh_script in (
+    for script_file in (
         working_exp_fs_manager.sbatch_sh_script(),
         working_exp_fs_manager.command_sh_script(),
     ):
-        shutil.copy(sh_script, data_exp_fs_manager.scripts_dir())
-        sh_script.unlink()
+        shutil.copy(script_file, data_exp_fs_manager.scripts_dir())
+        script_file.unlink()
     #
     # Move experiment errors
     #
