@@ -9,8 +9,39 @@ from typing import TYPE_CHECKING, Self
 
 if TYPE_CHECKING:
     import pbfbench.abc.tool.description as abc_tool_desc
+    import pbfbench.abc.topic.description as abc_topic_desc
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class Topics(StrEnum):
+    """Topics."""
+
+    @classmethod
+    def from_description(
+        cls,
+        topic_description: abc_topic_desc.Description,
+    ) -> Self:
+        """Get topic description.
+
+        Raises
+        ------
+        ValueError
+            The topic does not have a tool named `tool_name`.
+        """
+        try:
+            return cls(topic_description.name())
+        except ValueError as exc:
+            _LOGGER.exception(
+                "Unknown topic `%s`",
+                topic_description.name(),
+            )
+            raise ValueError from exc
+
+    @abstractmethod
+    def to_description(self) -> abc_topic_desc.Description:
+        """Get tool description."""
+        raise NotImplementedError
 
 
 class Tools(StrEnum):

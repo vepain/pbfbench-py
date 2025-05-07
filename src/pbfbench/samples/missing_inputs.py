@@ -9,7 +9,8 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 import pbfbench.abc.tool.description as abc_tool_desc
-import pbfbench.abc.topic.results.items as abc_topic_results
+import pbfbench.abc.topic.results.items as abc_topic_res_items
+import pbfbench.experiment.file_system as exp_fs
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.status as smp_status
 import pbfbench.topics.items as topics_items
@@ -26,20 +27,23 @@ _LOGGER = logging.getLogger(__name__)
 class MissingInput:
     """Missing input item."""
 
+    # REFACTOR may take as input topic and tool descriptions
+    # When tool and topic will be separated
     @classmethod
-    def from_tool_input(
+    def from_data_fs_manager(
         cls,
         arg_name: str,
-        tool_input: abc_topic_results.Result,
+        tool_input: type[abc_topic_res_items.Result],
+        data_fs_manager: exp_fs.Manager,
         reason: smp_status.ErrorStatus,
     ) -> MissingInput:
         """Create missing input from tool input."""
         return cls(
             str(arg_name),
-            tool_input.fs_manager().tool_description(),
-            tool_input.fs_manager().experiment_name(),
+            data_fs_manager.tool_description(),
+            data_fs_manager.experiment_name(),
             reason,
-            tool_input.origin_cmd(),
+            tool_input.from_final_subcommand().help(data_fs_manager.tool_description()),
         )
 
     def __init__(
@@ -118,7 +122,7 @@ class MissingInputsTSVReader:
         """Iterate over missing inputs items."""
         for row in self.__csv_reader:
             arg_name = self.__get_cell(row, MissingInputsTSVHeader.ARG_NAME)
-            topic_name = topics_items.Names(
+            topic_name = topics_items.Topics(
                 self.__get_cell(row, MissingInputsTSVHeader.TOPIC),
             )
             tool_str = self.__get_cell(row, MissingInputsTSVHeader.TOOL)

@@ -12,7 +12,7 @@ import rich.progress as rich_prog
 
 import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.visitor as abc_tool_visitor
-import pbfbench.abc.topic.results.items as abc_topic_results
+import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.experiment.checks as exp_checks
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.errors as exp_errors
@@ -89,6 +89,7 @@ class ErrorStatus(StrEnum):
     NO_READ_ACCESS = "no_read_access"
     NO_TOOL_ENV_WRAPPER_SCRIPT = "no_tool_env_wrapper_script"
     WRONG_EXPERIMENT_CONFIG_SYNTAX = "wrong_experiment_config_syntax"
+    WRONG_ARGUMENTS = "wrong_arguments"
     DIFFERENT_EXPERIMENT = "different_experiment"
 
 
@@ -112,6 +113,9 @@ def run_experiment_on_samples(
         return ErrorStatus.WRONG_EXPERIMENT_CONFIG_SYNTAX
 
     _log_config(exp_config, tool_connector)
+
+    if not exp_checks.check_config_inputs(exp_config, tool_connector):
+        return ErrorStatus.WRONG_ARGUMENTS
 
     match preparation_result := _prepare_experiment_file_systems(
         data_dir,
@@ -152,7 +156,6 @@ def run_experiment_on_samples(
 
     _create_and_run_sbatch_script(
         tool_connector,
-        tool_inputs,
         exp_config,
         checked_inputs_samples_to_run,
         data_exp_fs_manager,
@@ -225,8 +228,8 @@ def _log_config(
     _LOGGER.info(
         "Running experiment %s with tool %s for the topic %s.",
         exp_config.name(),
-        tool_connector.tool_description().name(),
-        tool_connector.tool_description().topic().name(),
+        tool_connector.description().name(),
+        tool_connector.description().topic().name(),
     )
     _LOGGER.debug("Experiment config:\n%s", exp_config.to_yaml_dump())
 
@@ -241,7 +244,7 @@ def _prepare_experiment_file_systems[C: exp_cfg.Config](
     data_exp_fs_manager, working_exp_fs_manager = exp_fs.data_and_working_managers(
         data_dir,
         working_dir,
-        tool_connector.tool_description(),
+        tool_connector.description(),
         exp_config.name(),
     )
 
@@ -309,13 +312,14 @@ def _filter_missing_inputs(
 ) -> tuple[
     list[smp_fs.RowNumberedItem],
     list[smp_fs.RowNumberedItem],
-    dict[abc_tool_cfg.Names, abc_topic_results.Result],
+    dict[abc_tool_cfg.Names, type[abc_topic_res_items.Result]],
 ]:
     """Filter missing inputs."""
-    tool_inputs = tool_connector.config_to_inputs(exp_config, data_exp_fs_manager)
+    tool_inputs = tool_connector.config_to_inputs(exp_config)
 
     checked_inputs_samples_to_run, samples_with_missing_inputs = (
         exp_checks.checked_input_samples_to_run(
+            data_exp_fs_manager,
             working_exp_fs_manager,
             samples_to_run,
             tool_inputs,
@@ -352,9 +356,8 @@ def _write_experiment_missing_inputs(
         )
 
 
-def _create_and_run_sbatch_script(  # noqa: PLR0913
+def _create_and_run_sbatch_script(
     tool_connector: abc_tool_visitor.Connector,
-    tool_inputs: dict[abc_tool_cfg.Names, abc_topic_results.Result],
     exp_config: exp_cfg.Config,
     checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
     data_exp_fs_manager: exp_fs.Manager,
@@ -363,7 +366,7 @@ def _create_and_run_sbatch_script(  # noqa: PLR0913
     """Run sbatch script."""
     tool_commands = tool_connector.inputs_to_commands(
         exp_config,
-        tool_inputs,
+        data_exp_fs_manager,
         working_exp_fs_manager,
     )
     exp_shell.create_run_script(
@@ -479,10 +482,11 @@ def _move_work_to_data(
             run_sample.item(),
         )
         shutil.rmtree(data_sample_fs_manager.sample_dir(), ignore_errors=True)
-        shutil.move(
+        shutil.copy(
             work_sample_fs_manager.sample_dir(),
             data_sample_fs_manager.sample_dir(),
         )
+        shutil.rmtree(work_sample_fs_manager.sample_dir(), ignore_errors=True)
     #
     # Move experiment scripts
     #
@@ -490,12 +494,11 @@ def _move_work_to_data(
         working_exp_fs_manager.sbatch_sh_script(),
         working_exp_fs_manager.command_sh_script(),
     ):
-        shutil.move(sh_script, data_exp_fs_manager.scripts_dir())
+        shutil.copy(sh_script, data_exp_fs_manager.scripts_dir())
+        sh_script.unlink()
     #
     # Move experiment errors
     #
     data_exp_fs_manager.errors_tsv().unlink(missing_ok=True)
-    shutil.move(
-        working_exp_fs_manager.errors_tsv(),
-        data_exp_fs_manager.errors_tsv(),
-    )
+    shutil.copy(working_exp_fs_manager.errors_tsv(), data_exp_fs_manager.errors_tsv())
+    working_exp_fs_manager.errors_tsv().unlink()

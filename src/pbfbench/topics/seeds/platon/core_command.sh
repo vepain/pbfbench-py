@@ -1,0 +1,1 @@
+platon ${USER_TOOL_OPTIONS} --output "${WORK_EXP_SAMPLE_DIR}" ${GENOME}

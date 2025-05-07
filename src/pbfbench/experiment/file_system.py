@@ -22,6 +22,9 @@ class Manager:
     ERRORS_TSV_NAME = Path("errors.tsv")
     CONFIG_YAML_NAME = Path("config.yaml")
 
+    # REFACTOR may have classmethod from_descriptions
+    # Take as input both topic and tool descriptions
+
     def __init__(
         self,
         root_directory_path: Path,

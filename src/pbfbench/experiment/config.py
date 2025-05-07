@@ -8,12 +8,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Self
 
-import pbfbench.abc.tool.config as tool_cfg
+import pbfbench.abc.tool.config as abc_tool_cfg
 from pbfbench import slurm
 from pbfbench.yaml_interface import YAMLInterface
 
 
-class Config[ToolConfig: tool_cfg.Config](YAMLInterface, ABC):
+class Config[N: abc_tool_cfg.Names](YAMLInterface, ABC):
     """Experiment wrapper."""
 
     KEY_NAME = "name"
@@ -22,7 +22,7 @@ class Config[ToolConfig: tool_cfg.Config](YAMLInterface, ABC):
 
     @classmethod
     @abstractmethod
-    def tool_cfg_type(cls) -> type[ToolConfig]:
+    def tool_cfg_type(cls) -> type[abc_tool_cfg.Config[N]]:
         """Get tool config type."""
         raise NotImplementedError
 
@@ -38,7 +38,7 @@ class Config[ToolConfig: tool_cfg.Config](YAMLInterface, ABC):
     def __init__(
         self,
         name: str,
-        tool_configs: ToolConfig,
+        tool_configs: abc_tool_cfg.Config[N],
         slurm_config: slurm.Config,
     ) -> None:
         self.__name = name
@@ -49,7 +49,7 @@ class Config[ToolConfig: tool_cfg.Config](YAMLInterface, ABC):
         """Get name."""
         return self.__name
 
-    def tool_configs(self) -> ToolConfig:
+    def tool_configs(self) -> abc_tool_cfg.Config[N]:
         """Get tool configs."""
         return self.__tool_configs
 

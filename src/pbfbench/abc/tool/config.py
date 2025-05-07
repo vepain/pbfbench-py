@@ -11,14 +11,14 @@ from pbfbench.yaml_interface import YAMLInterface
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
-    import pbfbench.abc.topic.visitor as topic_visitor
+    import pbfbench.abc.topic.visitor as abc_topic_visitor
 
 
 class Names(StrEnum):
     """Tool names."""
 
     @abstractmethod
-    def topic_tools(self) -> type[topic_visitor.Tools]:
+    def topic_tools(self) -> type[abc_topic_visitor.Tools]:
         """Get topic tools."""
         raise NotImplementedError
 
@@ -81,6 +81,7 @@ class Arg(YAMLInterface):
         return [self.__tool_name, self.__exp_name]
 
 
+# FIXME use only StringOpts may break somethings
 class StringOpts(YAMLInterface):
     """String options.
 
@@ -104,10 +105,7 @@ class StringOpts(YAMLInterface):
         return self.__options
 
 
-Options = YAMLInterface
-
-
-class Config[Args: Arguments, Opts: Options](YAMLInterface):
+class Config[N: Names](YAMLInterface):
     """Tool config module."""
 
     KEY_ARGUMENTS = "arguments"
@@ -115,14 +113,8 @@ class Config[Args: Arguments, Opts: Options](YAMLInterface):
 
     @classmethod
     @abstractmethod
-    def arguments_type(cls) -> type[Args]:
+    def arguments_type(cls) -> type[Arguments[N]]:
         """Get argument arguments type."""
-        raise NotImplementedError
-
-    @classmethod
-    @abstractmethod
-    def options_type(cls) -> type[Opts]:
-        """Get options type."""
         raise NotImplementedError
 
     @classmethod
@@ -130,19 +122,19 @@ class Config[Args: Arguments, Opts: Options](YAMLInterface):
         """Convert dict to object."""
         return cls(
             cls.arguments_type().from_yaml_load(obj_dict[cls.KEY_ARGUMENTS]),
-            cls.options_type().from_yaml_load(obj_dict[cls.KEY_OPTIONS]),
+            StringOpts.from_yaml_load(obj_dict[cls.KEY_OPTIONS]),
         )
 
-    def __init__(self, arguments: Args, options: Opts) -> None:
+    def __init__(self, arguments: Arguments[N], options: StringOpts) -> None:
         """Initialize."""
         self.__arguments = arguments
         self.__options = options
 
-    def arguments(self) -> Args:
+    def arguments(self) -> Arguments[N]:
         """Get arguments."""
         return self.__arguments
 
-    def options(self) -> Opts:
+    def options(self) -> StringOpts:
         """Get options."""
         return self.__options
 

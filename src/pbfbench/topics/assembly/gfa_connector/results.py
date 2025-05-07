@@ -1,1 +1,0 @@
-"""GFA connector assembly results."""
