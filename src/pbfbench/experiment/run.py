@@ -148,28 +148,27 @@ def run_experiment_on_samples(
 
     if not checked_inputs_samples_to_run:
         _LOGGER.info("No samples to run")
-        return run_stats
+    else:
+        _create_and_run_sbatch_script(
+            tool_connector,
+            exp_config,
+            checked_inputs_samples_to_run,
+            data_exp_fs_manager,
+            working_exp_fs_manager,
+        )
 
-    _create_and_run_sbatch_script(
-        tool_connector,
-        exp_config,
-        checked_inputs_samples_to_run,
-        data_exp_fs_manager,
-        working_exp_fs_manager,
-    )
+        _wait_all_job_finish(checked_inputs_samples_to_run, working_exp_fs_manager)
 
-    _wait_all_job_finish(checked_inputs_samples_to_run, working_exp_fs_manager)
+        _write_experiment_errors(
+            checked_inputs_samples_to_run,
+            working_exp_fs_manager,
+            run_stats,
+        )
 
-    _write_experiment_errors(
-        checked_inputs_samples_to_run,
-        working_exp_fs_manager,
-        run_stats,
-    )
-
-    _write_sbatch_stats_and_move_slurm_logs(
-        checked_inputs_samples_to_run,
-        working_exp_fs_manager,
-    )
+        _write_sbatch_stats_and_move_slurm_logs(
+            checked_inputs_samples_to_run,
+            working_exp_fs_manager,
+        )
 
     _move_work_to_data(
         working_exp_fs_manager,
