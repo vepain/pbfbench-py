@@ -109,12 +109,36 @@ class Connector[ArgNames: abc_tool_config.Names]:
         tool_config: abc_tool_config.Config = config.tool_configs()
         arguments: abc_tool_config.Arguments = tool_config.arguments()
         for name, arg_path in self._arg_names_and_paths.items():
-            try:
-                arg_path.arg_to_checkable_input(
-                    name.topic_tools()(arguments[name].tool_name()),
+            ok_tool_set_str: str = (
+                "{"
+                + ", ".join(
+                    [
+                        str(tool)
+                        for tool in arg_path.topic_tools()
+                        if arg_path.check_tool_implement_result(tool)
+                    ],
                 )
-            except ValueError as value_error:
-                value_errors.append(value_error)
+                + "}"
+            )
+            try:
+                tool = name.topic_tools()(arguments[name].tool_name())
+            except ValueError:
+                _err_msg = (
+                    f"For argument `{name}`: "
+                    f"`{arguments[name].tool_name()}` is none of the tools"
+                    f" in {ok_tool_set_str}"
+                )
+                value_errors.append(ValueError(_err_msg))
+            else:
+                try:
+                    arg_path.arg_to_checkable_input(tool)
+                except ValueError as value_error:
+                    _err_msg = (
+                        f"For argument `{name}`: "
+                        f"{value_error}"
+                        f" (choose one of the tool in {ok_tool_set_str})"
+                    )
+                    value_errors.append(ValueError(_err_msg))
         return value_errors
 
     def config_to_inputs(

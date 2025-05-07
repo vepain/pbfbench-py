@@ -226,7 +226,7 @@ def _log_config(
 ) -> None:
     """Log config."""
     _LOGGER.info(
-        "Running experiment %s with tool %s for the topic %s.",
+        "Running experiment `%s` with tool `%s` for the topic `%s`.",
         exp_config.name(),
         tool_connector.description().name(),
         tool_connector.description().topic().name(),
