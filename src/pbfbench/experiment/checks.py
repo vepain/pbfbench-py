@@ -101,10 +101,9 @@ def samples_to_format_result(
 
 # REFACTOR move to samples module
 def checked_input_samples_to_run(
-    data_fs_manager: exp_fs.Manager,
     working_exp_fs_manager: exp_fs.Manager,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
-    tool_inputs: dict[abc_tool_cfg.Names, type[abc_topic_res_items.Result]],
+    tool_inputs: dict[abc_tool_cfg.Names, abc_topic_res_items.Result],
 ) -> tuple[list[smp_fs.RowNumberedItem], list[smp_fs.RowNumberedItem]]:
     """Return row numbered samples to run and those with missing inputs."""
     checked_samples_to_run: list[smp_fs.RowNumberedItem] = []
@@ -112,7 +111,6 @@ def checked_input_samples_to_run(
 
     for row_numbered_sample in samples_to_run:
         sample_missing_inputs = missing_inputs(
-            data_fs_manager,
             tool_inputs,
             row_numbered_sample.item(),
         )
@@ -133,8 +131,7 @@ def checked_input_samples_to_run(
 
 
 def missing_inputs[N: abc_tool_cfg.Names](
-    data_fs_manager: exp_fs.Manager,
-    tool_inputs: dict[abc_tool_cfg.Names, type[abc_topic_res_items.Result]],
+    tool_inputs: dict[N, abc_topic_res_items.Result],
     sample_item: smp_items.Item,
 ) -> list[smp_miss_in.MissingInput]:
     """Check input(s) and return True if OK, False otherwise.
@@ -143,12 +140,11 @@ def missing_inputs[N: abc_tool_cfg.Names](
     """
     list_missing_inputs: list[smp_miss_in.MissingInput] = []
     for arg_name, tool_input in tool_inputs.items():
-        input_status = tool_input.check(data_fs_manager.sample_fs_manager(sample_item))
+        input_status = tool_input.check(sample_item)
         if isinstance(input_status, smp_status.ErrorStatus):
-            missing_input = smp_miss_in.MissingInput.from_data_fs_manager(
+            missing_input = smp_miss_in.MissingInput.from_tool_input(
                 str(arg_name),
                 tool_input,
-                data_fs_manager,
                 input_status,
             )
             list_missing_inputs.append(missing_input)

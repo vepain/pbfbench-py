@@ -10,9 +10,7 @@ from typing import TYPE_CHECKING
 
 import rich.progress as rich_prog
 
-import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.visitor as abc_tool_visitor
-import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.experiment.checks as exp_checks
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.errors as exp_errors
@@ -134,14 +132,12 @@ def run_experiment_on_samples(
 
     _prepare_sample_directories(samples_to_run, working_exp_fs_manager)
 
-    checked_inputs_samples_to_run, samples_with_missing_inputs, tool_inputs = (
-        _filter_missing_inputs(
-            tool_connector,
-            exp_config,
-            samples_to_run,
-            data_exp_fs_manager,
-            working_exp_fs_manager,
-        )
+    checked_inputs_samples_to_run, samples_with_missing_inputs = _filter_missing_inputs(
+        tool_connector,
+        exp_config,
+        samples_to_run,
+        data_exp_fs_manager,
+        working_exp_fs_manager,
     )
 
     _write_experiment_missing_inputs(
@@ -312,21 +308,19 @@ def _filter_missing_inputs(
 ) -> tuple[
     list[smp_fs.RowNumberedItem],
     list[smp_fs.RowNumberedItem],
-    dict[abc_tool_cfg.Names, type[abc_topic_res_items.Result]],
 ]:
     """Filter missing inputs."""
-    tool_inputs = tool_connector.config_to_inputs(exp_config)
+    tool_inputs = tool_connector.config_to_inputs(exp_config, data_exp_fs_manager)
 
     checked_inputs_samples_to_run, samples_with_missing_inputs = (
         exp_checks.checked_input_samples_to_run(
-            data_exp_fs_manager,
             working_exp_fs_manager,
             samples_to_run,
             tool_inputs,
         )
     )
 
-    return checked_inputs_samples_to_run, samples_with_missing_inputs, tool_inputs
+    return checked_inputs_samples_to_run, samples_with_missing_inputs
 
 
 def _write_experiment_missing_inputs(

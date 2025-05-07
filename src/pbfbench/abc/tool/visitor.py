@@ -58,9 +58,16 @@ class ArgumentPath[
             return False
         return True
 
-    def arg_to_checkable_input(self, tool: T) -> type[R]:
+    def arg_to_checkable_input(
+        self,
+        data_dir: Path,
+        tool: T,
+        exp_name: str,
+    ) -> R:
         """Convert argument to input."""
-        return self._result_visitor.result_builder_from_tool(tool)
+        return self._result_visitor.result_builder_from_tool(tool)(
+            exp_fs.Manager(data_dir, tool.to_description(), exp_name),
+        )
 
     def input_to_sh_lines_builder(
         self,
@@ -131,7 +138,7 @@ class Connector[ArgNames: abc_tool_config.Names]:
                 value_errors.append(ValueError(_err_msg))
             else:
                 try:
-                    arg_path.arg_to_checkable_input(tool)
+                    arg_path.result_visitor().result_builder_from_tool(tool)
                 except ValueError as value_error:
                     _err_msg = (
                         f"For argument `{name}`: "
@@ -144,17 +151,21 @@ class Connector[ArgNames: abc_tool_config.Names]:
     def config_to_inputs(
         self,
         config: exp_cfg.Config[ArgNames],
-    ) -> dict[abc_tool_config.Names, type[abc_topic_res_items.Result]]:
+        data_fs_manager: exp_fs.Manager,
+    ) -> dict[abc_tool_config.Names, abc_topic_res_items.Result]:
         """Convert config to inputs."""
         tool_config: abc_tool_config.Config = config.tool_configs()
         arguments: abc_tool_config.Arguments = tool_config.arguments()
         names_with_results: dict[
             abc_tool_config.Names,
-            type[abc_topic_res_items.Result],
+            abc_topic_res_items.Result,
         ] = {}
         for name, arg_path in self._arg_names_and_paths.items():
-            result: type[abc_topic_res_items.Result] = arg_path.arg_to_checkable_input(
-                name.topic_tools()(arguments[name].tool_name()),
+            tool = name.topic_tools()(arguments[name].tool_name())
+            result: abc_topic_res_items.Result = arg_path.arg_to_checkable_input(
+                data_fs_manager.root_dir(),
+                tool,
+                data_fs_manager.experiment_name(),
             )
             names_with_results[name] = result
         return names_with_results
