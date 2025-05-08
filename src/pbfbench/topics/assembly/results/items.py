@@ -11,8 +11,6 @@ from typing import final
 import pbfbench.abc.topic.results.items as topic_res_items
 import pbfbench.samples.file_system as smp_fs
 
-# REFACTOR not necessary to get a class with exp fs manager as object arg.
-
 
 @final
 class FastaGZ(topic_res_items.Original):

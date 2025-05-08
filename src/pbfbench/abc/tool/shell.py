@@ -140,7 +140,8 @@ class Commands:
         """Iterate over the tool command lines."""
         core_command_shell_path = self._core_command_shell_path()
         with core_command_shell_path.open("r") as in_core_cmd:
-            yield from in_core_cmd
+            for line in in_core_cmd:
+                yield line.rstrip()
 
     def _core_command_shell_path(self) -> Path:
         """Get result."""

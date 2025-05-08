@@ -17,7 +17,8 @@ import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.abc.topic.visitor as abc_topic_visitor
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.run as exp_run
-from pbfbench import root_logging, slurm
+import pbfbench.slurm.config as slurm_cfg
+from pbfbench import root_logging
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -182,7 +183,7 @@ class ConfigApp[ArgsNames: abc_tool_config.Names]:
         )
 
         tool_configs = _tool_cfg_type(arguments, tool_opts)
-        slurm_config = slurm.Config(
+        slurm_config = slurm_cfg.Config(
             [
                 "--mem=4096",
                 "--cpus-per-task=4",

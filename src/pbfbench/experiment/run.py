@@ -20,7 +20,9 @@ import pbfbench.experiment.file_system as exp_fs
 import pbfbench.experiment.shell as exp_shell
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.status as smp_status
-from pbfbench import root_logging, slurm, subprocess_lib
+import pbfbench.slurm.shell as slurm_sh
+import pbfbench.slurm.status as slurm_status
+from pbfbench import root_logging, subprocess_lib
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -36,9 +38,7 @@ class RunStats:
     @classmethod
     def new(cls, data_exp_fs_manager: exp_fs.Manager) -> RunStats:
         """Create new run stats."""
-        with smp_fs.TSVReader.open(
-            smp_fs.samples_tsv(data_exp_fs_manager.root_dir()),
-        ) as smp_tsv_in:
+        with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
             number_of_samples = sum(1 for _ in smp_tsv_in.iter_row_numbered_items())
         return cls(number_of_samples, 0, None, None)
 
@@ -164,16 +164,19 @@ def run_experiment_on_samples(
             work_exp_fs_manager,
         )
 
-        _wait_all_job_finish(checked_inputs_samples_to_run, work_exp_fs_manager)
-
-        _write_experiment_errors(
+        run_samples_with_status = _wait_all_job_finish(
             checked_inputs_samples_to_run,
+            work_exp_fs_manager,
+        )
+
+        _manage_all_run_status(
+            run_samples_with_status,
             work_exp_fs_manager,
             run_stats,
         )
 
         _write_sbatch_stats_and_move_slurm_logs(
-            checked_inputs_samples_to_run,
+            run_samples_with_status,
             work_exp_fs_manager,
         )
 
@@ -280,9 +283,7 @@ def _get_samples_to_run(
     run_stats: RunStats,
 ) -> list[smp_fs.RowNumberedItem]:
     """Get samples to run."""
-    with smp_fs.TSVReader.open(
-        smp_fs.samples_tsv(data_exp_fs_manager.root_dir()),
-    ) as smp_tsv_in:
+    with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
         samples_to_run = list(
             exp_checks.samples_with_error_status(
                 data_exp_fs_manager,
@@ -386,55 +387,88 @@ def _create_and_run_sbatch_script(  # noqa: PLR0913
         tool_commands,
     )
 
-    cmd_path = subprocess_lib.command_path(slurm.SBATCH_CMD)
+    cmd_path = subprocess_lib.command_path(slurm_sh.SBATCH_CMD)
     cli_line = [cmd_path, work_exp_fs_manager.sbatch_sh_script()]
-    subprocess_lib.run_cmd(cli_line, slurm.SBATCH_CMD)
+    subprocess_lib.run_cmd(cli_line, slurm_sh.SBATCH_CMD)
 
 
 def _wait_all_job_finish(
     checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
     work_exp_fs_manager: exp_fs.Manager,
-) -> None:
+) -> list[tuple[smp_fs.RowNumberedItem, slurm_status.Status, str]]:
     """Wait all job finish."""
-    in_running_jobs = checked_inputs_samples_to_run.copy()
+    array_job_id = _get_array_job_id(work_exp_fs_manager)
+
+    in_running_job_ids: dict[str, smp_fs.RowNumberedItem] = {
+        slurm_sh.array_task_job_id(
+            array_job_id,
+            str(smp_fs.to_line_number_base_one(running_sample)),
+        ): running_sample
+        for running_sample in checked_inputs_samples_to_run
+    }
+
+    run_samples_with_status: list[
+        tuple[smp_fs.RowNumberedItem, slurm_status.Status, str]
+    ] = []
 
     with rich_prog.Progress(console=root_logging.CONSOLE) as progress:
         slurm_running_task = progress.add_task(
             "Slurm running",
-            total=len(in_running_jobs),
+            total=len(in_running_job_ids),
         )
-        while in_running_jobs:
+
+        while in_running_job_ids:
             time.sleep(60)
-            _tmp_running_jobs = []
-            for job in in_running_jobs:
-                sample_fs_manager = work_exp_fs_manager.sample_fs_manager(
-                    job.item(),
-                )
-                if (
-                    smp_status.get_status(sample_fs_manager)
-                    == smp_status.ErrorStatus.NOT_RUN
-                ):
-                    _tmp_running_jobs.append(job)
+
+            _tmp_in_running_job_ids = {}
+            for job_id, row_numbered_item in in_running_job_ids.items():
+                status = slurm_status.get_status(work_exp_fs_manager, job_id)
+                if status is None:
+                    _tmp_in_running_job_ids[job_id] = row_numbered_item
+                else:
+                    run_samples_with_status.append((row_numbered_item, status, job_id))
 
             progress.update(
                 slurm_running_task,
-                advance=(len(in_running_jobs) - len(_tmp_running_jobs)),
+                advance=(len(in_running_job_ids) - len(_tmp_in_running_job_ids)),
             )
-            in_running_jobs = _tmp_running_jobs
+            in_running_job_ids = _tmp_in_running_job_ids
+
+    return run_samples_with_status
 
 
-def _write_experiment_errors(
-    run_samples: list[smp_fs.RowNumberedItem],
+def _get_array_job_id(work_exp_fs_manager: exp_fs.Manager) -> str:
+    """Wait the array job id file is created and extract the array job id."""
+    while not work_exp_fs_manager.array_job_id_file().exists():
+        time.sleep(10)
+    array_job_id = exp_fs.get_array_job_id_from_file(work_exp_fs_manager)
+    work_exp_fs_manager.array_job_id_file().unlink()
+    return array_job_id
+
+
+def _manage_all_run_status(
+    run_samples_with_status: list[
+        tuple[smp_fs.RowNumberedItem, slurm_status.Status, str]
+    ],
     work_exp_fs_manager: exp_fs.Manager,
     run_stats: RunStats,
 ) -> None:
     """Write experiment errors."""
-    for run_sample in run_samples:
+    for run_sample, status, job_id in run_samples_with_status:
         sample_fs_manager = work_exp_fs_manager.sample_fs_manager(
             run_sample.item(),
         )
-        if smp_status.get_status(sample_fs_manager) == smp_status.ErrorStatus.ERROR:
+        if _slurm_status_equals_an_exp_sample_error(status):
             run_stats.samples_with_errors().append(run_sample.item().exp_sample_id())
+            shutil.copy(
+                work_exp_fs_manager.sbatch_err_file(job_id),
+                sample_fs_manager.errors_log(),
+            )
+        else:
+            shutil.copy(
+                work_exp_fs_manager.sbatch_out_file(job_id),
+                sample_fs_manager.done_log(),
+            )
 
     _LOGGER.error("Samples with errors: %d", len(run_stats.samples_with_errors()))
 
@@ -453,21 +487,30 @@ def _write_experiment_errors(
         )
 
 
+def _slurm_status_equals_an_exp_sample_error(status: slurm_status.Status) -> bool:
+    match status:
+        case slurm_status.Status.INIT_ENV_ERROR | slurm_status.Status.COMMAND_ERROR:
+            return True
+        case slurm_status.Status.CLOSE_ENV_ERROR | slurm_status.Status.END:
+            return False
+
+
 def _write_sbatch_stats_and_move_slurm_logs(
-    run_samples: list[smp_fs.RowNumberedItem],
+    run_samples_with_status: list[
+        tuple[smp_fs.RowNumberedItem, slurm_status.Status, str]
+    ],
     work_exp_fs_manager: exp_fs.Manager,
 ) -> None:
     """Write sbatch stats."""
-    for run_sample in run_samples:
+    for run_sample, _, job_id in run_samples_with_status:
         sample_fs_manager = work_exp_fs_manager.sample_fs_manager(run_sample.item())
-        job_id = smp_fs.get_job_id_from_file(sample_fs_manager)
-        slurm.write_slurm_stats(job_id, sample_fs_manager.sbatch_stats_psv())
+        slurm_sh.write_slurm_stats(job_id, sample_fs_manager.sbatch_stats_psv())
 
-        for slurm_log_file in (
-            slurm.out_log_path(work_exp_fs_manager, job_id),
-            slurm.err_log_path(work_exp_fs_manager, job_id),
-        ):
-            shutil.move(slurm_log_file, sample_fs_manager.sample_dir())
+        sbatch_log_regex = work_exp_fs_manager.sbatch_file_regex(job_id)
+        for slurm_log_file in sbatch_log_regex.parent.glob(sbatch_log_regex.name):
+            if slurm_log_file.exists():
+                shutil.copy(slurm_log_file, sample_fs_manager.sample_dir())
+                slurm_log_file.unlink()
 
     if not any(work_exp_fs_manager.tmp_slurm_logs_dir().iterdir()):
         work_exp_fs_manager.tmp_slurm_logs_dir().rmdir()

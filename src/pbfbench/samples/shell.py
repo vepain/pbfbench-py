@@ -7,7 +7,7 @@ import pbfbench.experiment.file_system as exp_fs
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.items as smp_items
 import pbfbench.shell as sh
-from pbfbench import slurm
+import pbfbench.slurm.shell as slurm_sh
 
 
 class SpeSmpIDLinesBuilder:
@@ -48,9 +48,7 @@ class SpeSmpIDLinesBuilder:
                 self.SAMPLE_ID_VAR.eval(),
             ),
         )
-        yield (
-            f"echo {slurm.SLURM_ARRAY_TASK_ID_VAR.eval()} {self.SPE_SMP_ID_VAR.eval()}"
-        )
+        yield f"echo {self.SPE_SMP_ID_VAR.eval()}"
 
     def __get_sample_attribute(self, attribute: smp_fs.TSVHeader) -> str:
         """Get sample attribute."""
@@ -59,7 +57,7 @@ class SpeSmpIDLinesBuilder:
         ]
         return (
             f"$("
-            f'sed -n "{slurm.SLURM_ARRAY_TASK_ID_VAR.eval()}p"'
+            f'sed -n "{slurm_sh.SLURM_ARRAY_TASK_ID_VAR.eval()}p"'
             f" {self.SAMPLES_FILE_VAR.eval()}"
             f" | cut -f{1 + attribute_column_index}"
             f")"
@@ -70,46 +68,6 @@ def sample_shell_fs_manager(exp_fs_manager: exp_fs.Manager) -> smp_fs.Manager:
     """Get sample shell variable file system manager."""
     return smp_fs.Manager(
         exp_fs_manager.sample_dir(SpeSmpIDLinesBuilder.SPE_SMP_ID_VAR.eval()),
-    )
-
-
-def write_slurm_job_id(sample_fs_manager: smp_fs.Manager) -> str:
-    """Return new command that exits the whole pipeline if first command fails."""
-    return (
-        f"echo {slurm.SLURM_JOB_ID_FROM_VARS}"
-        f"> {sh.path_to_str(sample_fs_manager.slurm_job_id_file())}"
-    )
-
-
-EXIT_ERROR_FN_NAME = "exit_error"
-
-
-def exit_error_function_lines(
-    work_fs_manager: exp_fs.Manager,
-    sample_fs_manager: smp_fs.Manager,
-) -> Iterator[str]:
-    """Iterate over bash lines describing the exit error function."""
-    yield f"function {EXIT_ERROR_FN_NAME}" + " {"
-    yield f'  cp "{slurm.err_log_job_var_path(work_fs_manager)}" "{sample_fs_manager.errors_log()}"'  # noqa: E501
-    yield "  exit 1"
-    yield "}"
-
-
-def manage_error_and_exit(command: str) -> str:
-    """Return new command that exits the whole pipeline if first command fails."""
-    if sh.is_a_command(command):
-        return command + " || " + EXIT_ERROR_FN_NAME
-    return command
-
-
-def write_done_log(
-    work_fs_manager: exp_fs.Manager,
-    sample_fs_manager: smp_fs.Manager,
-) -> str:
-    """Return new command that exits the whole pipeline if first command fails."""
-    return (
-        f"cp {slurm.out_log_job_var_path(work_fs_manager)}"
-        f" {sample_fs_manager.done_log()}"
     )
 
 
@@ -128,4 +86,3 @@ if __name__ == "__main__":
     sh_builder = SpeSmpIDLinesBuilder(samples_file)
     bash_lines = "\n".join(sh_builder.lines())
     root_logging.CONSOLE.print(Md(f"```bash\n{bash_lines}\n```"))
-    # samples_file.unlink()

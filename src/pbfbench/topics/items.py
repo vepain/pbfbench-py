@@ -9,7 +9,6 @@ import pbfbench.topics.seeds.description as seeds_desc
 
 # REFACTOR reverse the sense: topic container.???
 # * avoid module path hack
-# REFACTOR abstract to subclass of Topics (like Tools)
 
 
 @final

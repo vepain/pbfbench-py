@@ -81,7 +81,6 @@ class Arg(YAMLInterface):
         return [self.__tool_name, self.__exp_name]
 
 
-# FIXME use only StringOpts may break somethings
 class StringOpts(YAMLInterface):
     """String options.
 

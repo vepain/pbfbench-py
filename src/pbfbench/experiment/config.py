@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Self
 
 import pbfbench.abc.tool.config as abc_tool_cfg
-from pbfbench import slurm
+import pbfbench.slurm.config as slurm_cfg
 from pbfbench.yaml_interface import YAMLInterface
 
 
@@ -32,14 +32,14 @@ class Config[N: abc_tool_cfg.Names](YAMLInterface, ABC):
         return cls(
             obj_dict[cls.KEY_NAME],
             cls.tool_cfg_type().from_yaml_load(obj_dict[cls.KEY_TOOL]),
-            slurm.Config.from_yaml_load(obj_dict[cls.KEY_SLURM]),
+            slurm_cfg.Config.from_yaml_load(obj_dict[cls.KEY_SLURM]),
         )
 
     def __init__(
         self,
         name: str,
         tool_configs: abc_tool_cfg.Config[N],
-        slurm_config: slurm.Config,
+        slurm_config: slurm_cfg.Config,
     ) -> None:
         self.__name = name
         self.__tool_configs = tool_configs
@@ -53,7 +53,7 @@ class Config[N: abc_tool_cfg.Names](YAMLInterface, ABC):
         """Get tool configs."""
         return self.__tool_configs
 
-    def slurm_config(self) -> slurm.Config:
+    def slurm_config(self) -> slurm_cfg.Config:
         """Get slurm config."""
         return self.__slurm_config
 
