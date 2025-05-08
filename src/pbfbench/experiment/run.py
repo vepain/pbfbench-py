@@ -491,7 +491,7 @@ def _move_work_to_data(
             shutil.copy(script_file, data_exp_fs_manager.scripts_dir())
             script_file.unlink()
 
-    if not any(Path(working_exp_fs_manager.scripts_dir()).iterdir()):
+    if not any(working_exp_fs_manager.scripts_dir().iterdir()):
         working_exp_fs_manager.scripts_dir().rmdir()
     #
     # Move experiment errors
