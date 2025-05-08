@@ -20,4 +20,4 @@
         pbfbench = "pbfbench.__main__:main"
 
 [tool.setuptools.package-data]
-    pbfbench = ["py.typed", "*.sh"]
+    pbfbench = ["py.typed", "topics/**/core_command.sh"]
