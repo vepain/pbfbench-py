@@ -60,13 +60,14 @@ class ArgumentPath[
 
     def arg_to_checkable_input(
         self,
-        data_dir: Path,
-        tool: T,
-        exp_name: str,
+        data_fs_manager: exp_fs.Manager,
+        arg: abc_tool_config.Arg,
     ) -> R:
         """Convert argument to input."""
+        tool = self._topic_tools(arg.tool_name())
+        exp_name = arg.exp_name()
         return self._result_visitor.result_builder_from_tool(tool)(
-            exp_fs.Manager(data_dir, tool.to_description(), exp_name),
+            exp_fs.Manager(data_fs_manager.root_dir(), tool.to_description(), exp_name),
         )
 
     def input_to_sh_lines_builder(
@@ -161,11 +162,9 @@ class Connector[ArgNames: abc_tool_config.Names]:
             abc_topic_res_items.Result,
         ] = {}
         for name, arg_path in self._arg_names_and_paths.items():
-            tool = name.topic_tools()(arguments[name].tool_name())
             result: abc_topic_res_items.Result = arg_path.arg_to_checkable_input(
-                data_fs_manager.root_dir(),
-                tool,
-                config.name(),
+                data_fs_manager,
+                arguments[name],
             )
             names_with_results[name] = result
         return names_with_results
