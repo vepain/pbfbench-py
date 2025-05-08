@@ -261,7 +261,6 @@ def _prepare_experiment_file_systems[C: exp_cfg.Config](
     shutil.rmtree(working_exp_fs_manager.exp_dir(), ignore_errors=True)
     working_exp_fs_manager.exp_dir().mkdir(parents=True, exist_ok=True)
     exp_config.to_yaml(working_exp_fs_manager.config_yaml())
-    working_exp_fs_manager.tmp_slurm_logs_dir().mkdir(parents=True, exist_ok=True)
 
     for fs_manager in (data_exp_fs_manager, working_exp_fs_manager):
         fs_manager.scripts_dir().mkdir(parents=True, exist_ok=True)
@@ -357,6 +356,7 @@ def _create_and_run_sbatch_script(
     working_exp_fs_manager: exp_fs.Manager,
 ) -> None:
     """Run sbatch script."""
+    working_exp_fs_manager.tmp_slurm_logs_dir().mkdir(parents=True, exist_ok=True)
     tool_commands = tool_connector.inputs_to_commands(
         exp_config,
         data_exp_fs_manager,
@@ -487,11 +487,38 @@ def _move_work_to_data(
         working_exp_fs_manager.sbatch_sh_script(),
         working_exp_fs_manager.command_sh_script(),
     ):
-        shutil.copy(script_file, data_exp_fs_manager.scripts_dir())
-        script_file.unlink()
+        if script_file.exists():
+            shutil.copy(script_file, data_exp_fs_manager.scripts_dir())
+            script_file.unlink()
+
+    if not any(Path(working_exp_fs_manager.scripts_dir()).iterdir()):
+        working_exp_fs_manager.scripts_dir().rmdir()
     #
     # Move experiment errors
     #
     data_exp_fs_manager.errors_tsv().unlink(missing_ok=True)
-    shutil.copy(working_exp_fs_manager.errors_tsv(), data_exp_fs_manager.errors_tsv())
-    working_exp_fs_manager.errors_tsv().unlink()
+    if working_exp_fs_manager.errors_tsv().exists():
+        shutil.copy(
+            working_exp_fs_manager.errors_tsv(),
+            data_exp_fs_manager.errors_tsv(),
+        )
+        working_exp_fs_manager.errors_tsv().unlink()
+    #
+    # Remove config yaml from working dir
+    #
+    working_exp_fs_manager.config_yaml().unlink()
+    #
+    # Try to remove empty tree
+    #
+    tree_to_remove = [
+        working_exp_fs_manager.topic_dir(),
+        working_exp_fs_manager.tool_dir(),
+        working_exp_fs_manager.exp_dir(),
+    ]
+    last_empty = True
+    while tree_to_remove and last_empty:
+        dir_to_remove = tree_to_remove.pop()
+        if not any(dir_to_remove.iterdir()):
+            dir_to_remove.rmdir()
+        else:
+            last_empty = False
