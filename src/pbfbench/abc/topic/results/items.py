@@ -22,7 +22,7 @@ class Result(ABC):
         """Initialize."""
         self._fs_manager = fs_manager
 
-    def fs_manager(self) -> exp_fs.Manager:
+    def exp_fs_manager(self) -> exp_fs.Manager:
         """Get file system manager."""
         return self._fs_manager
 
@@ -53,8 +53,8 @@ class Original(Result):
         """Get original command."""
         return (
             "pbfbench"
-            f" {self.fs_manager().tool_description().topic().cmd()}"
-            f" {self.fs_manager().tool_description().cmd()}"
+            f" {self.exp_fs_manager().tool_description().topic().cmd()}"
+            f" {self.exp_fs_manager().tool_description().cmd()}"
             f" {self.final_subcommand()}"
             " --help"
         )

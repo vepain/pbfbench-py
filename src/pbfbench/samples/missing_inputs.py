@@ -35,9 +35,9 @@ class MissingInput:
         """Create missing input from tool input."""
         return cls(
             str(arg_name),
-            tool_input.fs_manager().topic_dir().name,
-            tool_input.fs_manager().tool_dir().name,
-            tool_input.fs_manager().exp_dir().name,
+            tool_input.exp_fs_manager().topic_dir().name,
+            tool_input.exp_fs_manager().tool_dir().name,
+            tool_input.exp_fs_manager().exp_dir().name,
             reason,
             tool_input.origin_command(),
         )

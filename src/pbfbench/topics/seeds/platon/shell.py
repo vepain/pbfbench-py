@@ -19,20 +19,13 @@ class GenomeInputLinesBuilder(
 
     FASTA_GZ_VAR = sh.Variable("FASTA_GZ")
 
-    @classmethod
-    def tool_data_result_builder(cls) -> type[asm_res_items.FastaGZ]:
-        """Get tool data result builder."""
-        return asm_res_items.FastaGZ
-
     def __fasta_gz_file(self) -> Path:
         """Return a gzipped FASTA path with sample name is a sh variable."""
-        return self.tool_data_result_builder().fasta_gz(
-            self._sample_sh_var_fs_manager,
-        )
+        return self._input_result.fasta_gz(self._input_data_smp_sh_fs_manager)
 
     def __fasta_tmp_file(self) -> Path:
         """Return a tmp FASTA path with sample name is a sh variable."""
-        return self._sample_sh_var_fs_manager.sample_dir() / "tmp_assembly.fasta"
+        return self._working_smp_sh_fs_manager.sample_dir() / "tmp_assembly.fasta"
 
     def init_lines(self) -> Iterator[str]:
         """Get shell input init lines."""

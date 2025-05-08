@@ -101,7 +101,7 @@ def samples_to_format_result(
 
 # REFACTOR move to samples module
 def checked_input_samples_to_run(
-    working_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.Manager,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
     tool_inputs: dict[abc_tool_cfg.Names, abc_topic_res_items.Result],
 ) -> tuple[list[smp_fs.RowNumberedItem], list[smp_fs.RowNumberedItem]]:
@@ -117,7 +117,7 @@ def checked_input_samples_to_run(
 
         if sample_missing_inputs:
             samples_with_missing_inputs.append(row_numbered_sample)
-            sample_fs_manager = working_exp_fs_manager.sample_fs_manager(
+            sample_fs_manager = work_exp_fs_manager.sample_fs_manager(
                 row_numbered_sample.item(),
             )
             smp_miss_in.write_sample_missing_inputs(

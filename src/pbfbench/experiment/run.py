@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING
 
 import rich.progress as rich_prog
 
+import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.visitor as abc_tool_visitor
+import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.experiment.checks as exp_checks
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.errors as exp_errors
@@ -124,25 +126,29 @@ def run_experiment_on_samples(
         case ErrorStatus():
             return preparation_result
         case _:
-            data_exp_fs_manager, working_exp_fs_manager = preparation_result
+            data_exp_fs_manager, work_exp_fs_manager = preparation_result
 
     run_stats = RunStats.new(data_exp_fs_manager)
 
     samples_to_run = _get_samples_to_run(data_exp_fs_manager, run_stats)
 
-    _prepare_sample_directories(samples_to_run, working_exp_fs_manager)
+    _prepare_sample_directories(samples_to_run, work_exp_fs_manager)
 
-    checked_inputs_samples_to_run, samples_with_missing_inputs = _filter_missing_inputs(
+    (
+        checked_inputs_samples_to_run,
+        samples_with_missing_inputs,
+        names_to_input_results,
+    ) = _filter_missing_inputs(
         tool_connector,
         exp_config,
         samples_to_run,
         data_exp_fs_manager,
-        working_exp_fs_manager,
+        work_exp_fs_manager,
     )
 
     _write_experiment_missing_inputs(
         samples_with_missing_inputs,
-        working_exp_fs_manager,
+        work_exp_fs_manager,
         run_stats,
     )
 
@@ -151,27 +157,28 @@ def run_experiment_on_samples(
     else:
         _create_and_run_sbatch_script(
             tool_connector,
+            names_to_input_results,
             exp_config,
             checked_inputs_samples_to_run,
             data_exp_fs_manager,
-            working_exp_fs_manager,
+            work_exp_fs_manager,
         )
 
-        _wait_all_job_finish(checked_inputs_samples_to_run, working_exp_fs_manager)
+        _wait_all_job_finish(checked_inputs_samples_to_run, work_exp_fs_manager)
 
         _write_experiment_errors(
             checked_inputs_samples_to_run,
-            working_exp_fs_manager,
+            work_exp_fs_manager,
             run_stats,
         )
 
         _write_sbatch_stats_and_move_slurm_logs(
             checked_inputs_samples_to_run,
-            working_exp_fs_manager,
+            work_exp_fs_manager,
         )
 
     _move_work_to_data(
-        working_exp_fs_manager,
+        work_exp_fs_manager,
         data_exp_fs_manager,
         samples_to_run,
     )
@@ -236,7 +243,7 @@ def _prepare_experiment_file_systems[C: exp_cfg.Config](
     exp_config: C,
 ) -> ErrorStatus | tuple[exp_fs.Manager, exp_fs.Manager]:
     """Prepare experiment file systems."""
-    data_exp_fs_manager, working_exp_fs_manager = exp_fs.data_and_working_managers(
+    data_exp_fs_manager, work_exp_fs_manager = exp_fs.data_and_working_managers(
         data_dir,
         working_dir,
         tool_connector.description(),
@@ -258,14 +265,14 @@ def _prepare_experiment_file_systems[C: exp_cfg.Config](
         data_exp_fs_manager.exp_dir().mkdir(parents=True, exist_ok=True)
         exp_config.to_yaml(data_exp_fs_manager.config_yaml())
 
-    shutil.rmtree(working_exp_fs_manager.exp_dir(), ignore_errors=True)
-    working_exp_fs_manager.exp_dir().mkdir(parents=True, exist_ok=True)
-    exp_config.to_yaml(working_exp_fs_manager.config_yaml())
+    shutil.rmtree(work_exp_fs_manager.exp_dir(), ignore_errors=True)
+    work_exp_fs_manager.exp_dir().mkdir(parents=True, exist_ok=True)
+    exp_config.to_yaml(work_exp_fs_manager.config_yaml())
 
-    for fs_manager in (data_exp_fs_manager, working_exp_fs_manager):
+    for fs_manager in (data_exp_fs_manager, work_exp_fs_manager):
         fs_manager.scripts_dir().mkdir(parents=True, exist_ok=True)
 
-    return data_exp_fs_manager, working_exp_fs_manager
+    return data_exp_fs_manager, work_exp_fs_manager
 
 
 def _get_samples_to_run(
@@ -289,11 +296,11 @@ def _get_samples_to_run(
 
 def _prepare_sample_directories(
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
-    working_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.Manager,
 ) -> None:
     """Prepare sample directories."""
     for run_sample in samples_to_run:
-        sample_fs_manager = working_exp_fs_manager.sample_fs_manager(run_sample.item())
+        sample_fs_manager = work_exp_fs_manager.sample_fs_manager(run_sample.item())
         sample_fs_manager.sample_dir().mkdir(parents=True, exist_ok=True)
 
 
@@ -302,28 +309,36 @@ def _filter_missing_inputs(
     exp_config: exp_cfg.Config,
     samples_to_run: list[smp_fs.RowNumberedItem],
     data_exp_fs_manager: exp_fs.Manager,
-    working_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.Manager,
 ) -> tuple[
     list[smp_fs.RowNumberedItem],
     list[smp_fs.RowNumberedItem],
+    dict[abc_tool_cfg.Names, abc_topic_res_items.Result],
 ]:
     """Filter missing inputs."""
-    tool_inputs = tool_connector.config_to_inputs(exp_config, data_exp_fs_manager)
+    names_to_input_results = tool_connector.config_to_inputs(
+        exp_config,
+        data_exp_fs_manager,
+    )
 
     checked_inputs_samples_to_run, samples_with_missing_inputs = (
         exp_checks.checked_input_samples_to_run(
-            working_exp_fs_manager,
+            work_exp_fs_manager,
             samples_to_run,
-            tool_inputs,
+            names_to_input_results,
         )
     )
 
-    return checked_inputs_samples_to_run, samples_with_missing_inputs
+    return (
+        checked_inputs_samples_to_run,
+        samples_with_missing_inputs,
+        names_to_input_results,
+    )
 
 
 def _write_experiment_missing_inputs(
     samples_with_missing_inputs: list[smp_fs.RowNumberedItem],
-    working_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.Manager,
     run_stats: RunStats,
 ) -> None:
     """Write experiment missing inputs."""
@@ -334,7 +349,7 @@ def _write_experiment_missing_inputs(
     _LOGGER.error("Samples with missing inputs: %d", len(samples_with_missing_inputs))
 
     with exp_errors.ErrorsTSVWriter.open(
-        working_exp_fs_manager.errors_tsv(),
+        work_exp_fs_manager.errors_tsv(),
         "w",
     ) as out_exp_errors:
         out_exp_errors.write_error_samples(
@@ -348,36 +363,37 @@ def _write_experiment_missing_inputs(
         )
 
 
-def _create_and_run_sbatch_script(
+def _create_and_run_sbatch_script(  # noqa: PLR0913
     tool_connector: abc_tool_visitor.Connector,
+    names_to_input_results: dict[abc_tool_cfg.Names, abc_topic_res_items.Result],
     exp_config: exp_cfg.Config,
     checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
     data_exp_fs_manager: exp_fs.Manager,
-    working_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.Manager,
 ) -> None:
     """Run sbatch script."""
-    working_exp_fs_manager.tmp_slurm_logs_dir().mkdir(parents=True, exist_ok=True)
+    work_exp_fs_manager.tmp_slurm_logs_dir().mkdir(parents=True, exist_ok=True)
     tool_commands = tool_connector.inputs_to_commands(
         exp_config,
-        data_exp_fs_manager,
-        working_exp_fs_manager,
+        names_to_input_results,
+        work_exp_fs_manager,
     )
     exp_shell.create_run_script(
         data_exp_fs_manager,
-        working_exp_fs_manager,
+        work_exp_fs_manager,
         checked_inputs_samples_to_run,
         exp_config.slurm_config(),
         tool_commands,
     )
 
     cmd_path = subprocess_lib.command_path(slurm.SBATCH_CMD)
-    cli_line = [cmd_path, working_exp_fs_manager.sbatch_sh_script()]
+    cli_line = [cmd_path, work_exp_fs_manager.sbatch_sh_script()]
     subprocess_lib.run_cmd(cli_line, slurm.SBATCH_CMD)
 
 
 def _wait_all_job_finish(
     checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
-    working_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.Manager,
 ) -> None:
     """Wait all job finish."""
     in_running_jobs = checked_inputs_samples_to_run.copy()
@@ -391,7 +407,7 @@ def _wait_all_job_finish(
             time.sleep(60)
             _tmp_running_jobs = []
             for job in in_running_jobs:
-                sample_fs_manager = working_exp_fs_manager.sample_fs_manager(
+                sample_fs_manager = work_exp_fs_manager.sample_fs_manager(
                     job.item(),
                 )
                 if (
@@ -409,12 +425,12 @@ def _wait_all_job_finish(
 
 def _write_experiment_errors(
     run_samples: list[smp_fs.RowNumberedItem],
-    working_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.Manager,
     run_stats: RunStats,
 ) -> None:
     """Write experiment errors."""
     for run_sample in run_samples:
-        sample_fs_manager = working_exp_fs_manager.sample_fs_manager(
+        sample_fs_manager = work_exp_fs_manager.sample_fs_manager(
             run_sample.item(),
         )
         if smp_status.get_status(sample_fs_manager) == smp_status.ErrorStatus.ERROR:
@@ -423,7 +439,7 @@ def _write_experiment_errors(
     _LOGGER.error("Samples with errors: %d", len(run_stats.samples_with_errors()))
 
     with exp_errors.ErrorsTSVWriter.open(
-        working_exp_fs_manager.errors_tsv(),
+        work_exp_fs_manager.errors_tsv(),
         "a",
     ) as out_exp_errors:
         out_exp_errors.write_error_samples(
@@ -439,26 +455,26 @@ def _write_experiment_errors(
 
 def _write_sbatch_stats_and_move_slurm_logs(
     run_samples: list[smp_fs.RowNumberedItem],
-    working_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.Manager,
 ) -> None:
     """Write sbatch stats."""
     for run_sample in run_samples:
-        sample_fs_manager = working_exp_fs_manager.sample_fs_manager(run_sample.item())
+        sample_fs_manager = work_exp_fs_manager.sample_fs_manager(run_sample.item())
         job_id = smp_fs.get_job_id_from_file(sample_fs_manager)
         slurm.write_slurm_stats(job_id, sample_fs_manager.sbatch_stats_psv())
 
         for slurm_log_file in (
-            slurm.out_log_path(working_exp_fs_manager, job_id),
-            slurm.err_log_path(working_exp_fs_manager, job_id),
+            slurm.out_log_path(work_exp_fs_manager, job_id),
+            slurm.err_log_path(work_exp_fs_manager, job_id),
         ):
             shutil.move(slurm_log_file, sample_fs_manager.sample_dir())
 
-    if not any(working_exp_fs_manager.tmp_slurm_logs_dir().iterdir()):
-        working_exp_fs_manager.tmp_slurm_logs_dir().rmdir()
+    if not any(work_exp_fs_manager.tmp_slurm_logs_dir().iterdir()):
+        work_exp_fs_manager.tmp_slurm_logs_dir().rmdir()
 
 
 def _move_work_to_data(
-    working_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.Manager,
     data_exp_fs_manager: exp_fs.Manager,
     samples_to_run: list[smp_fs.RowNumberedItem],
 ) -> None:
@@ -468,7 +484,7 @@ def _move_work_to_data(
     # Move all run samples dirs
     #
     for run_sample in samples_to_run:
-        work_sample_fs_manager = working_exp_fs_manager.sample_fs_manager(
+        work_sample_fs_manager = work_exp_fs_manager.sample_fs_manager(
             run_sample.item(),
         )
         data_sample_fs_manager = data_exp_fs_manager.sample_fs_manager(
@@ -484,36 +500,36 @@ def _move_work_to_data(
     # Move experiment scripts
     #
     for script_file in (
-        working_exp_fs_manager.sbatch_sh_script(),
-        working_exp_fs_manager.command_sh_script(),
+        work_exp_fs_manager.sbatch_sh_script(),
+        work_exp_fs_manager.command_sh_script(),
     ):
         if script_file.exists():
             shutil.copy(script_file, data_exp_fs_manager.scripts_dir())
             script_file.unlink()
 
-    if not any(working_exp_fs_manager.scripts_dir().iterdir()):
-        working_exp_fs_manager.scripts_dir().rmdir()
+    if not any(work_exp_fs_manager.scripts_dir().iterdir()):
+        work_exp_fs_manager.scripts_dir().rmdir()
     #
     # Move experiment errors
     #
     data_exp_fs_manager.errors_tsv().unlink(missing_ok=True)
-    if working_exp_fs_manager.errors_tsv().exists():
+    if work_exp_fs_manager.errors_tsv().exists():
         shutil.copy(
-            working_exp_fs_manager.errors_tsv(),
+            work_exp_fs_manager.errors_tsv(),
             data_exp_fs_manager.errors_tsv(),
         )
-        working_exp_fs_manager.errors_tsv().unlink()
+        work_exp_fs_manager.errors_tsv().unlink()
     #
     # Remove config yaml from working dir
     #
-    working_exp_fs_manager.config_yaml().unlink()
+    work_exp_fs_manager.config_yaml().unlink()
     #
     # Try to remove empty tree
     #
     tree_to_remove = [
-        working_exp_fs_manager.topic_dir(),
-        working_exp_fs_manager.tool_dir(),
-        working_exp_fs_manager.exp_dir(),
+        work_exp_fs_manager.topic_dir(),
+        work_exp_fs_manager.tool_dir(),
+        work_exp_fs_manager.exp_dir(),
     ]
     last_empty = True
     while tree_to_remove and last_empty:

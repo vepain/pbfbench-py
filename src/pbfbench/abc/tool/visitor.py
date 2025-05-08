@@ -72,10 +72,14 @@ class ArgumentPath[
 
     def input_to_sh_lines_builder(
         self,
-        data_fs_manager: exp_fs.Manager,
+        input_result: R,
+        work_exp_fs_manager: exp_fs.Manager,
     ) -> abc_tool_shell.ArgBashLinesBuilder[R]:
         """Convert input to shell lines builder."""
-        return self._sh_lines_builder_type.from_data_fs_manager(data_fs_manager)
+        return self._sh_lines_builder_type.from_work_fs_manager(
+            input_result,
+            work_exp_fs_manager,
+        )
 
 
 class Connector[ArgNames: abc_tool_config.Names]:
@@ -153,14 +157,11 @@ class Connector[ArgNames: abc_tool_config.Names]:
         self,
         config: exp_cfg.Config[ArgNames],
         data_fs_manager: exp_fs.Manager,
-    ) -> dict[abc_tool_config.Names, abc_topic_res_items.Result]:
+    ) -> dict[ArgNames, abc_topic_res_items.Result]:
         """Convert config to inputs."""
         tool_config: abc_tool_config.Config = config.tool_configs()
         arguments: abc_tool_config.Arguments = tool_config.arguments()
-        names_with_results: dict[
-            abc_tool_config.Names,
-            abc_topic_res_items.Result,
-        ] = {}
+        names_with_results: dict[ArgNames, abc_topic_res_items.Result] = {}
         for name, arg_path in self._arg_names_and_paths.items():
             result: abc_topic_res_items.Result = arg_path.arg_to_checkable_input(
                 data_fs_manager,
@@ -172,16 +173,19 @@ class Connector[ArgNames: abc_tool_config.Names]:
     def inputs_to_commands(
         self,
         config: exp_cfg.Config[ArgNames],
-        data_fs_manager: exp_fs.Manager,
-        working_exp_fs_manager: exp_fs.Manager,
+        names_to_input_results: dict[ArgNames, abc_topic_res_items.Result],
+        work_exp_fs_manager: exp_fs.Manager,
     ) -> abc_tool_shell.Commands:
         """Convert inputs to commands."""
         tool_config: abc_tool_config.Config = config.tool_configs()
         return abc_tool_shell.Commands(
             [
-                arg_path.input_to_sh_lines_builder(data_fs_manager)
-                for arg_path in self._arg_names_and_paths.values()
+                arg_path.input_to_sh_lines_builder(
+                    names_to_input_results[name],
+                    work_exp_fs_manager,
+                )
+                for name, arg_path in self._arg_names_and_paths.items()
             ],
             abc_tool_shell.OptionBashLinesBuilder(tool_config.options()),
-            working_exp_fs_manager,
+            work_exp_fs_manager,
         )

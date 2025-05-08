@@ -30,7 +30,7 @@ def create_run_script(
     tool_bash_env_wrapper = abc_tools_envs.BashEnvWrapper(
         data_fs_manager.tool_env_script_sh(),
     )
-    sample_fs_manager = smp_sh.sample_sh_var_fs_manager(work_fs_manager)
+    sample_fs_manager = smp_sh.sample_shell_fs_manager(work_fs_manager)
 
     _write_command_script(
         data_fs_manager,

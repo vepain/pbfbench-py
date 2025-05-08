@@ -66,7 +66,7 @@ class SpeSmpIDLinesBuilder:
         )
 
 
-def sample_sh_var_fs_manager(exp_fs_manager: exp_fs.Manager) -> smp_fs.Manager:
+def sample_shell_fs_manager(exp_fs_manager: exp_fs.Manager) -> smp_fs.Manager:
     """Get sample shell variable file system manager."""
     return smp_fs.Manager(
         exp_fs_manager.sample_dir(SpeSmpIDLinesBuilder.SPE_SMP_ID_VAR.eval()),
