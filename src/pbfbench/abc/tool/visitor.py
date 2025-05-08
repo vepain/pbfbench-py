@@ -165,7 +165,7 @@ class Connector[ArgNames: abc_tool_config.Names]:
             result: abc_topic_res_items.Result = arg_path.arg_to_checkable_input(
                 data_fs_manager.root_dir(),
                 tool,
-                data_fs_manager.experiment_name(),
+                config.name(),
             )
             names_with_results[name] = result
         return names_with_results
