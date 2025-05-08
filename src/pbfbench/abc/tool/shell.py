@@ -78,6 +78,8 @@ class Commands:
 
     WORK_EXP_SAMPLE_DIR_VAR = sh.Variable("WORK_EXP_SAMPLE_DIR")
 
+    CORE_COMMAND_SH_FILENAME = "core_command.sh"
+
     def __init__(
         self,
         arg_sh_lines_builders: Iterable[ArgBashLinesBuilder],
@@ -128,7 +130,10 @@ class Commands:
 
     def _core_command_shell_path(self) -> Path:
         """Get result."""
-        return abc_meta_mod.tool_module_path_from_descriptions(
-            self._working_exp_fs_manager.tool_description().topic(),
-            self._working_exp_fs_manager.tool_description(),
+        return (
+            abc_meta_mod.tool_module_path_from_descriptions(
+                self._working_exp_fs_manager.tool_description().topic(),
+                self._working_exp_fs_manager.tool_description(),
+            )
+            / self.CORE_COMMAND_SH_FILENAME
         )
