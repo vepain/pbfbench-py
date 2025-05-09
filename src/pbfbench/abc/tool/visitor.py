@@ -76,7 +76,7 @@ class ArgumentPath[
         work_exp_fs_manager: exp_fs.Manager,
     ) -> abc_tool_shell.ArgBashLinesBuilder[R]:
         """Convert input to shell lines builder."""
-        return self._sh_lines_builder_type.from_work_fs_manager(
+        return self._sh_lines_builder_type(
             input_result,
             work_exp_fs_manager,
         )

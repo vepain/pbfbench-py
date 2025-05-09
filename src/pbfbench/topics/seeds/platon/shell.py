@@ -21,12 +21,15 @@ class GenomeInputLinesBuilder(
 
     def __fasta_gz_file(self) -> Path:
         """Return a gzipped FASTA path with sample name is a sh variable."""
-        return self._input_result.fasta_gz(self._input_data_smp_sh_fs_manager)
+        return self._input_result.fasta_gz(
+            self._work_smp_sh_fs_manager.sample_dir().name,
+        )
 
     def __fasta_tmp_file(self) -> Path:
         """Return a tmp FASTA path with sample name is a sh variable."""
-        return self._input_result.fasta_gz(self._working_smp_sh_fs_manager).with_suffix(
-            "",
+        return (
+            self._work_smp_sh_fs_manager.sample_dir()
+            / self._input_result.FASTA_GZ_NAME.with_suffix("")
         )
 
     def init_lines(self) -> Iterator[str]:
@@ -34,7 +37,7 @@ class GenomeInputLinesBuilder(
         yield self.FASTA_GZ_VAR.set(sh.path_to_str(self.__fasta_gz_file()))
         yield self.GENOME_VAR.set(sh.path_to_str(self.__fasta_tmp_file()))
         yield self.WORK_EXP_SAMPLE_DIR_VAR.set(
-            sh.path_to_str(self._working_smp_sh_fs_manager.sample_dir()),
+            sh.path_to_str(self._work_smp_sh_fs_manager.sample_dir()),
         )
         yield (
             "gunzip -k -c"

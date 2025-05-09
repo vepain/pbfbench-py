@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import final
 
 import pbfbench.abc.topic.results.items as topic_res_items
-import pbfbench.samples.file_system as smp_fs
 
 
 @final
@@ -18,10 +17,9 @@ class FastaGZ(topic_res_items.Original):
 
     FASTA_GZ_NAME = Path("assembly.fasta.gz")
 
-    @classmethod
-    def fasta_gz(cls, sample_fs_manager: smp_fs.Manager) -> Path:
+    def fasta_gz(self, sample_dirname: str | Path) -> Path:
         """Get assembly FASTA file."""
-        return sample_fs_manager.sample_dir() / cls.FASTA_GZ_NAME
+        return self._fs_manager.sample_dir(sample_dirname) / self.FASTA_GZ_NAME
 
 
 @final
@@ -30,7 +28,6 @@ class AsmGraphGZ(topic_res_items.Original):
 
     ASSEMBLY_GFA_GZ_NAME = Path("assembly.gfa.gz")
 
-    @classmethod
-    def gfa_gz(cls, sample_fs_manager: smp_fs.Manager) -> Path:
+    def gfa_gz(self, sample_dirname: str | Path) -> Path:
         """Get assembly GFA file."""
-        return sample_fs_manager.sample_dir() / cls.ASSEMBLY_GFA_GZ_NAME
+        return self._fs_manager.sample_dir(sample_dirname) / self.ASSEMBLY_GFA_GZ_NAME
