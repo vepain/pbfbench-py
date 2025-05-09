@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - yyyy-mm-dd
 
+### Added
+
+* `PLASMIDNESS` topic
+* `PLASMIDNESS/PLASCLASS` tool
+
 ### Changed
 
 * Make `work_exp_fs_manager` an object attribute of `abc_tool_res_items.Result`
