@@ -138,7 +138,7 @@ def _write_sbatch_script(
 
 def _write_slurm_array_job_id(work_fs_manager: exp_fs.Manager) -> Iterator[str]:
     """Return new command that exits the whole pipeline if first command fails."""
-    yield f"if [[! -f {sh.path_to_str(work_fs_manager.array_job_id_file())} ]]; then"
+    yield f"if [[ ! -f {sh.path_to_str(work_fs_manager.array_job_id_file())} ]]; then"
     yield (
         f"\techo {slurm_sh.SLURM_ARRAY_JOB_ID_VAR.eval()}"
         f"> {sh.path_to_str(work_fs_manager.array_job_id_file())}"
