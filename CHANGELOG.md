@@ -24,6 +24,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.2.0] - 2025-05-09
+
+### Changed
+
+* Simplify Bash lines builder, generalize the Commands class
+* `src/pbfbench/topics/TOPIC/TOOL/core_command.sh` make the core command bash script clearer
+* Add a sbatch status system that communicates with the sample status
+
+### Fix
+
+* Sbatch script can exit before setting the sample directory, use another status system
+
 ## [0.1.1] - 2025-05-05
 
 ### Fixed

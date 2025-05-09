@@ -13,7 +13,7 @@ from typing import Annotated
 import typer
 from rich.markdown import Markdown as Md
 
-import pbfbench.abc.topic.visitor as abc_topic_visitor
+import pbfbench.abc.topic.visitor as abc_topics_visitor
 import pbfbench.topics.items as topics_items
 import pbfbench.topics.visitor as topics_visitor
 from pbfbench import root_logging
@@ -40,9 +40,9 @@ def tool_tree(
         "\n"
     )
 
-    for topic in topics_items.Names:
+    for topic in topics_items.Topics:
         topic_description = topic.to_description()
-        tools: type[abc_topic_visitor.Tools] = topics_visitor.tools(topic)
+        tools: type[abc_topics_visitor.Tools] = topics_visitor.tools(topic)
         md_string += f"* {topic_description.name()} ({topic_description.cmd()})\n"
         for tool in tools:
             tool_description = tool.to_description()

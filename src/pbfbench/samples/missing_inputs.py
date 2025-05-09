@@ -8,12 +8,9 @@ from contextlib import contextmanager
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-import pbfbench.abc.tool.description as abc_tool_desc
-import pbfbench.abc.topic.results.items as abc_topic_results
+import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.status as smp_status
-import pbfbench.topics.items as topics_items
-import pbfbench.topics.visitor as topics_visitor
 
 if TYPE_CHECKING:
     import _csv
@@ -26,33 +23,38 @@ _LOGGER = logging.getLogger(__name__)
 class MissingInput:
     """Missing input item."""
 
+    # REFACTOR may take as input topic and tool descriptions
+    # When tool and topic will be separated
     @classmethod
     def from_tool_input(
         cls,
         arg_name: str,
-        tool_input: abc_topic_results.Result,
+        tool_input: abc_topic_res_items.Result,
         reason: smp_status.ErrorStatus,
     ) -> MissingInput:
         """Create missing input from tool input."""
         return cls(
             str(arg_name),
-            tool_input.fs_manager().tool_description(),
-            tool_input.fs_manager().experiment_name(),
+            tool_input.exp_fs_manager().topic_dir().name,
+            tool_input.exp_fs_manager().tool_dir().name,
+            tool_input.exp_fs_manager().exp_dir().name,
             reason,
-            tool_input.origin_cmd(),
+            tool_input.origin_command(),
         )
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         arg_name: str,
-        tool_description: abc_tool_desc.Description,
+        topic_name: str,
+        tool_name: str,
         experiment_name: str,
         reason: smp_status.ErrorStatus,
         help_string: str,
     ) -> None:
         """Initialize."""
         self.__arg_name = arg_name
-        self.__tool_desc = tool_description
+        self.__topic_name = topic_name
+        self.__tool_name = tool_name
         self.__exp_name = experiment_name
         self.__reason = reason
         self.__help_string = help_string
@@ -61,9 +63,13 @@ class MissingInput:
         """Get argument name."""
         return self.__arg_name
 
-    def tool_description(self) -> abc_tool_desc.Description:
-        """Get tool description."""
-        return self.__tool_desc
+    def topic_name(self) -> str:
+        """Get topic name."""
+        return self.__topic_name
+
+    def tool_name(self) -> str:
+        """Get tool name."""
+        return self.__tool_name
 
     def experiment_name(self) -> str:
         """Get experiment name."""
@@ -117,22 +123,15 @@ class MissingInputsTSVReader:
     def __iter__(self) -> Iterator[MissingInput]:
         """Iterate over missing inputs items."""
         for row in self.__csv_reader:
-            arg_name = self.__get_cell(row, MissingInputsTSVHeader.ARG_NAME)
-            topic_name = topics_items.Names(
-                self.__get_cell(row, MissingInputsTSVHeader.TOPIC),
-            )
-            tool_str = self.__get_cell(row, MissingInputsTSVHeader.TOOL)
-            tool_name = topics_visitor.tools(topic_name)(tool_str)
-            exp_name = self.__get_cell(row, MissingInputsTSVHeader.EXPERIMENT)
-            help_string = self.__get_cell(row, MissingInputsTSVHeader.HELP)
             yield MissingInput(
-                arg_name,
-                tool_name.to_description(),
-                exp_name,
+                self.__get_cell(row, MissingInputsTSVHeader.ARG_NAME),
+                self.__get_cell(row, MissingInputsTSVHeader.TOPIC),
+                self.__get_cell(row, MissingInputsTSVHeader.TOOL),
+                self.__get_cell(row, MissingInputsTSVHeader.TOOL),
                 smp_status.ErrorStatus(
                     self.__get_cell(row, MissingInputsTSVHeader.REASON),
                 ),
-                help_string,
+                self.__get_cell(row, MissingInputsTSVHeader.HELP),
             )
 
     def __get_cell(self, row: list[str], column_id: MissingInputsTSVHeader) -> str:
@@ -174,8 +173,8 @@ class MissingInputsTSVWriter:
         self.__csv_writer.writerow(
             [
                 missing_input.arg_name(),
-                missing_input.tool_description().topic().name(),
-                missing_input.tool_description().name(),
+                missing_input.topic_name(),
+                missing_input.tool_name(),
                 missing_input.experiment_name(),
                 missing_input.reason(),
                 missing_input.help(),

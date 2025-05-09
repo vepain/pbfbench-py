@@ -5,61 +5,43 @@ from pathlib import Path
 from typing import final
 
 import pbfbench.abc.tool.shell as abc_tool_shell
-import pbfbench.samples.shell as smp_sh
 import pbfbench.shell as sh
-import pbfbench.topics.assembly.results.items as asm_results
-import pbfbench.topics.seeds.platon.config as platon_cfg
+import pbfbench.topics.assembly.results.items as asm_res_items
 
 
 @final
 class GenomeInputLinesBuilder(
-    abc_tool_shell.ArgBashLinesBuilder[asm_results.FastaGZ],
+    abc_tool_shell.ArgBashLinesBuilder[asm_res_items.FastaGZ],
 ):
     """Genome input bash lines builder."""
 
-    FASTA_GZ_VAR = sh.Variable("fasta_gz")
-    FASTA_VAR = sh.Variable("fasta")
+    GENOME_VAR = sh.Variable("GENOME")
+    WORK_EXP_SAMPLE_DIR_VAR = sh.Variable("WORK_EXP_SAMPLE_DIR")
+    FASTA_GZ_VAR = sh.Variable("FASTA_GZ")
+
+    def __fasta_gz_file(self) -> Path:
+        """Return a gzipped FASTA path with sample name is a sh variable."""
+        return self._input_result.fasta_gz(self._input_data_smp_sh_fs_manager)
 
     def __fasta_tmp_file(self) -> Path:
         """Return a tmp FASTA path with sample name is a sh variable."""
-        return self._sample_sh_var_fs_manager.sample_dir() / "tmp_assembly.fasta"
+        return self._input_result.fasta_gz(self._working_smp_sh_fs_manager).with_suffix(
+            "",
+        )
 
     def init_lines(self) -> Iterator[str]:
         """Get shell input init lines."""
-        fasta_gz_path = self._tool_data_result.fasta_gz(
-            smp_sh.SpeSmpIDLinesBuilder.SPE_SMP_ID_VAR.eval(),
+        yield self.FASTA_GZ_VAR.set(sh.path_to_str(self.__fasta_gz_file()))
+        yield self.GENOME_VAR.set(sh.path_to_str(self.__fasta_tmp_file()))
+        yield self.WORK_EXP_SAMPLE_DIR_VAR.set(
+            sh.path_to_str(self._working_smp_sh_fs_manager.sample_dir()),
         )
-        yield self.FASTA_GZ_VAR.set(sh.path_to_str(fasta_gz_path))
-        yield self.FASTA_VAR.set(sh.path_to_str(self.__fasta_tmp_file()))
         yield (
             "gunzip -k -c"
             f" {sh.path_to_str(self.FASTA_GZ_VAR.eval())}"
-            f"> {sh.path_to_str(self.FASTA_VAR.eval())}"
+            f"> {sh.path_to_str(self.GENOME_VAR.eval())}"
         )
-
-    def argument(self) -> str:
-        """Get shell input param lines."""
-        return sh.path_to_str(self.FASTA_VAR.eval())
 
     def close_lines(self) -> Iterator[str]:
         """Get shell input close lines."""
-        yield f"rm -f {sh.path_to_str(self.FASTA_VAR.eval())}"
-
-
-@final
-class Commands(abc_tool_shell.Commands[platon_cfg.Names, platon_cfg.Options]):
-    """Platon commands."""
-
-    def core_commands(self) -> Iterator[str]:
-        """Iterate over the tool commands."""
-        outdir = smp_sh.sample_sh_var_fs_manager(
-            self._working_exp_fs_manager,
-        ).sample_dir()
-        # REFACTOR how to generalize according to different options types?
-        yield (
-            "platon "
-            + " ".join(self._options)
-            + f' --output "{outdir}"'
-            + " "
-            + self.argument(platon_cfg.Names.GENOME)
-        )
+        yield f"rm -f {sh.path_to_str(self.GENOME_VAR.eval())}"

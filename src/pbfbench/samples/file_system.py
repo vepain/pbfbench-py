@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 class Manager:
     """Sample file system manager."""
 
-    SLURM_JOB_ID_FILE_NAME = Path("slurm_job.id")
     SBATCH_STATS_PSV_NAME = Path("sbatch_stats.psv")
 
     MISSING_INPUTS_TSV_NAME = Path("missing_inputs.tsv")
@@ -32,10 +31,6 @@ class Manager:
     def sample_dir(self) -> Path:
         """Get sample directory path."""
         return self.__sample_dir
-
-    def slurm_job_id_file(self) -> Path:
-        """Get slurm job id file path."""
-        return self.__sample_dir / self.SLURM_JOB_ID_FILE_NAME
 
     def sbatch_stats_psv(self) -> Path:
         """Get sbatch stats file path."""
@@ -138,15 +133,11 @@ class RowNumberedItem:
         return self.__item
 
 
-SAMPLES_TSV_NAME = Path("samples.tsv")
+def to_line_number_base_one(row_numbered_item: RowNumberedItem) -> int:
+    """Get line number with a base 1.
 
-
-def samples_tsv(data_dir: Path) -> Path:
-    """Get samples TSV file."""
-    return data_dir / SAMPLES_TSV_NAME
-
-
-def get_job_id_from_file(sample_fs_manager: Manager) -> str:
-    """Get job id from file."""
-    with sample_fs_manager.slurm_job_id_file().open("r") as in_job_id_file:
-        return in_job_id_file.read().strip()
+    The header is at line number 1 (base 1).
+    So the first item row (base 0, row number is 0)
+    is associated to line number 2 (base 1).
+    """
+    return row_numbered_item.row_number() + 2

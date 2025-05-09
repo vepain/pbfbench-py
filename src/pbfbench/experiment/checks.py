@@ -6,8 +6,9 @@ import logging
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-import pbfbench.abc.tool.config as tool_cfg
-import pbfbench.abc.topic.results.items as abc_topic_results
+import pbfbench.abc.tool.config as abc_tool_cfg
+import pbfbench.abc.tool.visitor as abc_tool_visitor
+import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.samples.file_system as smp_fs
@@ -31,6 +32,17 @@ class SameExperimentError(StrEnum):
 
     DIFFERENT_SYNTAX = "different_syntax"
     NOT_SAME = "not_same"
+
+
+def check_config_inputs(
+    config: exp_cfg.Config,
+    connector: abc_tool_visitor.Connector,
+) -> bool:
+    """Check config inputs."""
+    value_errors = connector.check_arguments_implement_results(config)
+    for value_error in value_errors:
+        _LOGGER.critical(str(value_error))
+    return not value_errors
 
 
 def is_same_experiment[C: exp_cfg.Config](
@@ -87,21 +99,25 @@ def samples_to_format_result(
     )
 
 
+# REFACTOR move to samples module
 def checked_input_samples_to_run(
-    working_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.Manager,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
-    tool_inputs: dict[tool_cfg.Names, abc_topic_results.Result],
+    tool_inputs: dict[abc_tool_cfg.Names, abc_topic_res_items.Result],
 ) -> tuple[list[smp_fs.RowNumberedItem], list[smp_fs.RowNumberedItem]]:
     """Return row numbered samples to run and those with missing inputs."""
     checked_samples_to_run: list[smp_fs.RowNumberedItem] = []
     samples_with_missing_inputs: list[smp_fs.RowNumberedItem] = []
 
     for row_numbered_sample in samples_to_run:
-        sample_missing_inputs = missing_inputs(tool_inputs, row_numbered_sample.item())
+        sample_missing_inputs = missing_inputs(
+            tool_inputs,
+            row_numbered_sample.item(),
+        )
 
         if sample_missing_inputs:
             samples_with_missing_inputs.append(row_numbered_sample)
-            sample_fs_manager = working_exp_fs_manager.sample_fs_manager(
+            sample_fs_manager = work_exp_fs_manager.sample_fs_manager(
                 row_numbered_sample.item(),
             )
             smp_miss_in.write_sample_missing_inputs(
@@ -114,8 +130,8 @@ def checked_input_samples_to_run(
     return checked_samples_to_run, samples_with_missing_inputs
 
 
-def missing_inputs[N: tool_cfg.Names](
-    tool_inputs: dict[tool_cfg.Names, abc_topic_results.Result],
+def missing_inputs[N: abc_tool_cfg.Names](
+    tool_inputs: dict[N, abc_topic_res_items.Result],
     sample_item: smp_items.Item,
 ) -> list[smp_miss_in.MissingInput]:
     """Check input(s) and return True if OK, False otherwise.

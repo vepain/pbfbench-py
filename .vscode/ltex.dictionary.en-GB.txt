@@ -16,3 +16,7 @@ BioSamples
 BioSample
 SRAs
 MGC
+pbfbench
+Platon
+sbatch
+slurm
