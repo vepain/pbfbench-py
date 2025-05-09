@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 * Make `work_exp_fs_manager` an object attribute of `abc_tool_res_items.Result`
+* `ASSEMBLY` topic command changes from `asm` to `assembly`
 
 ## [0.2.0] - 2025-05-09
 
