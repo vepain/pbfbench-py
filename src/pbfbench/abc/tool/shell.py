@@ -83,7 +83,7 @@ class OptionBashLinesBuilder:
     def set_options(self) -> Iterator[str]:
         """Set user tool options sh variable."""
         yield self.USER_TOOL_OPTIONS_VAR.set(
-            "'" + " ".join(self.__tool_options) + "'",
+            "(" + " ".join(self.__tool_options) + ")",
         )
 
 

@@ -157,7 +157,7 @@ def write_slurm_stats(job_id: str, psv_path: Path) -> None:
         capture_output=True,
         check=False,
     )
-    _LOGGER.debug("sbath stdout: %s", result.stdout)
-    _LOGGER.debug("sbath stderr: %s", result.stderr)
+    _LOGGER.debug("%s stdout: %s", SACCT_CMD, result.stdout)
+    _LOGGER.debug("%s stderr: %s", SACCT_CMD, result.stderr)
 
     tmp_bash_script_path.unlink()

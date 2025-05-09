@@ -400,8 +400,8 @@ def _create_and_run_sbatch_script(  # noqa: PLR0913
         capture_output=True,
         check=False,
     )
-    _LOGGER.debug("sbath stdout: %s", result.stdout)
-    _LOGGER.debug("sbath stderr: %s", result.stderr)
+    _LOGGER.debug("%s stdout: %s", slurm_sh.SBATCH_CMD, result.stdout)
+    _LOGGER.debug("%s stderr: %s", slurm_sh.SBATCH_CMD, result.stderr)
 
 
 def _wait_all_job_finish(
@@ -582,6 +582,7 @@ def _move_work_to_data(
     # Try to remove empty tree
     #
     tree_to_remove = [
+        work_exp_fs_manager.root_dir(),
         work_exp_fs_manager.topic_dir(),
         work_exp_fs_manager.tool_dir(),
         work_exp_fs_manager.exp_dir(),
