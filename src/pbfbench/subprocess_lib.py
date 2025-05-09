@@ -32,10 +32,10 @@ def command_path(command_str: str | Path) -> Path:
     return Path(cmd_path)
 
 
-def run_cmd(cli_line: Sequence[object], cmd_str: str) -> None:
+def run_cmd(cli_line: Sequence[object], cmd_str: str) -> subprocess.CompletedProcess:
     """Run external command."""
     try:
-        subprocess.run(  # noqa: S603
+        result = subprocess.run(  # noqa: S603
             [str(x) for x in cli_line],
             check=True,
         )
@@ -43,6 +43,7 @@ def run_cmd(cli_line: Sequence[object], cmd_str: str) -> None:
         _cmd_err = CommandFailedError(cmd_str, exc)
         _LOGGER.critical(str(_cmd_err))
         raise _cmd_err from exc
+    return result
 
 
 class CommandNotFoundError(Exception):

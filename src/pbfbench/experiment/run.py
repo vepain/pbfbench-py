@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import subprocess
 import time
 from enum import StrEnum
 from typing import TYPE_CHECKING
@@ -155,6 +156,10 @@ def run_experiment_on_samples(
     if not checked_inputs_samples_to_run:
         _LOGGER.info("No samples to run")
     else:
+        _LOGGER.info(
+            "Number of samples sent to sbatch: %d",
+            len(checked_inputs_samples_to_run),
+        )
         _create_and_run_sbatch_script(
             tool_connector,
             names_to_input_results,
@@ -292,6 +297,8 @@ def _get_samples_to_run(
         )
     run_stats.add_samples_to_run(len(samples_to_run))
 
+    _LOGGER.info("Number of samples to run: %d", len(samples_to_run))
+
     return samples_to_run
 
 
@@ -388,8 +395,13 @@ def _create_and_run_sbatch_script(  # noqa: PLR0913
     )
 
     cmd_path = subprocess_lib.command_path(slurm_sh.SBATCH_CMD)
-    cli_line = [cmd_path, work_exp_fs_manager.sbatch_sh_script()]
-    subprocess_lib.run_cmd(cli_line, slurm_sh.SBATCH_CMD)
+    result = subprocess.run(  # noqa: S603
+        [str(x) for x in [cmd_path, work_exp_fs_manager.sbatch_sh_script()]],
+        capture_output=True,
+        check=False,
+    )
+    _LOGGER.debug("sbath stdout: %s", result.stdout)
+    _LOGGER.debug("sbath stderr: %s", result.stderr)
 
 
 def _wait_all_job_finish(

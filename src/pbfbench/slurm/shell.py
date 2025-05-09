@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import subprocess
 from itertools import chain
 from typing import TYPE_CHECKING
 
@@ -13,6 +15,8 @@ from pbfbench import subprocess_lib
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
     from pathlib import Path
+
+_LOGGER = logging.getLogger(__name__)
 
 SBATCH_CMD = "sbatch"
 
@@ -142,10 +146,18 @@ BASH_CMD = "bash"
 def write_slurm_stats(job_id: str, psv_path: Path) -> None:
     """Write sbatch stats."""
     tmp_bash_script_path = psv_path.with_suffix(".sh")
+
     with tmp_bash_script_path.open("w") as f:
         f.write(sh.BASH_SHEBANG + "\n")
         f.write(f"{SACCT_CMD} --long --jobs {job_id} --parsable2 > {psv_path}")
+
     cmd_path = subprocess_lib.command_path(BASH_CMD)
-    cli_line = [cmd_path, tmp_bash_script_path]
-    subprocess_lib.run_cmd(cli_line, BASH_CMD)
+    result = subprocess.run(  # noqa: S603
+        [str(x) for x in [cmd_path, tmp_bash_script_path]],
+        capture_output=True,
+        check=False,
+    )
+    _LOGGER.debug("sbath stdout: %s", result.stdout)
+    _LOGGER.debug("sbath stderr: %s", result.stderr)
+
     tmp_bash_script_path.unlink()
