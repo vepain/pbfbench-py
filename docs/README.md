@@ -14,7 +14,7 @@ DATA_DIR/WORK_DIR
 │       │   │   ├── ...  # e.g. Unicycler output files
 │       │   │   ├── slurm_%A_%a.out  # Slurm stdout for each sample
 │       │   │   ├── slurm_%A_%a.err  # Slurm stderr for each sample
-│       │   │   ├── slurm_job.id  # File containing the slurm job id
+│       │   │   ├── slurm_%A_%a.{init_env_error,command_error,close_env_error,end}  # Sbatch job status file
 │       │   │   ├── sbatch_stats.psv  # File containing the slurm run stats (Pipe Separated Value format)
 │       │   │   └── done.log | errors.log | missing_inputs.tsv  # to mark the status of the sample experiment
 │       │   ├── ...  # Other samples
@@ -22,7 +22,7 @@ DATA_DIR/WORK_DIR
 │       │   │   ├── YYYY-MM-DD_HH-MM-SS_sbatch.sh  # Slurm run script according to the horodatage
 │       │   │   └── YYYY-MM-DD_HH-MM-SS_command.sh  # srun commands without init and close tool environment processes
 │       │   ├── errors.tsv  # Lists of samples with error (missing inputs or error during slurm run)
-│       │   └── exp_config.yaml  # Configurations of the experiment on the tool for the topic
+│       │   └── config.yaml  # Configurations of the experiment on the tool for the topic
 │       └── env_wrapper.sh  # Tool environment wrapper script (only in DATA_DIR tree)
 └── samples.tsv  # Only in DATA_DIR
 ```
@@ -53,7 +53,7 @@ See [environments/README.md](environments/README.md) for more details.
 
 ## Experiment
 
-The `exp_config.yaml` file contains the configuration for the experiment.
+The `config.yaml` file contains the configuration for the experiment.
 The structure is defined bellow, and the examples are for a binning tool:
 
 ```yaml
