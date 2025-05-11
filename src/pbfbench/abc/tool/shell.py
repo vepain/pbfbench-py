@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING
 
 import pbfbench.abc.module_meta as abc_meta_mod
 import pbfbench.abc.tool.config as abc_tool_cfg
@@ -20,29 +20,20 @@ if TYPE_CHECKING:
 class ArgBashLinesBuilder[R: abc_topic_res_items.Result](ABC):
     """Argument bash lines builder."""
 
-    @classmethod
-    def from_work_fs_manager(
-        cls,
-        input_result: R,
-        work_exp_fs_manager: exp_fs.Manager,
-    ) -> Self:
-        """Create from work file system manager."""
-        return cls(
-            input_result,
-            smp_sh.sample_shell_fs_manager(work_exp_fs_manager),
-        )
-
     def __init__(
         self,
         input_result: R,
-        working_smp_sh_fs_manager: smp_sh.smp_fs.Manager,
+        work_exp_fs_manager: exp_fs.Manager,
     ) -> None:
         """Initialize."""
         self._input_result = input_result
         self._input_data_smp_sh_fs_manager = smp_sh.sample_shell_fs_manager(
             input_result.exp_fs_manager(),
         )
-        self._working_smp_sh_fs_manager = working_smp_sh_fs_manager
+        self._work_exp_fs_manager = work_exp_fs_manager
+        self._work_smp_sh_fs_manager = smp_sh.sample_shell_fs_manager(
+            self._work_exp_fs_manager,
+        )
 
     def input_result(self) -> R:
         """Get input result."""
@@ -52,9 +43,13 @@ class ArgBashLinesBuilder[R: abc_topic_res_items.Result](ABC):
         """Get input data sample shell file system manager."""
         return self._input_data_smp_sh_fs_manager
 
-    def working_smp_sh_fs_manager(self) -> smp_sh.smp_fs.Manager:
+    def work_exp_fs_manager(self) -> exp_fs.Manager:
+        """Get working experiment file system manager."""
+        return self._work_exp_fs_manager
+
+    def work_smp_sh_fs_manager(self) -> smp_sh.smp_fs.Manager:
         """Get working sample shell file system manager."""
-        return self._working_smp_sh_fs_manager
+        return self._work_smp_sh_fs_manager
 
     @abstractmethod
     def init_lines(self) -> Iterator[str]:

@@ -24,6 +24,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.3.0] - 2025-05-11
+
+### Added
+
+* `PLASMIDNESS` topic
+* `PLASMIDNESS/PLASCLASS` tool
+* `PLASMIDNESS/PLASGRAPH2` tool (for plASgraph2)
+
+### Changed
+
+* Make `work_exp_fs_manager` an object attribute of `abc_tool_res_items.Result`
+* `ASSEMBLY` topic command changes from `asm` to `assembly`
+
+### Fixed
+
+* `is_a_command` function now checks an end backslash (the command is not terminated)
+* Assembly GFA result visitor
+* Experiment `ErrorsTSVWriter` for append mode (`a`) now reads existing header
+
 ## [0.2.0] - 2025-05-09
 
 ### Changed

@@ -127,7 +127,7 @@ The reason is one of the following:
 * `missing_inputs` if at least one of the inputs of the input is missing
 * `error` if the input experiment returned an error
 
-The help column provide potential solution.
+The help column provides a potential solution.
 
 #### Experiment errors list
 

@@ -25,9 +25,6 @@ class Manager:
 
     SAMPLES_TSV_NAME = Path("samples.tsv")
 
-    # REFACTOR may have classmethod from_descriptions
-    # Take as input both topic and tool descriptions
-
     def __init__(
         self,
         root_directory_path: Path,
@@ -162,7 +159,7 @@ class Manager:
     #
     # Sample experiment directories
     #
-    def sample_dir(self, sample_dirname: str) -> Path:
+    def sample_dir(self, sample_dirname: str | Path) -> Path:
         """Get sample experiment directory path."""
         return self.exp_dir() / sample_dirname
 

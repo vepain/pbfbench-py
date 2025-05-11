@@ -33,7 +33,7 @@ def path_to_str(path: Path | str) -> str:
 def is_a_command(bash_line: str) -> bool:
     """Check if bash line is a command."""
     lstrip = bash_line.lstrip()
-    return len(lstrip) > 0 and lstrip[0] != "#"
+    return len(lstrip) > 0 and lstrip[0] != "#" and lstrip[-1] != "\\"
 
 
 def manage_error_and_exit(bash_line: str, exit_cmd: str) -> str:

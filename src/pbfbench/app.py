@@ -11,6 +11,7 @@ import typer
 
 import pbfbench.doc.app as doc_app
 import pbfbench.help.app as help_app
+import pbfbench.topics.plasmidness.app as plasmidness_app
 import pbfbench.topics.seeds.app as seeds_app
 
 
@@ -44,5 +45,5 @@ for app in (doc_app.APP, help_app.APP):
 #
 # Topics
 #
-for app in (seeds_app.APP,):
+for app in (seeds_app.APP, plasmidness_app.APP):
     APP.add_typer(app, rich_help_panel=CommandCategories.TOPICS)

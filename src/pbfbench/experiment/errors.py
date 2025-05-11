@@ -96,15 +96,35 @@ class ErrorsTSVWriter:
     @contextmanager
     def open(cls, file: Path, mode: Literal["w", "a"]) -> Generator[ErrorsTSVWriter]:
         """Open TSV file for writing."""
+        match mode:
+            case "w":
+                columns_index = None
+            case "a":
+                if file.exists():
+                    with ErrorsTSVReader.open(file) as reader:
+                        columns_index = reader.columns_index()
+                else:
+                    columns_index = None
         with file.open(mode) as f_out:
-            reader = ErrorsTSVWriter(file, csv.writer(f_out, delimiter="\t"))
-            yield reader
+            writer = ErrorsTSVWriter(
+                file,
+                csv.writer(f_out, delimiter="\t"),
+                columns_index,
+            )
+            yield writer
 
-    def __init__(self, file: Path, csv_writer: _csv._writer) -> None:
+    def __init__(
+        self,
+        file: Path,
+        csv_writer: _csv._writer,
+        columns_index: dict[str, int] | None,
+    ) -> None:
         """Initialize object."""
         self.__file = file
         self.__csv_writer = csv_writer
-        self.__columns_index = self.__write_header()
+        self.__columns_index = (
+            columns_index if columns_index is not None else self.__write_header()
+        )
 
     def file(self) -> Path:
         """Get TSV output file path."""
