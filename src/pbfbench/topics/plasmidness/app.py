@@ -8,5 +8,9 @@ from __future__ import annotations
 import pbfbench.abc.topic.app as abc_topic_app
 import pbfbench.topics.plasmidness.description as plasmidness_desc
 import pbfbench.topics.plasmidness.plasclass.app as plasclass_app
+import pbfbench.topics.plasmidness.plasgraphtwo.app as plasgraphtwo_app
 
-APP = abc_topic_app.build_application(plasmidness_desc.DESCRIPTION, [plasclass_app.APP])
+APP = abc_topic_app.build_application(
+    plasmidness_desc.DESCRIPTION,
+    [plasclass_app.APP, plasgraphtwo_app.APP],
+)
