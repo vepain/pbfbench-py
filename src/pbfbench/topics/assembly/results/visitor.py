@@ -58,11 +58,11 @@ class AsmGraphGZ(topic_res_visitors.Original):
             case asm_visitor.Tools.UNICYCLER:
                 return asm_res_items.AsmGraphGZ
             case asm_visitor.Tools.SKESA:
-                return asm_res_items.AsmGraphGZ
-            case asm_visitor.Tools.GFA_CONNECTOR:
                 _err_msg = (
-                    f"{asm_visitor.Tools.GFA_CONNECTOR} tool"
+                    f"{asm_visitor.Tools.SKESA} tool"
                     " does not provide a GFA file"
-                    f" but {asm_visitor.Tools.SKESA} does"
+                    f" but {asm_visitor.Tools.GFA_CONNECTOR} does"
                 )
                 raise ValueError(_err_msg)
+            case asm_visitor.Tools.GFA_CONNECTOR:
+                return asm_res_items.AsmGraphGZ
