@@ -41,6 +41,9 @@ def build_application[ArgNames: abc_tool_config.Names](
     return app
 
 
+# TODO add init app: do not remove existing experiments because it adds  only new files
+
+
 class Arguments:
     """Tool aaplication arguments."""
 
