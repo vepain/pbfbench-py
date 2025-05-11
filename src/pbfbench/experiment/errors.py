@@ -100,8 +100,11 @@ class ErrorsTSVWriter:
             case "w":
                 columns_index = None
             case "a":
-                with ErrorsTSVReader.open(file) as reader:
-                    columns_index = reader.columns_index()
+                if file.exists():
+                    with ErrorsTSVReader.open(file) as reader:
+                        columns_index = reader.columns_index()
+                else:
+                    columns_index = None
         with file.open(mode) as f_out:
             writer = ErrorsTSVWriter(
                 file,
