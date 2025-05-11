@@ -7,7 +7,7 @@ from typing import final
 import pbfbench.abc.tool.shell as abc_tool_shell
 import pbfbench.shell as sh
 import pbfbench.topics.assembly.results.items as asm_res_items
-import pbfbench.topics.plasmidness.plasgraphtwo.results as plasgraphtwo_res
+import pbfbench.topics.plasmidness.plasgraph2.results as plasgraphtwo_res
 
 
 @final

@@ -6,6 +6,6 @@
 from __future__ import annotations
 
 import pbfbench.abc.tool.app as abc_tool_app
-import pbfbench.topics.plasmidness.plasgraphtwo.visitor as plasgraphtwo_visitor
+import pbfbench.topics.plasmidness.plasgraph2.visitor as plasgraphtwo_visitor
 
 APP = abc_tool_app.build_application(plasgraphtwo_visitor.CONNECTOR)

@@ -5,9 +5,9 @@ from typing import final
 import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.topics.assembly.results.visitor as asm_res_visitor
 import pbfbench.topics.assembly.visitor as asm_visitor
-import pbfbench.topics.plasmidness.plasgraphtwo.config as plasgraphtwo_cfg
-import pbfbench.topics.plasmidness.plasgraphtwo.description as plasgraphtwo_desc
-import pbfbench.topics.plasmidness.plasgraphtwo.shell as plasgraphtwo_sh
+import pbfbench.topics.plasmidness.plasgraph2.config as plasgraphtwo_cfg
+import pbfbench.topics.plasmidness.plasgraph2.description as plasgraphtwo_desc
+import pbfbench.topics.plasmidness.plasgraph2.shell as plasgraphtwo_sh
 
 
 @final
