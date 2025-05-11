@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Self
@@ -12,6 +13,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
     import pbfbench.abc.topic.visitor as abc_topic_visitor
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class Names(StrEnum):
@@ -35,12 +38,19 @@ class Arguments[N: Names](YAMLInterface, ABC):
     @classmethod
     def from_yaml_load(cls, pyyaml_obj: dict[str, list[str]]) -> Self:
         """Convert dict to object."""
-        return cls(
-            {
-                cls.names_type()(name): Arg.from_yaml_load(yaml_data)
-                for name, yaml_data in pyyaml_obj.items()
-            },
-        )
+        arg_dict: dict[N, Arg] = {}
+        for name_str, yaml_data in pyyaml_obj.items():
+            try:
+                name = cls.names_type()(name_str)
+            except ValueError:
+                _LOGGER.critical(
+                    "Unknown argument name: `%s`. Known names: {%s}",
+                    name_str,
+                    ", ".join(str(name) for name in cls.names_type()),
+                )
+                raise
+            arg_dict[name] = Arg.from_yaml_load(yaml_data)
+        return cls(arg_dict)
 
     def __init__(self, arguments: dict[N, Arg]) -> None:
         self.__arguments = arguments
