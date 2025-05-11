@@ -98,9 +98,9 @@ class StringOpts(YAMLInterface):
     """
 
     @classmethod
-    def from_yaml_load(cls, obj_list: list[str]) -> Self:
+    def from_yaml_load(cls, obj_list: list[str] | None) -> Self:
         """Convert dict to object."""
-        return cls(obj_list)
+        return cls(obj_list if obj_list is not None else [])
 
     def __init__(self, options: Iterable[str]) -> None:
         self.__options = list(options)
