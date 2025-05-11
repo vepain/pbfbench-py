@@ -12,6 +12,10 @@
 * [ ] Add sbatch error status to sample error reasons (except error close env which can be a sample warning status file)
   * [ ] Add list of sample warnings in exp warning tsv file
 
+## Limitations
+
+* [ ] (To document) The environment wrapper logics are not robust for commands with inline comments (do not finish a command with a comment)
+
 ## Features
 
 ### SEEDS Topic
@@ -22,8 +26,8 @@
 
 Both run and result logics
 
-* [ ] PlasClass
-  * [ ] Output file: `plasmid_probabilities.tsv`
+* [x] PlasClass
+  * [x] Output file: `plasmid_probabilities.tsv`
 * [ ] PlasGraph2
 * [ ] RFPlasmid
 * [ ] MLPlasmids (R managment and species name)
