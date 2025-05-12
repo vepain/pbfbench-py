@@ -23,7 +23,7 @@ class ArgBashLinesBuilder[R: abc_topic_res_items.Result](ABC):
     def __init__(
         self,
         input_result: R,
-        work_exp_fs_manager: exp_fs.Manager,
+        work_exp_fs_manager: exp_fs.WorkManager,
     ) -> None:
         """Initialize."""
         self._input_result = input_result
@@ -43,7 +43,7 @@ class ArgBashLinesBuilder[R: abc_topic_res_items.Result](ABC):
         """Get input data sample shell file system manager."""
         return self._input_data_smp_sh_fs_manager
 
-    def work_exp_fs_manager(self) -> exp_fs.Manager:
+    def work_exp_fs_manager(self) -> exp_fs.WorkManager:
         """Get working experiment file system manager."""
         return self._work_exp_fs_manager
 
@@ -93,7 +93,7 @@ class Commands:
         self,
         arg_sh_lines_builders: Iterable[ArgBashLinesBuilder],
         opts_sh_lines_builder: OptionBashLinesBuilder,
-        work_exp_fs_manager: exp_fs.Manager,
+        work_exp_fs_manager: exp_fs.WorkManager,
     ) -> None:
         """Initialize."""
         self._arg_sh_lines_builders = list(arg_sh_lines_builders)
@@ -108,7 +108,7 @@ class Commands:
         """Get options bash lines builder."""
         return self._opts_sh_lines_builder
 
-    def work_exp_fs_manager(self) -> exp_fs.Manager:
+    def work_exp_fs_manager(self) -> exp_fs.WorkManager:
         """Get working experiment file system manager."""
         return self._work_exp_fs_manager
 

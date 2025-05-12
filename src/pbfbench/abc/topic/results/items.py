@@ -18,13 +18,13 @@ class Result(ABC):
         """Get final subcommand."""
         raise NotImplementedError
 
-    def __init__(self, fs_manager: exp_fs.Manager) -> None:
+    def __init__(self, exp_fs_manager: exp_fs.ManagerBase) -> None:
         """Initialize."""
-        self._fs_manager = fs_manager
+        self._exp_fs_manager = exp_fs_manager
 
-    def exp_fs_manager(self) -> exp_fs.Manager:
+    def exp_fs_manager(self) -> exp_fs.ManagerBase:
         """Get file system manager."""
-        return self._fs_manager
+        return self._exp_fs_manager
 
     @abstractmethod
     def check(self, sample_item: smp_items.Item) -> smp_status.Status:
@@ -47,7 +47,9 @@ class Original(Result):
 
     def check(self, sample_item: smp_items.Item) -> smp_status.Status:
         """Check input(s)."""
-        return smp_status.get_status(self._fs_manager.sample_fs_manager(sample_item))
+        return smp_status.get_status(
+            self._exp_fs_manager.sample_fs_manager(sample_item),
+        )
 
     def origin_command(self) -> str:
         """Get original command."""
@@ -70,11 +72,11 @@ class Formatted(Result):
 
     def __init__(
         self,
-        fs_manager: exp_fs.Manager,
+        exp_fs_manager: exp_fs.ManagerBase,
         requesting_tool_description: abc_tool_desc.Description,
     ) -> None:
         """Initialize."""
-        super().__init__(fs_manager)
+        super().__init__(exp_fs_manager)
         self._requesting_tool_description = requesting_tool_description
 
     def requesting_tool_description(self) -> abc_tool_desc.Description:

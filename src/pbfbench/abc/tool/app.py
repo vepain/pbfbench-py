@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Annotated
 
@@ -15,7 +16,9 @@ import pbfbench.abc.app as abc_app
 import pbfbench.abc.tool.config as abc_tool_config
 import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.abc.topic.visitor as abc_topic_visitor
+import pbfbench.experiment.checks as exp_checks
 import pbfbench.experiment.config as exp_cfg
+import pbfbench.experiment.file_system as exp_fs
 import pbfbench.experiment.run as exp_run
 import pbfbench.slurm.config as slurm_cfg
 from pbfbench import root_logging
@@ -39,6 +42,11 @@ def build_application[ArgNames: abc_tool_config.Names](
     app.command(name=config_app.NAME, help=config_app.help())(config_app.main)
     # TODO add check when ready
     return app
+
+
+def add_init(app: typer.Typer, init_app: InitAPP) -> None:
+    """Build topic init application."""
+    app.command(name=init_app.NAME, help=init_app.help())(init_app.main)
 
 
 # TODO add init app: do not remove existing experiments because it adds  only new files
@@ -84,67 +92,42 @@ class RunApp[ArgNames: abc_tool_config.Names]:
     ) -> None:
         """Run tool."""
         root_logging.init_logger(_LOGGER, "Run tool", debug)
-        #
-        # Resolve absolute paths
-        #
-        data_dir = data_dir.resolve()
-        work_dir = work_dir.resolve()
-        exp_config_yaml = exp_config_yaml.resolve()
+
+        (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
+            _check_experiment_success(
+                data_dir,
+                work_dir,
+                exp_config_yaml,
+                self.__connector,
+            )
+        )
         #
         # Use the tool connector to run the experiment
         #
-        match result := exp_run.run_experiment_on_samples(
-            data_dir,
-            work_dir,
-            exp_config_yaml,
+        run_stats = exp_run.run_experiment_on_samples(
+            data_exp_fs_manager,
+            work_exp_fs_manager,
+            exp_config,
             self.__connector,
-        ):
-            case exp_run.RunStats():
-                _number_of_running_samples = result.number_of_samples_to_run() - len(
-                    result.samples_with_missing_inputs(),
-                )
-                _LOGGER.info(
-                    "Total number of samples: %d\n"
-                    "* Number of already done samples: %d\n"
-                    "* Samples with missing inputs: %d\n"
-                    "* Number of running samples: %d\n"
-                    "  * Number of successfully run samples: %d\n"
-                    "  * Number of samples which exit with errors: %d\n",
-                    result.number_of_samples(),
-                    result.number_of_samples() - result.number_of_samples_to_run(),
-                    len(result.samples_with_missing_inputs()),
-                    _number_of_running_samples,
-                    _number_of_running_samples - len(result.samples_with_errors()),
-                    len(result.samples_with_errors()),
-                )
-                typer.Exit(0)
-            case exp_run.ErrorStatus.NO_WRITE_ACCESS:
-                _LOGGER.info("Please check you have the write access.")
-                typer.Exit(1)
-            case exp_run.ErrorStatus.NO_READ_ACCESS:
-                _LOGGER.info("Please check you have the read access.")
-                typer.Exit(1)
-            case exp_run.ErrorStatus.NO_TOOL_ENV_WRAPPER_SCRIPT:
-                _LOGGER.critical(
-                    "The experiment in the data directory"
-                    " does not have the tool environment wrapper script.",
-                )
-                typer.Exit(1)
-            case exp_run.ErrorStatus.WRONG_EXPERIMENT_CONFIG_SYNTAX:
-                _LOGGER.critical(
-                    "The experiment configuration file has a wrong syntax.",
-                )
-                typer.Exit(1)
-            case exp_run.ErrorStatus.WRONG_ARGUMENTS:
-                _LOGGER.critical(
-                    "The experiment configuration file has wrong arguments.",
-                )
-                typer.Exit(1)
-            case exp_run.ErrorStatus.DIFFERENT_EXPERIMENT:
-                _LOGGER.critical(
-                    "The experiment in the data directory"
-                    " does not have the same configuration of the current experiment.",
-                )
+        )
+        _number_of_running_samples = run_stats.number_of_samples_to_run() - len(
+            run_stats.samples_with_missing_inputs(),
+        )
+        _LOGGER.info(
+            "Total number of samples: %d\n"
+            "* Number of already done samples: %d\n"
+            "* Samples with missing inputs: %d\n"
+            "* Number of running samples: %d\n"
+            "  * Number of successfully run samples: %d\n"
+            "  * Number of samples which exit with errors: %d\n",
+            run_stats.number_of_samples(),
+            run_stats.number_of_samples() - run_stats.number_of_samples_to_run(),
+            len(run_stats.samples_with_missing_inputs()),
+            _number_of_running_samples,
+            _number_of_running_samples - len(run_stats.samples_with_errors()),
+            len(run_stats.samples_with_errors()),
+        )
+        raise typer.Exit(0)
 
 
 class ConfigApp[ArgsNames: abc_tool_config.Names]:
@@ -218,3 +201,82 @@ class ConfigApp[ArgsNames: abc_tool_config.Names]:
                 "$input_experiment_name",
             )
         return tool_args_type(args)
+
+
+class InitAPP[ArgNames: abc_tool_config.Names](ABC):
+    """Init application."""
+
+    NAME = abc_app.FinalCommands.INIT
+
+    def __init__(self, connector: abc_tool_visitor.Connector[ArgNames]) -> None:
+        """Initialize."""
+        self.__connector = connector
+
+    def connector(self) -> abc_tool_visitor.Connector[ArgNames]:
+        """Get connector."""
+        return self.__connector
+
+    def help(self) -> str:
+        """Get help string."""
+        return f"Initialize inputs for {self.__connector.description().name()} tool."
+
+    def main(
+        self,
+        data_dir: Annotated[Path, Arguments.DATA_DIR],
+        work_dir: Annotated[Path, Arguments.WORK_DIR],
+        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
+        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
+    ) -> None:
+        """Init tool."""
+        root_logging.init_logger(_LOGGER, "Initialize inputs for the tool", debug)
+
+        (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
+            _check_experiment_success(
+                data_dir,
+                work_dir,
+                exp_config_yaml,
+                self.__connector,
+            )
+        )
+
+        self._init(data_exp_fs_manager, work_exp_fs_manager, exp_config)
+
+    @abstractmethod
+    def _init(
+        self,
+        data_exp_fs_manager: exp_fs.DataManager,
+        work_exp_fs_manager: exp_fs.WorkManager,
+        config: exp_cfg.Config,
+    ) -> None:
+        """Init tool."""
+        raise NotImplementedError
+
+
+def _check_experiment_success(
+    data_dir: Path,
+    work_dir: Path,
+    exp_config_yaml: Path,
+    tool_connector: abc_tool_visitor.Connector,
+) -> tuple[exp_fs.DataManager, exp_fs.WorkManager, exp_cfg.Config]:
+    #
+    # Resolve absolute paths
+    #
+    data_dir = data_dir.resolve()
+    work_dir = work_dir.resolve()
+    exp_config_yaml = exp_config_yaml.resolve()
+
+    match check_result := exp_checks.check_experiment(
+        data_dir,
+        work_dir,
+        exp_config_yaml,
+        tool_connector,
+    ):
+        case exp_checks.OK():
+            return (
+                check_result.data_exp_fs_manager(),
+                check_result.work_exp_fs_manager(),
+                check_result.exp_config(),
+            )
+        case exp_checks.Errors():
+            _LOGGER.critical("The experiment checkers found errors")
+            raise typer.Exit(1)

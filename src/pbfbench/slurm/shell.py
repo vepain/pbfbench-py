@@ -48,27 +48,27 @@ class SbatchCommentLinesBuilder:
         cls,
         slurm_config: slurm_cfg.Config,
         samples_to_run_indices: Iterable[int],
-        work_fs_manager: exp_fs.Manager,
+        work_exp_fs_manager: exp_fs.WorkManager,
     ) -> Iterator[str]:
         """Iterate over the sbatch comment lines."""
         return (
             f"{cls.COMMENT} {line}"
             for line in chain(
-                cls._job_name_lines(work_fs_manager),
+                cls._job_name_lines(work_exp_fs_manager),
                 iter(slurm_config),
                 cls._job_array_lines(samples_to_run_indices),
-                cls._sbatch_option_log_lines(work_fs_manager),
+                cls._sbatch_option_log_lines(work_exp_fs_manager),
             )
         )
 
     @classmethod
-    def _job_name_lines(cls, work_fs_manager: exp_fs.Manager) -> Iterator[str]:
+    def _job_name_lines(cls, work_exp_fs_manager: exp_fs.WorkManager) -> Iterator[str]:
         """Iterate over the job name lines."""
         job_name = "_".join(
             [
-                work_fs_manager.tool_description().topic().name(),
-                work_fs_manager.tool_description().name(),
-                work_fs_manager.experiment_name(),
+                work_exp_fs_manager.tool_description().topic().name(),
+                work_exp_fs_manager.tool_description().name(),
+                work_exp_fs_manager.experiment_name(),
             ],
         )
         yield f"--job-name={job_name}"
@@ -82,10 +82,13 @@ class SbatchCommentLinesBuilder:
         yield array_job_str
 
     @classmethod
-    def _sbatch_option_log_lines(cls, work_fs_manager: exp_fs.Manager) -> Iterator[str]:
+    def _sbatch_option_log_lines(
+        cls,
+        work_exp_fs_manager: exp_fs.WorkManager,
+    ) -> Iterator[str]:
         """Iterate over the sbatch log option lines."""
-        yield f"--output={work_fs_manager.sbatch_out_file(cls.JOB_ID)}"
-        yield f"--error={work_fs_manager.sbatch_err_file(cls.JOB_ID)}"
+        yield f"--output={work_exp_fs_manager.sbatch_out_file(cls.JOB_ID)}"
+        yield f"--error={work_exp_fs_manager.sbatch_err_file(cls.JOB_ID)}"
 
 
 class ExitFunctionLinesBuilder:
@@ -97,24 +100,24 @@ class ExitFunctionLinesBuilder:
     EXIT_END_FN_NAME = "exit_end"
 
     @classmethod
-    def lines(cls, work_fs_manager: exp_fs.Manager) -> Iterator[str]:
+    def lines(cls, work_exp_fs_manager: exp_fs.WorkManager) -> Iterator[str]:
         """Iterate over bash lines defining the exit functions."""
         yield from chain(
             cls._err_fn_lines(
                 cls.EXIT_INIT_ENV_ERROR_FN_NAME,
-                work_fs_manager.sbatch_init_env_error_file(SLURM_JOB_ID_FROM_VARS),
+                work_exp_fs_manager.sbatch_init_env_error_file(SLURM_JOB_ID_FROM_VARS),
             ),
             cls._err_fn_lines(
                 cls.EXIT_COMMAND_ERROR_FN_NAME,
-                work_fs_manager.sbatch_command_error_file(SLURM_JOB_ID_FROM_VARS),
+                work_exp_fs_manager.sbatch_command_error_file(SLURM_JOB_ID_FROM_VARS),
             ),
             cls._err_fn_lines(
                 cls.EXIT_CLOSE_ENV_ERROR_FN_NAME,
-                work_fs_manager.sbatch_close_env_error_file(SLURM_JOB_ID_FROM_VARS),
+                work_exp_fs_manager.sbatch_close_env_error_file(SLURM_JOB_ID_FROM_VARS),
             ),
             cls._ok_fn_lines(
                 cls.EXIT_END_FN_NAME,
-                work_fs_manager.sbatch_end_file(SLURM_JOB_ID_FROM_VARS),
+                work_exp_fs_manager.sbatch_end_file(SLURM_JOB_ID_FROM_VARS),
             ),
         )
 

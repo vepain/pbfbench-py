@@ -24,6 +24,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [Unreleased] - yyyy-mm-dd
+
+### Added
+
+* Each experiment is associated with a date, writen in a file `EXP_DIR/date.txt`
+
+### Changed
+
+* Precise `DataManager` and `WorkManager` classes for experiment file system managers
+* Refactor `run` app functions to extract common parts with `init` app functions
+
 ## [0.3.0] - 2025-05-11
 
 ### Added

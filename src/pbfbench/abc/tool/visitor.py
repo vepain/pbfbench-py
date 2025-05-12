@@ -60,20 +60,24 @@ class ArgumentPath[
 
     def arg_to_checkable_input(
         self,
-        data_fs_manager: exp_fs.Manager,
+        data_exp_fs_manager: exp_fs.DataManager,
         arg: abc_tool_config.Arg,
     ) -> R:
         """Convert argument to input."""
         tool = self._topic_tools(arg.tool_name())
         exp_name = arg.exp_name()
         return self._result_visitor.result_builder_from_tool(tool)(
-            exp_fs.Manager(data_fs_manager.root_dir(), tool.to_description(), exp_name),
+            exp_fs.WorkManager(
+                data_exp_fs_manager.root_dir(),
+                tool.to_description(),
+                exp_name,
+            ),
         )
 
     def input_to_sh_lines_builder(
         self,
         input_result: R,
-        work_exp_fs_manager: exp_fs.Manager,
+        work_exp_fs_manager: exp_fs.WorkManager,
     ) -> abc_tool_shell.ArgBashLinesBuilder[R]:
         """Convert input to shell lines builder."""
         return self._sh_lines_builder_type(
@@ -156,7 +160,7 @@ class Connector[ArgNames: abc_tool_config.Names]:
     def config_to_inputs(
         self,
         config: exp_cfg.Config[ArgNames],
-        data_fs_manager: exp_fs.Manager,
+        data_exp_fs_manager: exp_fs.DataManager,
     ) -> dict[ArgNames, abc_topic_res_items.Result]:
         """Convert config to inputs."""
         tool_config: abc_tool_config.Config = config.tool_configs()
@@ -164,7 +168,7 @@ class Connector[ArgNames: abc_tool_config.Names]:
         names_with_results: dict[ArgNames, abc_topic_res_items.Result] = {}
         for name, arg_path in self._arg_names_and_paths.items():
             result: abc_topic_res_items.Result = arg_path.arg_to_checkable_input(
-                data_fs_manager,
+                data_exp_fs_manager,
                 arguments[name],
             )
             names_with_results[name] = result
@@ -174,7 +178,7 @@ class Connector[ArgNames: abc_tool_config.Names]:
         self,
         config: exp_cfg.Config[ArgNames],
         names_to_input_results: dict[ArgNames, abc_topic_res_items.Result],
-        work_exp_fs_manager: exp_fs.Manager,
+        work_exp_fs_manager: exp_fs.WorkManager,
     ) -> abc_tool_shell.Commands:
         """Convert inputs to commands."""
         tool_config: abc_tool_config.Config = config.tool_configs()

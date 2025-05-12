@@ -16,4 +16,4 @@ class PlasmidProbabilities(topic_res_items.Original):
 
     def csv(self, sample_dirname: str | Path) -> Path:
         """Get plasmid probabilities CSV file."""
-        return self._fs_manager.sample_dir(sample_dirname) / self.CSV_NAME
+        return self._exp_fs_manager.sample_dir(sample_dirname) / self.CSV_NAME

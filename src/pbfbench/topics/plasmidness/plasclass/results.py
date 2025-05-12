@@ -16,4 +16,4 @@ class PlasmidProbabilities(topic_res_items.Original):
 
     def tsv(self, sample_dirname: str | Path) -> Path:
         """Get plasmid probabilities TSV file."""
-        return self._fs_manager.sample_dir(sample_dirname) / self.TSV_NAME
+        return self._exp_fs_manager.sample_dir(sample_dirname) / self.TSV_NAME

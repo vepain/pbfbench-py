@@ -21,8 +21,9 @@ DATA_DIR/WORK_DIR
 │       │   ├── scripts  # Slurm run scripts
 │       │   │   ├── YYYY-MM-DD_HH-MM-SS_sbatch.sh  # Slurm run script according to the horodatage
 │       │   │   └── YYYY-MM-DD_HH-MM-SS_command.sh  # srun commands without init and close tool environment processes
-│       │   ├── errors.tsv  # Lists of samples with error (missing inputs or error during slurm run)
-│       │   └── config.yaml  # Configurations of the experiment on the tool for the topic
+│       │   ├── config.yaml  # Configurations of the experiment on the tool for the topic
+│       │   ├── date.txt  # File containing the string corresponding to the last experiment date
+│       │   └── errors.tsv  # Lists of samples with error (missing inputs or error during slurm run)
 │       └── env_wrapper.sh  # Tool environment wrapper script (only in DATA_DIR tree)
 └── samples.tsv  # Only in DATA_DIR
 ```

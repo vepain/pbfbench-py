@@ -14,14 +14,14 @@ class Status(StrEnum):
     END = "end"
 
 
-def get_status(work_fs_manager: exp_fs.Manager, job_id: str) -> Status | None:
+def get_status(work_exp_fs_manager: exp_fs.WorkManager, job_id: str) -> Status | None:
     """Get sample experiment status."""
-    if work_fs_manager.sbatch_init_env_error_file(job_id).exists():
+    if work_exp_fs_manager.sbatch_init_env_error_file(job_id).exists():
         return Status.INIT_ENV_ERROR
-    if work_fs_manager.sbatch_command_error_file(job_id).exists():
+    if work_exp_fs_manager.sbatch_command_error_file(job_id).exists():
         return Status.COMMAND_ERROR
-    if work_fs_manager.sbatch_close_env_error_file(job_id).exists():
+    if work_exp_fs_manager.sbatch_close_env_error_file(job_id).exists():
         return Status.CLOSE_ENV_ERROR
-    if work_fs_manager.sbatch_end_file(job_id).exists():
+    if work_exp_fs_manager.sbatch_end_file(job_id).exists():
         return Status.END
     return None

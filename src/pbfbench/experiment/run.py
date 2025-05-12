@@ -6,7 +6,6 @@ import logging
 import shutil
 import subprocess
 import time
-from enum import StrEnum
 from typing import TYPE_CHECKING
 
 import rich.progress as rich_prog
@@ -14,10 +13,10 @@ import rich.progress as rich_prog
 import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.abc.topic.results.items as abc_topic_res_items
-import pbfbench.experiment.checks as exp_checks
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.errors as exp_errors
 import pbfbench.experiment.file_system as exp_fs
+import pbfbench.experiment.iter as exp_iter
 import pbfbench.experiment.shell as exp_shell
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.status as smp_status
@@ -27,7 +26,6 @@ from pbfbench import root_logging, subprocess_lib
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from pathlib import Path
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,7 +35,7 @@ class RunStats:
     """Experiment run stats."""
 
     @classmethod
-    def new(cls, data_exp_fs_manager: exp_fs.Manager) -> RunStats:
+    def new(cls, data_exp_fs_manager: exp_fs.DataManager) -> RunStats:
         """Create new run stats."""
         with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
             number_of_samples = sum(1 for _ in smp_tsv_in.iter_row_numbered_items())
@@ -83,57 +81,33 @@ class RunStats:
         self.__number_of_samples_to_run += addition
 
 
-class ErrorStatus(StrEnum):
-    """Experiment error status."""
-
-    NO_WRITE_ACCESS = "no_write_access"
-    NO_READ_ACCESS = "no_read_access"
-    NO_TOOL_ENV_WRAPPER_SCRIPT = "no_tool_env_wrapper_script"
-    WRONG_EXPERIMENT_CONFIG_SYNTAX = "wrong_experiment_config_syntax"
-    WRONG_ARGUMENTS = "wrong_arguments"
-    DIFFERENT_EXPERIMENT = "different_experiment"
-
-
-type Status = RunStats | ErrorStatus
-
-
 def run_experiment_on_samples(
-    data_dir: Path,
-    working_dir: Path,
-    exp_config_yaml: Path,
+    data_exp_fs_manager: exp_fs.DataManager,
+    work_exp_fs_manager: exp_fs.WorkManager,
+    exp_config: exp_cfg.Config,
     tool_connector: abc_tool_visitor.Connector,
-) -> Status:
+) -> RunStats:
     """Run the experiment."""
-    rw_check_result = _check_read_write_access(data_dir, working_dir)
-    if rw_check_result is not None:
-        return rw_check_result
+    # REFACTOR use markdon print and do better app prints
 
-    try:
-        exp_config = tool_connector.read_config(exp_config_yaml)
-    except Exception:  # noqa: BLE001
-        return ErrorStatus.WRONG_EXPERIMENT_CONFIG_SYNTAX
+    _LOGGER.info(
+        "Running experiment `%s` with tool `%s` for the topic `%s`.",
+        exp_config.name(),
+        tool_connector.description().name(),
+        tool_connector.description().topic().name(),
+    )
 
-    _log_config(exp_config, tool_connector)
-
-    if not exp_checks.check_config_inputs(exp_config, tool_connector):
-        return ErrorStatus.WRONG_ARGUMENTS
-
-    match preparation_result := _prepare_experiment_file_systems(
-        data_dir,
-        working_dir,
-        tool_connector,
+    _init_experiment_file_systems(
+        data_exp_fs_manager,
+        work_exp_fs_manager,
         exp_config,
-    ):
-        case ErrorStatus():
-            return preparation_result
-        case _:
-            data_exp_fs_manager, work_exp_fs_manager = preparation_result
+    )
 
     run_stats = RunStats.new(data_exp_fs_manager)
 
     samples_to_run = _get_samples_to_run(data_exp_fs_manager, run_stats)
 
-    _prepare_sample_directories(samples_to_run, work_exp_fs_manager)
+    _init_sample_directories(samples_to_run, work_exp_fs_manager)
 
     (
         checked_inputs_samples_to_run,
@@ -201,96 +175,30 @@ def run_experiment_on_samples(
     return run_stats
 
 
-def _check_read_write_access(data_dir: Path, working_dir: Path) -> None | ErrorStatus:
-    """Check read and write access."""
-    #
-    # Check read/write access to data_dir and working_dir
-    #
-    try:
-        working_dir.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        _LOGGER.critical("No write access to %s", working_dir)
-        return ErrorStatus.NO_WRITE_ACCESS
-
-    for test_dir in (data_dir, working_dir):
-        file_test = test_dir / "test_read_write.txt"
-        try:
-            file_test.write_text("test")
-        except OSError:
-            _LOGGER.critical("No write access to %s", test_dir)
-            return ErrorStatus.NO_WRITE_ACCESS
-        try:
-            file_test.read_text()
-        except OSError:
-            _LOGGER.critical("No read access to %s", test_dir)
-            file_test.unlink()
-            return ErrorStatus.NO_READ_ACCESS
-        file_test.unlink()
-
-    return None
-
-
-def _log_config(
-    exp_config: exp_cfg.Config,
-    tool_connector: abc_tool_visitor.Connector,
-) -> None:
-    """Log config."""
-    _LOGGER.info(
-        "Running experiment `%s` with tool `%s` for the topic `%s`.",
-        exp_config.name(),
-        tool_connector.description().name(),
-        tool_connector.description().topic().name(),
-    )
-    _LOGGER.debug("Experiment config:\n%s", exp_config.to_yaml_dump())
-
-
-def _prepare_experiment_file_systems[C: exp_cfg.Config](
-    data_dir: Path,
-    working_dir: Path,
-    tool_connector: abc_tool_visitor.Connector,
+def _init_experiment_file_systems[C: exp_cfg.Config](
+    data_exp_fs_manager: exp_fs.DataManager,
+    work_exp_fs_manager: exp_fs.WorkManager,
     exp_config: C,
-) -> ErrorStatus | tuple[exp_fs.Manager, exp_fs.Manager]:
+) -> None:
     """Prepare experiment file systems."""
-    data_exp_fs_manager, work_exp_fs_manager = exp_fs.data_and_working_managers(
-        data_dir,
-        working_dir,
-        tool_connector.description(),
-        exp_config.name(),
-    )
-
-    if not data_exp_fs_manager.tool_env_script_sh().exists():
-        return ErrorStatus.NO_TOOL_ENV_WRAPPER_SCRIPT
-
-    if exp_checks.exists(data_exp_fs_manager):
-        same_exp_result = exp_checks.is_same_experiment(data_exp_fs_manager, exp_config)
-        if same_exp_result is not None:
-            match same_exp_result:
-                case exp_checks.SameExperimentError.DIFFERENT_SYNTAX:
-                    return ErrorStatus.WRONG_EXPERIMENT_CONFIG_SYNTAX
-                case exp_checks.SameExperimentError.NOT_SAME:
-                    return ErrorStatus.DIFFERENT_EXPERIMENT
-    else:
-        data_exp_fs_manager.exp_dir().mkdir(parents=True, exist_ok=True)
-        exp_config.to_yaml(data_exp_fs_manager.config_yaml())
+    data_exp_fs_manager.exp_dir().mkdir(parents=True, exist_ok=True)
 
     shutil.rmtree(work_exp_fs_manager.exp_dir(), ignore_errors=True)
+
     work_exp_fs_manager.exp_dir().mkdir(parents=True, exist_ok=True)
+    exp_fs.write_formatted_exp_date(work_exp_fs_manager)
     exp_config.to_yaml(work_exp_fs_manager.config_yaml())
-
-    for fs_manager in (data_exp_fs_manager, work_exp_fs_manager):
-        fs_manager.scripts_dir().mkdir(parents=True, exist_ok=True)
-
-    return data_exp_fs_manager, work_exp_fs_manager
+    work_exp_fs_manager.scripts_dir().mkdir(parents=True, exist_ok=True)
 
 
 def _get_samples_to_run(
-    data_exp_fs_manager: exp_fs.Manager,
+    data_exp_fs_manager: exp_fs.DataManager,
     run_stats: RunStats,
 ) -> list[smp_fs.RowNumberedItem]:
     """Get samples to run."""
     with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
         samples_to_run = list(
-            exp_checks.samples_with_error_status(
+            exp_iter.samples_with_error_status(
                 data_exp_fs_manager,
                 smp_tsv_in.iter_row_numbered_items(),
             ),
@@ -302,9 +210,9 @@ def _get_samples_to_run(
     return samples_to_run
 
 
-def _prepare_sample_directories(
+def _init_sample_directories(
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
-    work_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.WorkManager,
 ) -> None:
     """Prepare sample directories."""
     for run_sample in samples_to_run:
@@ -316,8 +224,8 @@ def _filter_missing_inputs(
     tool_connector: abc_tool_visitor.Connector,
     exp_config: exp_cfg.Config,
     samples_to_run: list[smp_fs.RowNumberedItem],
-    data_exp_fs_manager: exp_fs.Manager,
-    work_exp_fs_manager: exp_fs.Manager,
+    data_exp_fs_manager: exp_fs.DataManager,
+    work_exp_fs_manager: exp_fs.WorkManager,
 ) -> tuple[
     list[smp_fs.RowNumberedItem],
     list[smp_fs.RowNumberedItem],
@@ -330,7 +238,7 @@ def _filter_missing_inputs(
     )
 
     checked_inputs_samples_to_run, samples_with_missing_inputs = (
-        exp_checks.checked_input_samples_to_run(
+        exp_iter.checked_input_samples_to_run(
             work_exp_fs_manager,
             samples_to_run,
             names_to_input_results,
@@ -346,7 +254,7 @@ def _filter_missing_inputs(
 
 def _write_experiment_missing_inputs(
     samples_with_missing_inputs: list[smp_fs.RowNumberedItem],
-    work_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.WorkManager,
     run_stats: RunStats,
 ) -> None:
     """Write experiment missing inputs."""
@@ -376,8 +284,8 @@ def _create_and_run_sbatch_script(  # noqa: PLR0913
     names_to_input_results: dict[abc_tool_cfg.Names, abc_topic_res_items.Result],
     exp_config: exp_cfg.Config,
     checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
-    data_exp_fs_manager: exp_fs.Manager,
-    work_exp_fs_manager: exp_fs.Manager,
+    data_exp_fs_manager: exp_fs.DataManager,
+    work_exp_fs_manager: exp_fs.WorkManager,
 ) -> None:
     """Run sbatch script."""
     work_exp_fs_manager.tmp_slurm_logs_dir().mkdir(parents=True, exist_ok=True)
@@ -406,7 +314,7 @@ def _create_and_run_sbatch_script(  # noqa: PLR0913
 
 def _wait_all_job_finish(
     checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
-    work_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.WorkManager,
 ) -> list[tuple[smp_fs.RowNumberedItem, slurm_status.Status, str]]:
     """Wait all job finish."""
     array_job_id = _get_array_job_id(work_exp_fs_manager)
@@ -449,7 +357,7 @@ def _wait_all_job_finish(
     return run_samples_with_status
 
 
-def _get_array_job_id(work_exp_fs_manager: exp_fs.Manager) -> str:
+def _get_array_job_id(work_exp_fs_manager: exp_fs.WorkManager) -> str:
     """Wait the array job id file is created and extract the array job id."""
     while not work_exp_fs_manager.array_job_id_file().exists():
         time.sleep(10)
@@ -462,7 +370,7 @@ def _manage_all_run_status(
     run_samples_with_status: list[
         tuple[smp_fs.RowNumberedItem, slurm_status.Status, str]
     ],
-    work_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.WorkManager,
     run_stats: RunStats,
 ) -> None:
     """Write experiment errors."""
@@ -511,7 +419,7 @@ def _write_sbatch_stats_and_move_slurm_logs(
     run_samples_with_status: list[
         tuple[smp_fs.RowNumberedItem, slurm_status.Status, str]
     ],
-    work_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.WorkManager,
 ) -> None:
     """Write sbatch stats."""
     for run_sample, _, job_id in run_samples_with_status:
@@ -529,12 +437,27 @@ def _write_sbatch_stats_and_move_slurm_logs(
 
 
 def _move_work_to_data(
-    work_exp_fs_manager: exp_fs.Manager,
-    data_exp_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.WorkManager,
+    data_exp_fs_manager: exp_fs.DataManager,
     samples_to_run: list[smp_fs.RowNumberedItem],
 ) -> None:
     """Move work to data."""
     _LOGGER.info("Moving results to data directory")
+    #
+    # Move experiment configuration if does not yet exists
+    #
+    if not data_exp_fs_manager.config_yaml().exists():
+        shutil.copy(
+            work_exp_fs_manager.config_yaml(),
+            data_exp_fs_manager.config_yaml(),
+        )
+    work_exp_fs_manager.config_yaml().unlink()
+    #
+    # Move experiment date
+    #
+    data_exp_fs_manager.date_txt().unlink(missing_ok=True)
+    shutil.copy(work_exp_fs_manager.date_txt(), data_exp_fs_manager.date_txt())
+    work_exp_fs_manager.date_txt().unlink()
     #
     # Move all run samples dirs
     #
@@ -554,6 +477,7 @@ def _move_work_to_data(
     #
     # Move experiment scripts
     #
+    data_exp_fs_manager.scripts_dir().mkdir(parents=True, exist_ok=True)
     for script_file in (
         work_exp_fs_manager.sbatch_sh_script(),
         work_exp_fs_manager.command_sh_script(),
@@ -561,9 +485,6 @@ def _move_work_to_data(
         if script_file.exists():
             shutil.copy(script_file, data_exp_fs_manager.scripts_dir())
             script_file.unlink()
-
-    if not any(work_exp_fs_manager.scripts_dir().iterdir()):
-        work_exp_fs_manager.scripts_dir().rmdir()
     #
     # Move experiment errors
     #
@@ -575,10 +496,6 @@ def _move_work_to_data(
         )
         work_exp_fs_manager.errors_tsv().unlink()
     #
-    # Remove config yaml from working dir
-    #
-    work_exp_fs_manager.config_yaml().unlink()
-    #
     # Try to remove empty tree
     #
     tree_to_remove = [
@@ -586,6 +503,7 @@ def _move_work_to_data(
         work_exp_fs_manager.topic_dir(),
         work_exp_fs_manager.tool_dir(),
         work_exp_fs_manager.exp_dir(),
+        work_exp_fs_manager.scripts_dir(),
     ]
     last_empty = True
     while tree_to_remove and last_empty:

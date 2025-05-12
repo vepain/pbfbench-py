@@ -8,10 +8,16 @@ from contextlib import contextmanager
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.samples.file_system as smp_fs
+import pbfbench.samples.items as smp_items
 import pbfbench.samples.status as smp_status
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
+_LOGGER = logging.getLogger(__name__)
 if TYPE_CHECKING:
     import _csv
     from collections.abc import Generator, Iterable, Iterator
@@ -215,3 +221,23 @@ def write_sample_missing_inputs(
         sample_fs_manager.missing_inputs_tsv(),
     ) as out_miss_inputs:
         out_miss_inputs.write_missing_inputs(sample_missing_inputs)
+
+
+def sample_list[N: abc_tool_cfg.Names](
+    tool_inputs: dict[N, abc_topic_res_items.Result],
+    sample_item: smp_items.Item,
+) -> list[MissingInput]:
+    """Get a list of missing inputs."""
+    list_missing_inputs: list[MissingInput] = []
+    for arg_name, tool_input in tool_inputs.items():
+        input_status = tool_input.check(sample_item)
+        match input_status:
+            case smp_status.ErrorStatus():
+                list_missing_inputs.append(
+                    MissingInput.from_tool_input(
+                        str(arg_name),
+                        tool_input,
+                        input_status,
+                    ),
+                )
+    return list_missing_inputs
