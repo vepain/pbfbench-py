@@ -37,10 +37,10 @@ class SpeSmpIDLinesBuilder:
         """Give the bash lines defining the species-sample id variable."""
         yield self.SAMPLES_FILE_VAR.set(sh.path_to_str(self.__samples_file))
         yield self.SAMPLE_ID_VAR.set(
-            self.__get_sample_attribute(smp_fs.TSVHeader.SAMPLE_ID),
+            get_sample_attribute(self.__samples_file, smp_fs.TSVHeader.SAMPLE_ID),
         )
         yield self.SPECIES_ID_VAR.set(
-            self.__get_sample_attribute(smp_fs.TSVHeader.SPECIES_ID),
+            get_sample_attribute(self.__samples_file, smp_fs.TSVHeader.SPECIES_ID),
         )
         yield self.SPE_SMP_ID_VAR.set(
             smp_items.fmt_exp_sample_id(
@@ -50,18 +50,17 @@ class SpeSmpIDLinesBuilder:
         )
         yield f"echo {self.SPE_SMP_ID_VAR.eval()}"
 
-    def __get_sample_attribute(self, attribute: smp_fs.TSVHeader) -> str:
-        """Get sample attribute."""
-        attribute_column_index = smp_fs.columns_name_index(self.__samples_file)[
-            attribute
-        ]
-        return (
-            f"$("
-            f'sed -n "{slurm_sh.SLURM_ARRAY_TASK_ID_VAR.eval()}p"'
-            f" {self.SAMPLES_FILE_VAR.eval()}"
-            f" | cut -f{1 + attribute_column_index}"
-            f")"
-        )
+
+def get_sample_attribute(samples_file: Path, attribute: smp_fs.TSVHeader) -> str:
+    """Get sample attribute."""
+    attribute_column_index = smp_fs.columns_name_index(samples_file)[attribute]
+    return (
+        f"$("
+        f'sed -n "{slurm_sh.SLURM_ARRAY_TASK_ID_VAR.eval()}p"'
+        f" {SpeSmpIDLinesBuilder.SAMPLES_FILE_VAR.eval()}"
+        f" | cut -f{1 + attribute_column_index}"
+        f")"
+    )
 
 
 def sample_shell_fs_manager(exp_fs_manager: exp_fs.ManagerBase) -> smp_fs.Manager:
