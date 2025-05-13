@@ -2,7 +2,6 @@
 
 import pandas as pd
 
-import pbfbench.abc.tool.description as abc_tool_desc
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.samples.items as smp_items
 import pbfbench.topics.assembly.results.items as asm_res_items
@@ -16,13 +15,11 @@ import pbfbench.topics.plasmidness.plasgraph2.results as plasgraph2_res
 def convert(
     input_data_exp_fs_manager: exp_fs.DataManager,
     sample_item: smp_items.Item,
-    requesting_tool_desc: abc_tool_desc.Description,
 ) -> None:
     """Convert plasmid probabilities to PBF format."""
     plm_res = plasgraph2_res.PlasmidProbabilities(input_data_exp_fs_manager)
     pbf_plm_res = plm_pbf_in_res.Plasmidness(
         input_data_exp_fs_manager,
-        requesting_tool_desc,
     )
     plasgraph2_exp_cfg = plasgraph2_cfg.ExpConfig.from_yaml(
         input_data_exp_fs_manager.config_yaml(),

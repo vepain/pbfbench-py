@@ -67,7 +67,8 @@ class ArgumentPath[
         """Convert argument to input."""
         tool = self._topic_tools(arg.tool_name())
         exp_name = arg.exp_name()
-        return self._result_visitor.result_builder_from_tool(tool)(
+        result_builder: type[R] = self._result_visitor.result_builder_from_tool(tool)
+        return result_builder(
             exp_fs.WorkManager(
                 data_exp_fs_manager.root_dir(),
                 tool.to_description(),

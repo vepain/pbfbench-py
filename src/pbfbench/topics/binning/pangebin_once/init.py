@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
@@ -90,10 +91,7 @@ def init(
     #
     # Seeds
     #
-    pbf_seeds_res = seeds_pbf_in_res.Seeds(
-        data_exp_fs_manager,
-        tool_connector.description(),
-    )
+    pbf_seeds_res = seeds_pbf_in_res.Seeds(data_exp_fs_manager)
     samples_to_format_the_seeds = _get_samples_to_format_the_inputs(
         data_exp_fs_manager,
         init_stats,
@@ -102,7 +100,8 @@ def init(
     # REFACTOR generalize this but e.g. plasmidness needs also the GFA tool provider
     # REFACTOR to get the subconnector, use instead class attribute for Connector?
     # * Connector must implement abc classmethod to_arg_paths -> Iterable[ArgPath]
-    seeds_arg = exp_config.tool_configs().arguments()[pangebin_once_cfg.Names.SEEDS]
+    _tool_cfg: abc_tool_cfg.ConfigWithArguments = exp_config.tool_configs()
+    seeds_arg = _tool_cfg.arguments()[pangebin_once_cfg.Names.SEEDS]
     seeds_tool = seeds_visitor.Tools(seeds_arg.tool_name())
     seeds_in_data_exp_fs_manager = exp_fs.DataManager(
         data_exp_fs_manager.root_dir(),
@@ -112,15 +111,14 @@ def init(
     match seeds_tool:
         case seeds_visitor.Tools.PLATON:
             convert_function = platon_pbf.convert
-        # REFACTOR force match cover with return
+        # FIXME force match cover with return
 
     for sample in samples_to_format_the_seeds:
-        # REFACTOR not good usage of init stats, think in another way
+        # FIXME not good usage of init stats, think in another way
         init_stats.add_samples_to_format_the_inputs(1)
         convert_function(
             seeds_in_data_exp_fs_manager,
             sample.item(),
-            tool_connector.description(),  # REFACTOR change that to Formatted
         )
 
     #
@@ -128,7 +126,6 @@ def init(
     #
     pbf_plm_res = plm_pbf_in_res.Plasmidness(
         data_exp_fs_manager,
-        tool_connector.description(),
     )
     samples_to_format_the_plm = _get_samples_to_format_the_inputs(
         data_exp_fs_manager,
@@ -136,7 +133,8 @@ def init(
         lambda _, smp: pbf_plm_res.tsv(smp.exp_sample_id()).exists(),
     )
     # REFACTOR same refactor comment as above
-    plm_arg = exp_config.tool_configs().arguments()[pangebin_once_cfg.Names.PLASMIDNESS]
+
+    plm_arg = _tool_cfg.arguments()[pangebin_once_cfg.Names.PLASMIDNESS]
     plm_tool = plm_visitor.Tools(plm_arg.tool_name())
     plm_in_data_exp_fs_manager = exp_fs.DataManager(
         data_exp_fs_manager.root_dir(),
@@ -154,7 +152,6 @@ def init(
         convert_function(
             plm_in_data_exp_fs_manager,
             sample.item(),
-            tool_connector.description(),
         )
 
     return init_stats

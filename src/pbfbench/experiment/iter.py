@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pbfbench.abc.tool.config as abc_tool_cfg
+import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.samples.file_system as smp_fs
@@ -56,6 +57,7 @@ def checked_input_samples_to_run(
     work_exp_fs_manager: exp_fs.WorkManager,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
     tool_inputs: dict[abc_tool_cfg.Names, abc_topic_res_items.Result],
+    connector: abc_tool_visitor.ConnectorWithArguments,
 ) -> tuple[list[smp_fs.RowNumberedItem], list[smp_fs.RowNumberedItem]]:
     """Return row numbered samples to run and those with missing inputs."""
     checked_samples_to_run: list[smp_fs.RowNumberedItem] = []
@@ -65,6 +67,7 @@ def checked_input_samples_to_run(
         sample_missing_inputs = smp_miss_in.sample_list(
             tool_inputs,
             row_numbered_sample.item(),
+            connector,
         )
 
         if sample_missing_inputs:

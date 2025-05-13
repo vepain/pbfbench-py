@@ -340,6 +340,7 @@ def _filter_missing_inputs(
             work_exp_fs_manager,
             samples_to_run,
             names_to_input_results,
+            tool_connector,
         )
     )
 
