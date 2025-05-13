@@ -31,10 +31,10 @@ class ManagerBase(ABC):
         experiment_name: str,
     ) -> None:
         """Initialize."""
-        self.__root_directory_path = root_directory_path
-        self.__tool_description = tool_description
-        self.__experiment_name = experiment_name
-        self.__date_str = self.date_str()
+        self._root_directory_path = root_directory_path
+        self._tool_description = tool_description
+        self._experiment_name = experiment_name
+        self._date_str = self._get_date_str()
 
     @abstractmethod
     def _get_date_str(self) -> str:
@@ -43,34 +43,34 @@ class ManagerBase(ABC):
 
     def tool_description(self) -> abc_tool_desc.Description:
         """Get tool description."""
-        return self.__tool_description
+        return self._tool_description
 
     def experiment_name(self) -> str:
         """Get experiment name."""
-        return self.__experiment_name
+        return self._experiment_name
 
     def root_dir(self) -> Path:
         """Get root directory path."""
-        return self.__root_directory_path
+        return self._root_directory_path
 
     def topic_dir(self) -> Path:
         """Get topic directory path."""
-        return self.__root_directory_path / self.__tool_description.topic().name()
+        return self._root_directory_path / self._tool_description.topic().name()
 
     def tool_dir(self) -> Path:
         """Get tool directory path."""
-        return self.topic_dir() / self.__tool_description.name()
+        return self.topic_dir() / self._tool_description.name()
 
     def exp_dir(self) -> Path:
         """Get experiment directory path."""
-        return self.tool_dir() / self.__experiment_name
+        return self.tool_dir() / self._experiment_name
 
     #
     # Date
     #
     def date_str(self) -> str:
         """Get date string."""
-        return self.__date_str
+        return self._date_str
 
     def date_txt(self) -> Path:
         """Get the file containing the experiment date."""
@@ -96,11 +96,11 @@ class ManagerBase(ABC):
 
     def sbatch_sh_script(self) -> Path:
         """Get the sbatch script file path."""
-        return self.scripts_dir() / f"{self.__date_str}_sbatch.sh"
+        return self.scripts_dir() / f"{self._date_str}_sbatch.sh"
 
     def command_sh_script(self) -> Path:
         """Get the command script file path."""
-        return self.scripts_dir() / f"{self.__date_str}_command.sh"
+        return self.scripts_dir() / f"{self._date_str}_command.sh"
 
     #
     # Sample experiment directories
