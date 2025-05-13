@@ -45,7 +45,7 @@ CONNECTOR = Connector(
         pangebin_once_cfg.Names.PLASMIDNESS: abc_tool_visitor.ArgumentPath(
             plm_visitor.Tools,
             plm_pbf_in_res.PlasmidnessVisitor,
-            pangebin_once_sh.SeedsInputLinesBuilder,
-        ),
+            pangebin_once_sh.PlasmidnessInputLinesBuilder,
+        ),  # FIXME how to verify the link between classes because no errors raised
     },
 )

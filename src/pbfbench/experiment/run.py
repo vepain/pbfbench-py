@@ -405,6 +405,8 @@ def _create_and_run_sbatch_script(
         capture_output=True,
         check=False,
     )
+    # FIXME should check and return Error if failed
+    # TODO convert debug output and error in text
     _LOGGER.debug("%s stdout: %s", slurm_sh.SBATCH_CMD, result.stdout)
     _LOGGER.debug("%s stderr: %s", slurm_sh.SBATCH_CMD, result.stderr)
 

@@ -365,6 +365,9 @@ class InitAPP(ABC):
             )
         )
 
+        # TODO copy config in data dir (already created it seems)
+        # REFACTOR generalize with runApp
+
         self._init(data_exp_fs_manager, work_exp_fs_manager, exp_config)
 
     @abstractmethod
