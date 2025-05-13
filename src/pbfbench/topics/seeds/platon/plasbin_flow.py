@@ -27,5 +27,5 @@ def convert(
         pbf_seeds_res.tsv(sample_item.exp_sample_id()),
         columns=["ID"],
         sep="\t",
-        index=True,
+        index=False,
     )
