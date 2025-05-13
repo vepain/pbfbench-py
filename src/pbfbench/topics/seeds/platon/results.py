@@ -13,7 +13,9 @@ import pbfbench.topics.assembly.results.items as asm_res_items
 class PlasmidStats(topic_res_items.Original):
     """Plasmid stats result."""
 
-    TSV_NAME = asm_res_items.FastaGZ.FASTA_GZ_NAME.with_suffix(".tsv")
+    # TSV name: "assembly.tsv"
+    # (no .fasta because Platon removes it, no .gz because PLaton took a gunzip FASTA)
+    TSV_NAME = asm_res_items.FastaGZ.FASTA_GZ_NAME.with_suffix("").with_suffix(".tsv")
 
     def tsv(self, sample_dirname: str | Path) -> Path:
         """Get TSV file."""
