@@ -25,7 +25,7 @@ def create_run_script(
     work_exp_fs_manager: exp_fs.WorkManager,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
     slurm_cfg: slurm_cfg.Config,
-    tool_cmd: abc_tool_shell.Commands,
+    tool_cmd: abc_tool_shell._CommandsWithOptions,
 ) -> None:
     """Create the run script."""
     tool_bash_env_wrapper = abc_tools_envs.BashEnvWrapper(
@@ -51,7 +51,7 @@ def create_run_script(
 def _write_command_script(
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
-    tool_cmd: abc_tool_shell.Commands,
+    tool_cmd: abc_tool_shell._CommandsWithOptions,
 ) -> None:
     """Write the command script (which `srun` will call)."""
     cmd_sh_path = work_exp_fs_manager.command_sh_script()

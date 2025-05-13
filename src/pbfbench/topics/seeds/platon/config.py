@@ -34,7 +34,7 @@ class Arguments(abc_tool_cfg.Arguments[Names]):
 
 
 @final
-class Config(abc_tool_cfg.Config[Names]):
+class Config(abc_tool_cfg.ConfigWithArguments[Names]):
     """Platon config."""
 
     @classmethod
@@ -44,7 +44,7 @@ class Config(abc_tool_cfg.Config[Names]):
 
 
 @final
-class ExpConfig(exp_cfg.Config[Names]):
+class ExpConfig(exp_cfg.ConfigWithArguments[Config]):
     """Platon experiment config."""
 
     @classmethod

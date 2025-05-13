@@ -6,6 +6,7 @@ import logging
 from enum import StrEnum
 from pathlib import Path
 
+import pbfbench.abc.tool.config as abc_tool_config
 import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
@@ -13,34 +14,51 @@ import pbfbench.experiment.file_system as exp_fs
 _LOGGER = logging.getLogger(__name__)
 
 
-class OK:
+class _OK[ExpConfig: exp_cfg.ConfigWithOptions]:
     """OK status."""
 
     def __init__(
         self,
         data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,
-        exp_config: exp_cfg.Config,
+        exp_config: ExpConfig,
     ) -> None:
-        self.__data_exp_fs_manager = data_exp_fs_manager
-        self.__work_exp_fs_manager = work_exp_fs_manager
-        self.__exp_config = exp_config
+        self._data_exp_fs_manager = data_exp_fs_manager
+        self._work_exp_fs_manager = work_exp_fs_manager
+        self._exp_config = exp_config
 
     def data_exp_fs_manager(self) -> exp_fs.DataManager:
         """Get data experiment file system manager."""
-        return self.__data_exp_fs_manager
+        return self._data_exp_fs_manager
 
     def work_exp_fs_manager(self) -> exp_fs.WorkManager:
         """Get working experiment file system manager."""
-        return self.__work_exp_fs_manager
+        return self._work_exp_fs_manager
 
-    def exp_config(self) -> exp_cfg.Config:
+    def exp_config(self) -> ExpConfig:
         """Get experiment config."""
-        return self.__exp_config
+        return self._exp_config
 
 
-class Errors(StrEnum):
-    """Experiment checks error status."""
+class OKOnlyOptions(_OK[exp_cfg.ConfigOnlyOptions]):
+    """OK status for tools with only options."""
+
+
+class OKWithArguments(_OK[exp_cfg.ConfigWithArguments]):
+    """OK status for tools with arguments."""
+
+
+class ErrorOnlyOptions(StrEnum):
+    """Experiment checks error status for tools with only options."""
+
+    NO_PERMISSION = "no_permission"
+    READ_CONFIG_FAILED = "read_config_failed"
+    MISSING_TOOL_ENV_WRAPPER_SCRIPT = "missing_tool_env_wrapper_script"
+    DIFFERENT_CONFIGURATIONS = "different_configurations"
+
+
+class ErrorsWithArguments(StrEnum):
+    """Experiment checks error status for tools with arguments."""
 
     NO_PERMISSION = "no_permission"
     READ_CONFIG_FAILED = "read_config_failed"
@@ -49,29 +67,23 @@ class Errors(StrEnum):
     DIFFERENT_CONFIGURATIONS = "different_configurations"
 
 
-type Result = OK | Errors
-
-
-def check_experiment(
+def check_experiment_with_only_options(
     data_dir: Path,
     work_dir: Path,
     exp_config_yaml: Path,
-    tool_connector: abc_tool_visitor.Connector,
-) -> Result:
+    tool_connector: abc_tool_visitor.ConnectorOnlyOptions,
+) -> OKOnlyOptions | ErrorOnlyOptions:
     """Check experiment."""
     match _check_read_write_access(data_dir, work_dir):
         case PermissionErrors():
-            return Errors.NO_PERMISSION
+            return ErrorOnlyOptions.NO_PERMISSION
 
     try:
         exp_config = tool_connector.read_config(exp_config_yaml)
     except Exception:  # noqa: BLE001
-        return Errors.READ_CONFIG_FAILED
+        return ErrorOnlyOptions.READ_CONFIG_FAILED
 
     _LOGGER.debug("Experiment config:\n%s", exp_config.to_yaml_dump())
-
-    if not _check_config_inputs(exp_config, tool_connector):
-        return Errors.WRONG_INPUT_TOOLS
 
     data_exp_fs_manager, work_exp_fs_manager = exp_fs.data_and_working_managers(
         data_dir,
@@ -81,15 +93,56 @@ def check_experiment(
     )
 
     if _missing_env_wrapper_script(data_exp_fs_manager):
-        return Errors.MISSING_TOOL_ENV_WRAPPER_SCRIPT
+        return ErrorOnlyOptions.MISSING_TOOL_ENV_WRAPPER_SCRIPT
 
     if data_exp_fs_manager.config_yaml().exists():
         match _is_same_experiment(data_exp_fs_manager, exp_config):
             case SameExperimentErrors():
-                return Errors.DIFFERENT_CONFIGURATIONS
+                return ErrorOnlyOptions.DIFFERENT_CONFIGURATIONS
 
-    # TODO continue check exp
-    return OK(data_exp_fs_manager, work_exp_fs_manager, exp_config)
+    return OKOnlyOptions(data_exp_fs_manager, work_exp_fs_manager, exp_config)
+
+
+def check_experiment_with_arguments[
+    N: abc_tool_config.Names,
+    ExpConfig: exp_cfg.ConfigWithArguments,
+](
+    data_dir: Path,
+    work_dir: Path,
+    exp_config_yaml: Path,
+    tool_connector: abc_tool_visitor.ConnectorWithArguments[N, ExpConfig],
+) -> OKWithArguments | ErrorsWithArguments:
+    """Check experiment."""
+    match _check_read_write_access(data_dir, work_dir):
+        case PermissionErrors():
+            return ErrorsWithArguments.NO_PERMISSION
+
+    try:
+        exp_config = tool_connector.read_config(exp_config_yaml)
+    except Exception:  # noqa: BLE001
+        return ErrorsWithArguments.READ_CONFIG_FAILED
+
+    _LOGGER.debug("Experiment config:\n%s", exp_config.to_yaml_dump())
+
+    if not _check_config_inputs(exp_config, tool_connector):
+        return ErrorsWithArguments.WRONG_INPUT_TOOLS
+
+    data_exp_fs_manager, work_exp_fs_manager = exp_fs.data_and_working_managers(
+        data_dir,
+        work_dir,
+        tool_connector.description(),
+        exp_config.name(),
+    )
+
+    if _missing_env_wrapper_script(data_exp_fs_manager):
+        return ErrorsWithArguments.MISSING_TOOL_ENV_WRAPPER_SCRIPT
+
+    if data_exp_fs_manager.config_yaml().exists():
+        match _is_same_experiment(data_exp_fs_manager, exp_config):
+            case SameExperimentErrors():
+                return ErrorsWithArguments.DIFFERENT_CONFIGURATIONS
+
+    return OKWithArguments(data_exp_fs_manager, work_exp_fs_manager, exp_config)
 
 
 class PermissionOK(StrEnum):
@@ -110,7 +163,6 @@ type PermissionStatus = PermissionOK | PermissionErrors
 
 def _check_read_write_access(data_dir: Path, work_dir: Path) -> PermissionStatus:
     """Check read and write access."""
-    # FIXME use of PermissionStatus
     try:
         work_dir.mkdir(parents=True, exist_ok=True)
     except OSError:
@@ -136,8 +188,8 @@ def _check_read_write_access(data_dir: Path, work_dir: Path) -> PermissionStatus
 
 
 def _check_config_inputs(
-    config: exp_cfg.Config,
-    connector: abc_tool_visitor.Connector,
+    config: exp_cfg.ConfigWithArguments,
+    connector: abc_tool_visitor.ConnectorWithArguments,
 ) -> bool:
     """Check config inputs."""
     value_errors = connector.check_arguments_implement_results(config)
@@ -172,14 +224,13 @@ class SameExperimentErrors(StrEnum):
 type SameExperimentStatus = SameExperimentOK | SameExperimentErrors
 
 
-def _is_same_experiment[C: exp_cfg.Config](
+def _is_same_experiment(
     data_exp_fs_manager: exp_fs.DataManager,
-    config: C,
+    config: exp_cfg.ConfigWithOptions,
 ) -> SameExperimentStatus:
     """Check if experiment is the same."""
-    # FIXME chaneg status
     try:
-        config_in_data: C = type(config).from_yaml(
+        config_in_data = type(config).from_yaml(
             data_exp_fs_manager.config_yaml(),
         )
     except Exception:

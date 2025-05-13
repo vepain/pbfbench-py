@@ -11,7 +11,9 @@ import pbfbench.topics.seeds.platon.shell as platon_sh
 
 
 @final
-class Connector(abc_tool_visitor.Connector[platon_cfg.Names]):
+class Connector(
+    abc_tool_visitor.ConnectorWithArguments[platon_cfg.Names, platon_cfg.ExpConfig],
+):
     """Platon connector."""
 
     @classmethod

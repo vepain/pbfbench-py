@@ -6,13 +6,11 @@ import logging
 import shutil
 import subprocess
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 import rich.progress as rich_prog
 
-import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.visitor as abc_tool_visitor
-import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.errors as exp_errors
 import pbfbench.experiment.file_system as exp_fs
@@ -31,11 +29,56 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class RunStats:
-    """Experiment run stats."""
+class _RunStatsWithOptions:
+    """Experiment run stats for tools with options."""
 
     @classmethod
-    def new(cls, data_exp_fs_manager: exp_fs.DataManager) -> RunStats:
+    def new(cls, data_exp_fs_manager: exp_fs.DataManager) -> Self:
+        """Create new run stats."""
+        with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
+            number_of_samples = sum(1 for _ in smp_tsv_in.iter_row_numbered_items())
+        return cls(number_of_samples, 0, None)
+
+    def __init__(
+        self,
+        number_of_samples: int,
+        number_of_samples_to_run: int,
+        samples_with_errors: Iterable[str] | None,
+    ) -> None:
+        """Init run stats."""
+        self.__number_of_samples = number_of_samples
+        self.__number_of_samples_to_run = number_of_samples_to_run
+
+        self.__samples_with_errors = (
+            list(samples_with_errors) if samples_with_errors is not None else []
+        )
+
+    def number_of_samples(self) -> int:
+        """Get number of samples."""
+        return self.__number_of_samples
+
+    def number_of_samples_to_run(self) -> int:
+        """Get number of samples to run."""
+        return self.__number_of_samples_to_run
+
+    def samples_with_errors(self) -> list[str]:
+        """Get samples with errors."""
+        return self.__samples_with_errors
+
+    def add_samples_to_run(self, addition: int) -> None:
+        """Add samples to run."""
+        self.__number_of_samples_to_run += addition
+
+
+class RunStatsOnlyOptions(_RunStatsWithOptions):
+    """Experiment run stats for tools with only options."""
+
+
+class RunStatsWithArguments(_RunStatsWithOptions):
+    """Experiment run stats for tools with arguments."""
+
+    @classmethod
+    def new(cls, data_exp_fs_manager: exp_fs.DataManager) -> Self:
         """Create new run stats."""
         with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
             number_of_samples = sum(1 for _ in smp_tsv_in.iter_row_numbered_items())
@@ -49,44 +92,28 @@ class RunStats:
         samples_with_errors: Iterable[str] | None,
     ) -> None:
         """Init run stats."""
-        self.__number_of_samples = number_of_samples
-        self.__number_of_samples_to_run = number_of_samples_to_run
+        super().__init__(
+            number_of_samples,
+            number_of_samples_to_run,
+            samples_with_errors,
+        )
         self.__samples_with_missing_inputs = (
             list(samples_with_missing_inputs)
             if samples_with_missing_inputs is not None
             else []
         )
-        self.__samples_with_errors = (
-            list(samples_with_errors) if samples_with_errors is not None else []
-        )
-
-    def number_of_samples(self) -> int:
-        """Get number of samples."""
-        return self.__number_of_samples
-
-    def number_of_samples_to_run(self) -> int:
-        """Get number of samples to run."""
-        return self.__number_of_samples_to_run
 
     def samples_with_missing_inputs(self) -> list[str]:
         """Get samples with missing inputs."""
         return self.__samples_with_missing_inputs
 
-    def samples_with_errors(self) -> list[str]:
-        """Get samples with errors."""
-        return self.__samples_with_errors
 
-    def add_samples_to_run(self, addition: int) -> None:
-        """Add samples to run."""
-        self.__number_of_samples_to_run += addition
-
-
-def run_experiment_on_samples(
+def run_experiment_on_samples_only_options(
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
-    exp_config: exp_cfg.Config,
-    tool_connector: abc_tool_visitor.Connector,
-) -> RunStats:
+    exp_config: exp_cfg.ConfigOnlyOptions,
+    tool_connector: abc_tool_visitor.ConnectorOnlyOptions,
+) -> RunStatsOnlyOptions:
     """Run the experiment."""
     # REFACTOR use markdon print and do better app prints
 
@@ -103,7 +130,81 @@ def run_experiment_on_samples(
         exp_config,
     )
 
-    run_stats = RunStats.new(data_exp_fs_manager)
+    run_stats = RunStatsOnlyOptions.new(data_exp_fs_manager)
+
+    samples_to_run = _get_samples_to_run(data_exp_fs_manager, run_stats)
+
+    _init_sample_directories(samples_to_run, work_exp_fs_manager)
+
+    if not samples_to_run:
+        _LOGGER.info("No samples to run")
+    else:
+        _LOGGER.info(
+            "Number of samples sent to sbatch: %d",
+            len(samples_to_run),
+        )
+        _create_and_run_sbatch_script(
+            tool_connector,
+            exp_config,
+            samples_to_run,
+            data_exp_fs_manager,
+            work_exp_fs_manager,
+        )
+
+        run_samples_with_status = _wait_all_job_finish(
+            samples_to_run,
+            work_exp_fs_manager,
+        )
+
+        _manage_all_run_status(
+            run_samples_with_status,
+            work_exp_fs_manager,
+            run_stats,
+        )
+
+        _write_sbatch_stats_and_move_slurm_logs(
+            run_samples_with_status,
+            work_exp_fs_manager,
+        )
+
+    _move_work_to_data(
+        work_exp_fs_manager,
+        data_exp_fs_manager,
+        samples_to_run,
+    )
+
+    if run_stats.samples_with_errors():
+        _LOGGER.info(
+            "The list of samples which exit with errors is written to file: %s",
+            data_exp_fs_manager.errors_tsv(),
+        )
+
+    return run_stats
+
+
+def run_experiment_on_samples_with_arguments(
+    data_exp_fs_manager: exp_fs.DataManager,
+    work_exp_fs_manager: exp_fs.WorkManager,
+    exp_config: exp_cfg.ConfigWithArguments,
+    tool_connector: abc_tool_visitor.ConnectorWithArguments,
+) -> RunStatsWithArguments:
+    """Run the experiment."""
+    # REFACTOR use markdon print and do better app prints
+
+    _LOGGER.info(
+        "Running experiment `%s` with tool `%s` for the topic `%s`.",
+        exp_config.name(),
+        tool_connector.description().name(),
+        tool_connector.description().topic().name(),
+    )
+
+    _init_experiment_file_systems(
+        data_exp_fs_manager,
+        work_exp_fs_manager,
+        exp_config,
+    )
+
+    run_stats = RunStatsWithArguments.new(data_exp_fs_manager)
 
     samples_to_run = _get_samples_to_run(data_exp_fs_manager, run_stats)
 
@@ -112,7 +213,6 @@ def run_experiment_on_samples(
     (
         checked_inputs_samples_to_run,
         samples_with_missing_inputs,
-        names_to_input_results,
     ) = _filter_missing_inputs(
         tool_connector,
         exp_config,
@@ -136,7 +236,6 @@ def run_experiment_on_samples(
         )
         _create_and_run_sbatch_script(
             tool_connector,
-            names_to_input_results,
             exp_config,
             checked_inputs_samples_to_run,
             data_exp_fs_manager,
@@ -175,7 +274,7 @@ def run_experiment_on_samples(
     return run_stats
 
 
-def _init_experiment_file_systems[C: exp_cfg.Config](
+def _init_experiment_file_systems[C: exp_cfg.ConfigWithOptions](
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
     exp_config: C,
@@ -193,7 +292,7 @@ def _init_experiment_file_systems[C: exp_cfg.Config](
 
 def _get_samples_to_run(
     data_exp_fs_manager: exp_fs.DataManager,
-    run_stats: RunStats,
+    run_stats: _RunStatsWithOptions,
 ) -> list[smp_fs.RowNumberedItem]:
     """Get samples to run."""
     with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
@@ -221,15 +320,14 @@ def _init_sample_directories(
 
 
 def _filter_missing_inputs(
-    tool_connector: abc_tool_visitor.Connector,
-    exp_config: exp_cfg.Config,
+    tool_connector: abc_tool_visitor.ConnectorWithArguments,
+    exp_config: exp_cfg.ConfigWithArguments,
     samples_to_run: list[smp_fs.RowNumberedItem],
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
 ) -> tuple[
     list[smp_fs.RowNumberedItem],
     list[smp_fs.RowNumberedItem],
-    dict[abc_tool_cfg.Names, abc_topic_res_items.Result],
 ]:
     """Filter missing inputs."""
     names_to_input_results = tool_connector.config_to_inputs(
@@ -248,14 +346,13 @@ def _filter_missing_inputs(
     return (
         checked_inputs_samples_to_run,
         samples_with_missing_inputs,
-        names_to_input_results,
     )
 
 
 def _write_experiment_missing_inputs(
     samples_with_missing_inputs: list[smp_fs.RowNumberedItem],
     work_exp_fs_manager: exp_fs.WorkManager,
-    run_stats: RunStats,
+    run_stats: RunStatsWithArguments,
 ) -> None:
     """Write experiment missing inputs."""
     run_stats.samples_with_missing_inputs().extend(
@@ -279,10 +376,9 @@ def _write_experiment_missing_inputs(
         )
 
 
-def _create_and_run_sbatch_script(  # noqa: PLR0913
-    tool_connector: abc_tool_visitor.Connector,
-    names_to_input_results: dict[abc_tool_cfg.Names, abc_topic_res_items.Result],
-    exp_config: exp_cfg.Config,
+def _create_and_run_sbatch_script(
+    tool_connector: abc_tool_visitor.ConnectorWithOptions,
+    exp_config: exp_cfg.ConfigWithOptions,
     checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
@@ -291,7 +387,7 @@ def _create_and_run_sbatch_script(  # noqa: PLR0913
     work_exp_fs_manager.tmp_slurm_logs_dir().mkdir(parents=True, exist_ok=True)
     tool_commands = tool_connector.inputs_to_commands(
         exp_config,
-        names_to_input_results,
+        data_exp_fs_manager,
         work_exp_fs_manager,
     )
     exp_shell.create_run_script(
@@ -371,7 +467,7 @@ def _manage_all_run_status(
         tuple[smp_fs.RowNumberedItem, slurm_status.Status, str]
     ],
     work_exp_fs_manager: exp_fs.WorkManager,
-    run_stats: RunStats,
+    run_stats: _RunStatsWithOptions,
 ) -> None:
     """Write experiment errors."""
     for run_sample, status, job_id in run_samples_with_status:

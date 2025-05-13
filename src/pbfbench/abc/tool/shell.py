@@ -82,47 +82,54 @@ class OptionBashLinesBuilder:
         )
 
 
-class Commands:
-    """Tool command."""
+class _CommandsWithOptions:
+    """Commands with options."""
 
+    SAMPLES_TSV_VAR = sh.Variable("SAMPLES_TSV")
     WORK_EXP_SAMPLE_DIR_VAR = sh.Variable("WORK_EXP_SAMPLE_DIR")
 
     CORE_COMMAND_SH_FILENAME = "core_command.sh"
 
     def __init__(
         self,
-        arg_sh_lines_builders: Iterable[ArgBashLinesBuilder],
         opts_sh_lines_builder: OptionBashLinesBuilder,
+        data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,
     ) -> None:
         """Initialize."""
-        self._arg_sh_lines_builders = list(arg_sh_lines_builders)
         self._opts_sh_lines_builder = opts_sh_lines_builder
+        self._data_exp_fs_manager = data_exp_fs_manager
         self._work_exp_fs_manager = work_exp_fs_manager
 
-    def arg_sh_lines_builders(self) -> Iterator[ArgBashLinesBuilder]:
-        """Get argument bash lines builders."""
-        yield from self._arg_sh_lines_builders
+    def commands(self) -> Iterator[str]:
+        """Iterate over the tool commands."""
+        # DOCU say WORK_EXP_SAMPLE_DIR variable is set
+        # DOCU say SAMPLES_TSV variable is set
+        yield from self.set_samples_tsv_var()
+        yield ("")
+        yield from self.set_work_sample_exp_dir()
+        yield ("")
+        yield from self._opts_sh_lines_builder.set_options()
+        yield ("")
+        yield from self.core_commands()
 
     def opts_sh_lines_builder(self) -> OptionBashLinesBuilder:
         """Get options bash lines builder."""
         return self._opts_sh_lines_builder
 
+    def data_exp_fs_manager(self) -> exp_fs.DataManager:
+        """Get data experiment file system manager."""
+        return self._data_exp_fs_manager
+
     def work_exp_fs_manager(self) -> exp_fs.WorkManager:
         """Get working experiment file system manager."""
         return self._work_exp_fs_manager
 
-    def commands(self) -> Iterator[str]:
-        """Iterate over the tool commands."""
-        for result_lines_builder in self._arg_sh_lines_builders:
-            yield from result_lines_builder.init_lines()
-        yield ("")
-        yield from self._opts_sh_lines_builder.set_options()
-        yield ("")
-        yield from self.core_commands()
-        yield ("")
-        for result_lines_builder in self._arg_sh_lines_builders:
-            yield from result_lines_builder.close_lines()
+    def set_samples_tsv_var(self) -> Iterator[str]:
+        """Set samples tsv variable."""
+        yield self.SAMPLES_TSV_VAR.set(
+            sh.path_to_str(self._data_exp_fs_manager.samples_tsv()),
+        )
 
     def set_work_sample_exp_dir(self) -> Iterator[str]:
         """Set working experiment sample directory."""
@@ -147,3 +154,38 @@ class Commands:
             )
             / self.CORE_COMMAND_SH_FILENAME
         )
+
+
+class CommandsOnlyOptions(_CommandsWithOptions):
+    """Tool commands when the tool has no arguments."""
+
+
+class CommandsWithArguments(_CommandsWithOptions):
+    """Tool commands with options and arguments."""
+
+    def __init__(
+        self,
+        arg_sh_lines_builders: Iterable[ArgBashLinesBuilder],
+        opts_sh_lines_builder: OptionBashLinesBuilder,
+        data_exp_fs_manager: exp_fs.DataManager,
+        work_exp_fs_manager: exp_fs.WorkManager,
+    ) -> None:
+        """Initialize."""
+        self._arg_sh_lines_builders = list(arg_sh_lines_builders)
+        super().__init__(
+            opts_sh_lines_builder,
+            data_exp_fs_manager,
+            work_exp_fs_manager,
+        )
+
+    def arg_sh_lines_builders(self) -> Iterator[ArgBashLinesBuilder]:
+        """Get argument bash lines builders."""
+        yield from self._arg_sh_lines_builders
+
+    def commands(self) -> Iterator[str]:
+        """Iterate over the tool commands."""
+        for result_lines_builder in self._arg_sh_lines_builders:
+            yield from result_lines_builder.init_lines()
+        yield from super().commands()
+        for result_lines_builder in self._arg_sh_lines_builders:
+            yield from result_lines_builder.close_lines()

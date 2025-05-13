@@ -6,15 +6,15 @@ Wrapper for exp_cfg.yaml files.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Self
+from typing import Any, Self, final
 
 import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.slurm.config as slurm_cfg
 from pbfbench.yaml_interface import YAMLInterface
 
 
-class Config[N: abc_tool_cfg.Names](YAMLInterface, ABC):
-    """Experiment wrapper."""
+class ConfigWithOptions[ToolConfig: abc_tool_cfg.ConfigWithOptions](YAMLInterface, ABC):
+    """Experiment config base class."""
 
     KEY_NAME = "name"
     KEY_TOOL = "tool"
@@ -22,7 +22,7 @@ class Config[N: abc_tool_cfg.Names](YAMLInterface, ABC):
 
     @classmethod
     @abstractmethod
-    def tool_cfg_type(cls) -> type[abc_tool_cfg.Config[N]]:
+    def tool_cfg_type(cls) -> type[ToolConfig]:
         """Get tool config type."""
         raise NotImplementedError
 
@@ -38,7 +38,7 @@ class Config[N: abc_tool_cfg.Names](YAMLInterface, ABC):
     def __init__(
         self,
         name: str,
-        tool_configs: abc_tool_cfg.Config[N],
+        tool_configs: ToolConfig,
         slurm_config: slurm_cfg.Config,
     ) -> None:
         self.__name = name
@@ -49,7 +49,7 @@ class Config[N: abc_tool_cfg.Names](YAMLInterface, ABC):
         """Get name."""
         return self.__name
 
-    def tool_configs(self) -> abc_tool_cfg.Config[N]:
+    def tool_configs(self) -> ToolConfig:
         """Get tool configs."""
         return self.__tool_configs
 
@@ -68,3 +68,21 @@ class Config[N: abc_tool_cfg.Names](YAMLInterface, ABC):
             self.KEY_TOOL: self.__tool_configs.to_yaml_dump(),
             self.KEY_SLURM: self.__slurm_config.to_yaml_dump(),
         }
+
+
+@final
+class ConfigOnlyOptions(
+    ConfigWithOptions[abc_tool_cfg.ConfigOnlyOptions],
+):
+    """Experiment config for tool with only options."""
+
+    @classmethod
+    def tool_cfg_type(cls) -> type[abc_tool_cfg.ConfigOnlyOptions]:
+        """Get tool config type."""
+        return abc_tool_cfg.ConfigOnlyOptions
+
+
+class ConfigWithArguments[ToolConfig: abc_tool_cfg.ConfigWithArguments](
+    ConfigWithOptions[ToolConfig],
+):
+    """Experiment config for tools with arguments."""

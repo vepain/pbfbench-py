@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Self, final
 
 from pbfbench.yaml_interface import YAMLInterface
 
@@ -114,11 +114,42 @@ class StringOpts(YAMLInterface):
         return self.__options
 
 
-class Config[N: Names](YAMLInterface):
-    """Tool config module."""
+class ConfigWithOptions(YAMLInterface, ABC):
+    """Tool config with options."""
+
+    KEY_OPTIONS = "options"
+
+    def __init__(self, options: StringOpts) -> None:
+        """Initialize."""
+        self._options = options
+
+    def options(self) -> StringOpts:
+        """Get options."""
+        return self._options
+
+
+@final
+class ConfigOnlyOptions(ConfigWithOptions):
+    """Tool config without arguments."""
+
+    @classmethod
+    def from_yaml_load(cls, obj_dict: dict[str, Any]) -> Self:
+        """Convert dict to object."""
+        return cls(
+            StringOpts.from_yaml_load(obj_dict[cls.KEY_OPTIONS]),
+        )
+
+    def to_yaml_dump(self) -> dict[str, Any]:
+        """Convert to dict."""
+        return {
+            self.KEY_OPTIONS: self._options.to_yaml_dump(),
+        }
+
+
+class ConfigWithArguments[N: Names](ConfigWithOptions):
+    """Tool config with arguments."""
 
     KEY_ARGUMENTS = "arguments"
-    KEY_OPTIONS = "options"
 
     @classmethod
     @abstractmethod
@@ -136,20 +167,16 @@ class Config[N: Names](YAMLInterface):
 
     def __init__(self, arguments: Arguments[N], options: StringOpts) -> None:
         """Initialize."""
+        super().__init__(options)
         self.__arguments = arguments
-        self.__options = options
 
     def arguments(self) -> Arguments[N]:
         """Get arguments."""
         return self.__arguments
 
-    def options(self) -> StringOpts:
-        """Get options."""
-        return self.__options
-
     def to_yaml_dump(self) -> dict[str, Any]:
         """Convert to dict."""
         return {
             self.KEY_ARGUMENTS: self.__arguments.to_yaml_dump(),
-            self.KEY_OPTIONS: self.__options.to_yaml_dump(),
+            self.KEY_OPTIONS: self._options.to_yaml_dump(),
         }

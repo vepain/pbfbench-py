@@ -11,7 +11,12 @@ import pbfbench.topics.plasmidness.plasclass.shell as plasclass_sh
 
 
 @final
-class Connector(abc_tool_visitor.Connector[plasclass_cfg.Names]):
+class Connector(
+    abc_tool_visitor.ConnectorWithArguments[
+        plasclass_cfg.Names,
+        plasclass_cfg.ExpConfig,
+    ],
+):
     """PlasClass connector."""
 
     @classmethod
