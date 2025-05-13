@@ -26,6 +26,7 @@ def convert(
     platon_seeds_stats_df.to_csv(
         pbf_seeds_res.tsv(sample_item.exp_sample_id()),
         columns=["ID"],
+        header=False,
         sep="\t",
         index=False,
     )

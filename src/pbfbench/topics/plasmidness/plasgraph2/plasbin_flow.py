@@ -65,5 +65,6 @@ def convert(
         pbf_plm_res.tsv(sample_item.exp_sample_id()),
         columns=["Prob_Plasmid"],
         sep="\t",
-        index=False,
+        header=False,
+        index=True,
     )
