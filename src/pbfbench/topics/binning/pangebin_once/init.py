@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 
 import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.visitor as abc_tool_visitor
+import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.experiment.iter as exp_iter
 import pbfbench.samples.file_system as smp_fs
-import pbfbench.samples.items as smp_items
 import pbfbench.topics.binning.pangebin_once.config as pangebin_once_cfg
 import pbfbench.topics.plasmidness.pbf_input.results as plm_pbf_in_res
 import pbfbench.topics.plasmidness.plasgraph2.plasbin_flow as plasgraph2_pbf
@@ -21,7 +21,7 @@ import pbfbench.topics.seeds.platon.plasbin_flow as platon_pbf
 import pbfbench.topics.seeds.visitor as seeds_visitor
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Iterable
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -91,15 +91,11 @@ def init(
     #
     # Seeds
     #
-    pbf_seeds_res = seeds_pbf_in_res.Seeds(data_exp_fs_manager)
-    samples_to_format_the_seeds = _get_samples_to_format_the_inputs(
-        data_exp_fs_manager,
-        init_stats,
-        lambda _, smp: pbf_seeds_res.tsv(smp.exp_sample_id()).exists(),
-    )
     # REFACTOR generalize this but e.g. plasmidness needs also the GFA tool provider
     # REFACTOR to get the subconnector, use instead class attribute for Connector?
     # * Connector must implement abc classmethod to_arg_paths -> Iterable[ArgPath]
+    # REFACTOR IDEA InitConnector with inputExpConfig type and FormattedVisitor
+    # FormattedVisitor links to FormattedResult type and convert functions
     _tool_cfg: abc_tool_cfg.ConfigWithArguments = exp_config.tool_configs()
     seeds_arg = _tool_cfg.arguments()[pangebin_once_cfg.Names.SEEDS]
     seeds_tool = seeds_visitor.Tools(seeds_arg.tool_name())
@@ -107,6 +103,11 @@ def init(
         data_exp_fs_manager.root_dir(),
         seeds_tool.to_description(),
         seeds_arg.exp_name(),
+    )
+    samples_to_format_the_seeds = _get_samples_to_format_the_inputs(
+        data_exp_fs_manager,
+        seeds_pbf_in_res.Seeds(seeds_in_data_exp_fs_manager),
+        init_stats,
     )
     match seeds_tool:
         case seeds_visitor.Tools.PLATON:
@@ -124,14 +125,6 @@ def init(
     #
     # Plasmidness
     #
-    pbf_plm_res = plm_pbf_in_res.Plasmidness(
-        data_exp_fs_manager,
-    )
-    samples_to_format_the_plm = _get_samples_to_format_the_inputs(
-        data_exp_fs_manager,
-        init_stats,
-        lambda _, smp: pbf_plm_res.tsv(smp.exp_sample_id()).exists(),
-    )
     # REFACTOR same refactor comment as above
 
     plm_arg = _tool_cfg.arguments()[pangebin_once_cfg.Names.PLASMIDNESS]
@@ -147,6 +140,12 @@ def init(
         case plm_visitor.Tools.PLASGRAPH2:
             convert_function = plasgraph2_pbf.convert
         # REFACTOR force match cover with return
+
+    samples_to_format_the_plm = _get_samples_to_format_the_inputs(
+        data_exp_fs_manager,
+        plm_pbf_in_res.Plasmidness(plm_in_data_exp_fs_manager),
+        init_stats,
+    )
     for sample in samples_to_format_the_plm:
         # REFACTOR (1) here we simulate that Visitor
         convert_function(
@@ -159,16 +158,15 @@ def init(
 
 def _get_samples_to_format_the_inputs(
     data_exp_fs_manager: exp_fs.DataManager,
+    formatted_result_builder: abc_topic_res_items.Formatted,
     init_stats: InitStats,
-    fn_format_result_exists: Callable[[exp_fs.DataManager, smp_items.Item], bool],
 ) -> list[smp_fs.RowNumberedItem]:
     """Get samples to run."""
     with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
         samples_to_fmt_the_inputs = list(
             exp_iter.samples_to_format_result(
-                data_exp_fs_manager,
+                formatted_result_builder,
                 smp_tsv_in.iter_row_numbered_items(),
-                fn_format_result_exists,
             ),
         )
     init_stats.add_samples_to_format_the_inputs(len(samples_to_fmt_the_inputs))

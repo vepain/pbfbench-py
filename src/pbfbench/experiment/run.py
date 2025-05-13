@@ -297,7 +297,7 @@ def _get_samples_to_run(
     """Get samples to run."""
     with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
         samples_to_run = list(
-            exp_iter.samples_with_error_status(
+            exp_iter.samples_to_run(
                 data_exp_fs_manager,
                 smp_tsv_in.iter_row_numbered_items(),
             ),

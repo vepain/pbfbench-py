@@ -9,15 +9,14 @@ import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.samples.file_system as smp_fs
-import pbfbench.samples.items as smp_items
 import pbfbench.samples.missing_inputs as smp_miss_in
 import pbfbench.samples.status as smp_status
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator
+    from collections.abc import Iterable, Iterator
 
 
-def samples_with_error_status(
+def samples_to_run(
     data_exp_fs_manager: exp_fs.DataManager,
     all_samples: Iterable[smp_fs.RowNumberedItem],
 ) -> Iterator[smp_fs.RowNumberedItem]:
@@ -36,20 +35,19 @@ def samples_with_error_status(
 
 
 def samples_to_format_result(
-    data_exp_fs_manager: exp_fs.DataManager,
+    formatted_result_builder: abc_topic_res_items.Formatted,
     all_samples: Iterable[smp_fs.RowNumberedItem],
-    fn_format_result_exists: Callable[[exp_fs.DataManager, smp_items.Item], bool],
 ) -> Iterator[smp_fs.RowNumberedItem]:
-    """Get samples to format result.
+    """Get input samples to format result.
 
-    They correspond to samples for which the experiment is done
+    They correspond to input samples for which the experiment is done
     but the result is not formatted for the current tool.
     """
-    # FIXME this will change, refactor to follow the same structure as above
     return (
         row_numbered_sample
         for row_numbered_sample in all_samples
-        if fn_format_result_exists(data_exp_fs_manager, row_numbered_sample.item())
+        if formatted_result_builder.check(row_numbered_sample.item())
+        != smp_status.OKStatus.OK
     )
 
 
