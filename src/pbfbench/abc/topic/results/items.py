@@ -18,6 +18,7 @@ class Result(ABC):
         """Get file system manager."""
         return self._exp_fs_manager
 
+    # REFACTOR not sure it is relevant to use sample status, because of formatted
     @abstractmethod
     def check(self, sample_item: smp_items.Item) -> smp_status.Status:
         """Check input(s)."""

@@ -43,9 +43,21 @@ def samples_to_format_result(
     They correspond to input samples for which the experiment is done
     but the result is not formatted for the current tool.
     """
-    return (
+    # TODO log that requires to run before init
+    # TODO perhaps missing inputs for check should be good (I removed it...)
+    done_input = (
         row_numbered_sample
         for row_numbered_sample in all_samples
+        if smp_status.get_status(
+            formatted_result_builder.exp_fs_manager().sample_fs_manager(
+                row_numbered_sample.item(),
+            ),
+        )
+        == smp_status.OKStatus.OK
+    )
+    return (
+        row_numbered_sample
+        for row_numbered_sample in done_input
         if formatted_result_builder.check(row_numbered_sample.item())
         != smp_status.OKStatus.OK
     )
