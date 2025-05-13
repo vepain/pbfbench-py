@@ -119,7 +119,8 @@ def check_experiment_with_arguments[
 
     try:
         exp_config = tool_connector.read_config(exp_config_yaml)
-    except Exception:  # noqa: BLE001
+    except Exception:
+        _LOGGER.exception("Failed to read experiment config:")
         return ErrorsWithArguments.READ_CONFIG_FAILED
 
     _LOGGER.debug("Experiment config:\n%s", exp_config.to_yaml_dump())
@@ -163,6 +164,9 @@ type PermissionStatus = PermissionOK | PermissionErrors
 
 def _check_read_write_access(data_dir: Path, work_dir: Path) -> PermissionStatus:
     """Check read and write access."""
+    if not data_dir.exists():
+        _LOGGER.error("Data directory %s does not exist", data_dir)
+        return PermissionErrors.NO_READ_ACCESS
     try:
         work_dir.mkdir(parents=True, exist_ok=True)
     except OSError:
