@@ -105,6 +105,14 @@ class StringOpts(YAMLInterface):
     def __init__(self, options: Iterable[str]) -> None:
         self.__options = list(options)
 
+    def __bool__(self) -> bool:
+        """Check if options are not empty."""
+        return len(self.__options) > 0
+
+    def __len__(self) -> int:
+        """Get options length."""
+        return len(self.__options)
+
     def __iter__(self) -> Iterator[str]:
         """Iterate options."""
         return iter(self.__options)
@@ -119,6 +127,12 @@ class ConfigWithOptions(YAMLInterface, ABC):
 
     KEY_OPTIONS = "options"
 
+    @classmethod
+    def _get_options_from_yaml_load(cls, obj_dict: dict[str, Any]) -> StringOpts:
+        if cls.KEY_OPTIONS not in obj_dict:
+            return StringOpts([])
+        return StringOpts.from_yaml_load(obj_dict[cls.KEY_OPTIONS])
+
     def __init__(self, options: StringOpts) -> None:
         """Initialize."""
         self._options = options
@@ -126,6 +140,11 @@ class ConfigWithOptions(YAMLInterface, ABC):
     def options(self) -> StringOpts:
         """Get options."""
         return self._options
+
+    def _options_to_yaml_dump(self) -> dict[str, Any]:
+        if not self._options:
+            return {}
+        return {self.KEY_OPTIONS: self._options.to_yaml_dump()}
 
 
 @final
@@ -135,15 +154,11 @@ class ConfigOnlyOptions(ConfigWithOptions):
     @classmethod
     def from_yaml_load(cls, obj_dict: dict[str, Any]) -> Self:
         """Convert dict to object."""
-        return cls(
-            StringOpts.from_yaml_load(obj_dict[cls.KEY_OPTIONS]),
-        )
+        return cls(cls._get_options_from_yaml_load(obj_dict))
 
     def to_yaml_dump(self) -> dict[str, Any]:
         """Convert to dict."""
-        return {
-            self.KEY_OPTIONS: self._options.to_yaml_dump(),
-        }
+        return self._options_to_yaml_dump()
 
 
 class ConfigWithArguments[N: Names](ConfigWithOptions):
@@ -162,7 +177,7 @@ class ConfigWithArguments[N: Names](ConfigWithOptions):
         """Convert dict to object."""
         return cls(
             cls.arguments_type().from_yaml_load(obj_dict[cls.KEY_ARGUMENTS]),
-            StringOpts.from_yaml_load(obj_dict[cls.KEY_OPTIONS]),
+            cls._get_options_from_yaml_load(obj_dict),
         )
 
     def __init__(self, arguments: Arguments[N], options: StringOpts) -> None:
@@ -178,5 +193,5 @@ class ConfigWithArguments[N: Names](ConfigWithOptions):
         """Convert to dict."""
         return {
             self.KEY_ARGUMENTS: self.__arguments.to_yaml_dump(),
-            self.KEY_OPTIONS: self._options.to_yaml_dump(),
+            **self._options_to_yaml_dump(),
         }
