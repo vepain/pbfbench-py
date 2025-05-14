@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Self, final
 
 from pbfbench.yaml_interface import YAMLInterface
 
@@ -105,6 +105,14 @@ class StringOpts(YAMLInterface):
     def __init__(self, options: Iterable[str]) -> None:
         self.__options = list(options)
 
+    def __bool__(self) -> bool:
+        """Check if options are not empty."""
+        return len(self.__options) > 0
+
+    def __len__(self) -> int:
+        """Get options length."""
+        return len(self.__options)
+
     def __iter__(self) -> Iterator[str]:
         """Iterate options."""
         return iter(self.__options)
@@ -114,11 +122,49 @@ class StringOpts(YAMLInterface):
         return self.__options
 
 
-class Config[N: Names](YAMLInterface):
-    """Tool config module."""
+class ConfigWithOptions(YAMLInterface, ABC):
+    """Tool config with options."""
+
+    KEY_OPTIONS = "options"
+
+    @classmethod
+    def _get_options_from_yaml_load(cls, obj_dict: dict[str, Any]) -> StringOpts:
+        if cls.KEY_OPTIONS not in obj_dict:
+            return StringOpts([])
+        return StringOpts.from_yaml_load(obj_dict[cls.KEY_OPTIONS])
+
+    def __init__(self, options: StringOpts) -> None:
+        """Initialize."""
+        self._options = options
+
+    def options(self) -> StringOpts:
+        """Get options."""
+        return self._options
+
+    def _options_to_yaml_dump(self) -> dict[str, Any]:
+        if not self._options:
+            return {}
+        return {self.KEY_OPTIONS: self._options.to_yaml_dump()}
+
+
+@final
+class ConfigOnlyOptions(ConfigWithOptions):
+    """Tool config without arguments."""
+
+    @classmethod
+    def from_yaml_load(cls, obj_dict: dict[str, Any]) -> Self:
+        """Convert dict to object."""
+        return cls(cls._get_options_from_yaml_load(obj_dict))
+
+    def to_yaml_dump(self) -> dict[str, Any]:
+        """Convert to dict."""
+        return self._options_to_yaml_dump()
+
+
+class ConfigWithArguments[N: Names](ConfigWithOptions):
+    """Tool config with arguments."""
 
     KEY_ARGUMENTS = "arguments"
-    KEY_OPTIONS = "options"
 
     @classmethod
     @abstractmethod
@@ -131,25 +177,21 @@ class Config[N: Names](YAMLInterface):
         """Convert dict to object."""
         return cls(
             cls.arguments_type().from_yaml_load(obj_dict[cls.KEY_ARGUMENTS]),
-            StringOpts.from_yaml_load(obj_dict[cls.KEY_OPTIONS]),
+            cls._get_options_from_yaml_load(obj_dict),
         )
 
     def __init__(self, arguments: Arguments[N], options: StringOpts) -> None:
         """Initialize."""
+        super().__init__(options)
         self.__arguments = arguments
-        self.__options = options
 
     def arguments(self) -> Arguments[N]:
         """Get arguments."""
         return self.__arguments
 
-    def options(self) -> StringOpts:
-        """Get options."""
-        return self.__options
-
     def to_yaml_dump(self) -> dict[str, Any]:
         """Convert to dict."""
         return {
             self.KEY_ARGUMENTS: self.__arguments.to_yaml_dump(),
-            self.KEY_OPTIONS: self.__options.to_yaml_dump(),
+            **self._options_to_yaml_dump(),
         }

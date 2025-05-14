@@ -19,7 +19,11 @@ def main(
     """Give an example of using the environment wrapper."""
     toytopic_desc = abc_topic_desc.Description("$TOPIC", "topic-cmd")
     toytool_desc = abc_tool_desc.Description("$TOOL", "tool-cmd", toytopic_desc)
-    data_fs_manager = exp_fs.Manager(Path("DATA_DIR"), toytool_desc, "$exp_name")
+    data_exp_fs_manager = exp_fs.DataManager(
+        Path("DATA_DIR"),
+        toytool_desc,
+        "$exp_name",
+    )
 
     md_string = "# Example of using the environment wrapper\n\n"
 
@@ -34,7 +38,7 @@ def main(
             f" For a topic `{toytopic_desc.name()}`"
             f" and a tool `{toytool_desc.name()}`,"
             " the environment context script file is:"
-            f" `{data_fs_manager.tool_env_script_sh()}`.",
+            f" `{data_exp_fs_manager.tool_env_script_sh()}`.",
             "",
             f"The example file is in `{outdir}`",
             "",
@@ -61,7 +65,7 @@ def main(
             "",
         ],
     )
-    tmp_script = outdir / data_fs_manager.TOOL_ENV_WRAPPER_SCRIPT_NAME
+    tmp_script = outdir / data_exp_fs_manager.TOOL_ENV_WRAPPER_SCRIPT_NAME
     tmp_script.write_text(shell_lines)
 
     md_string += "\n".join(

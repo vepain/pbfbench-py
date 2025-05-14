@@ -16,7 +16,6 @@ class GenomeInputLinesBuilder(
     """Genome input bash lines builder."""
 
     GENOME_VAR = sh.Variable("GENOME")
-    WORK_EXP_SAMPLE_DIR_VAR = sh.Variable("WORK_EXP_SAMPLE_DIR")
     FASTA_GZ_VAR = sh.Variable("FASTA_GZ")
 
     def __fasta_gz_file(self) -> Path:
@@ -36,9 +35,6 @@ class GenomeInputLinesBuilder(
         """Get shell input init lines."""
         yield self.FASTA_GZ_VAR.set(sh.path_to_str(self.__fasta_gz_file()))
         yield self.GENOME_VAR.set(sh.path_to_str(self.__fasta_tmp_file()))
-        yield self.WORK_EXP_SAMPLE_DIR_VAR.set(
-            sh.path_to_str(self._work_smp_sh_fs_manager.sample_dir()),
-        )
         yield (
             "gunzip -k -c"
             f" {sh.path_to_str(self.FASTA_GZ_VAR.eval())}"

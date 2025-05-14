@@ -24,6 +24,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.4.0] - 2025-05-14
+
+### Added
+
+* Add `BINNING` Topic with a new tool: `PANGEBIN_ONCE`
+* New `ASSEMBLY` tool: `UNICYCLER`
+* `GFA_CONNECTOR` tool implements FASTA assembly result
+* Command script declare samples TSV path
+* Each experiment is associated with a date, writen in a file `EXP_DIR/date.txt`
+
+### Changed
+
+* Precise all the builders, status classes, functions for tools with only options and those with arguments
+* Precise `DataManager` and `WorkManager` classes for experiment file system managers
+* Refactor `run` app functions to extract common parts with `init` app functions
+* Move `origin_command` tool Result method to `missing_inputs` module (simplify convertion)
+
 ## [0.3.0] - 2025-05-11
 
 ### Added

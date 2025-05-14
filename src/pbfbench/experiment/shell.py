@@ -21,27 +21,27 @@ if TYPE_CHECKING:
 
 
 def create_run_script(
-    data_fs_manager: exp_fs.Manager,
-    work_fs_manager: exp_fs.Manager,
+    data_exp_fs_manager: exp_fs.DataManager,
+    work_exp_fs_manager: exp_fs.WorkManager,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
     slurm_cfg: slurm_cfg.Config,
-    tool_cmd: abc_tool_shell.Commands,
+    tool_cmd: abc_tool_shell._CommandsWithOptions,
 ) -> None:
     """Create the run script."""
     tool_bash_env_wrapper = abc_tools_envs.BashEnvWrapper(
-        data_fs_manager.tool_env_script_sh(),
+        data_exp_fs_manager.tool_env_script_sh(),
     )
 
     _write_command_script(
-        data_fs_manager,
-        work_fs_manager,
+        data_exp_fs_manager,
+        work_exp_fs_manager,
         tool_cmd,
     )
 
-    _add_x_permissions_to_command_script(work_fs_manager.command_sh_script())
+    _add_x_permissions_to_command_script(work_exp_fs_manager.command_sh_script())
 
     _write_sbatch_script(
-        work_fs_manager,
+        work_exp_fs_manager,
         slurm_cfg,
         samples_to_run,
         tool_bash_env_wrapper,
@@ -49,16 +49,16 @@ def create_run_script(
 
 
 def _write_command_script(
-    data_fs_manager: exp_fs.Manager,
-    work_fs_manager: exp_fs.Manager,
-    tool_cmd: abc_tool_shell.Commands,
+    data_exp_fs_manager: exp_fs.DataManager,
+    work_exp_fs_manager: exp_fs.WorkManager,
+    tool_cmd: abc_tool_shell._CommandsWithOptions,
 ) -> None:
     """Write the command script (which `srun` will call)."""
-    cmd_sh_path = work_fs_manager.command_sh_script()
+    cmd_sh_path = work_exp_fs_manager.command_sh_script()
     with cmd_sh_path.open("w") as command_out:
         command_out.write(f"{sh.BASH_SHEBANG}\n\n")
         for line in chain(
-            smp_sh.SpeSmpIDLinesBuilder(data_fs_manager.samples_tsv()).lines(),
+            smp_sh.SpeSmpIDLinesBuilder(data_exp_fs_manager.samples_tsv()).lines(),
             tool_cmd.commands(),
         ):
             command_out.write(sh.exit_on_error(line) + "\n")
@@ -71,13 +71,13 @@ def _add_x_permissions_to_command_script(cmd_sh_path: Path) -> None:
 
 
 def _write_sbatch_script(
-    work_fs_manager: exp_fs.Manager,
+    work_exp_fs_manager: exp_fs.WorkManager,
     slurm_cfg: slurm_cfg.Config,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
     tool_bash_env_wrapper: abc_tools_envs.BashEnvWrapper,
 ) -> None:
     """Write the sbatch script."""
-    with work_fs_manager.sbatch_sh_script().open("w") as sbatch_out:
+    with work_exp_fs_manager.sbatch_sh_script().open("w") as sbatch_out:
         sbatch_out.write(f"{sh.BASH_SHEBANG}\n")
 
         for line in chain(
@@ -87,16 +87,16 @@ def _write_sbatch_script(
             slurm_sh.SbatchCommentLinesBuilder.lines(
                 slurm_cfg,
                 (smp_fs.to_line_number_base_one(sample) for sample in samples_to_run),
-                work_fs_manager,
+                work_exp_fs_manager,
             ),
             #
             # Write array job id in file
             #
-            _write_slurm_array_job_id(work_fs_manager),
+            _write_slurm_array_job_id(work_exp_fs_manager),
             #
             # Define exit functions
             #
-            slurm_sh.ExitFunctionLinesBuilder.lines(work_fs_manager),
+            slurm_sh.ExitFunctionLinesBuilder.lines(work_exp_fs_manager),
             #
             # Init env
             #
@@ -113,7 +113,7 @@ def _write_sbatch_script(
             iter(
                 (
                     sh.manage_error_and_exit(
-                        f"srun {work_fs_manager.command_sh_script()}",
+                        f"srun {work_exp_fs_manager.command_sh_script()}",
                         slurm_sh.ExitFunctionLinesBuilder.EXIT_COMMAND_ERROR_FN_NAME,
                     ),
                 ),
@@ -136,11 +136,13 @@ def _write_sbatch_script(
             sbatch_out.write(line + "\n")
 
 
-def _write_slurm_array_job_id(work_fs_manager: exp_fs.Manager) -> Iterator[str]:
+def _write_slurm_array_job_id(work_exp_fs_manager: exp_fs.WorkManager) -> Iterator[str]:
     """Return new command that exits the whole pipeline if first command fails."""
-    yield f"if [[ ! -f {sh.path_to_str(work_fs_manager.array_job_id_file())} ]]; then"
+    yield (
+        f"if [[ ! -f {sh.path_to_str(work_exp_fs_manager.array_job_id_file())} ]]; then"
+    )
     yield (
         f"\techo {slurm_sh.SLURM_ARRAY_JOB_ID_VAR.eval()}"
-        f"> {sh.path_to_str(work_fs_manager.array_job_id_file())}"
+        f"> {sh.path_to_str(work_exp_fs_manager.array_job_id_file())}"
     )
     yield "fi"

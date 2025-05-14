@@ -4,7 +4,7 @@
 
 [project]
     name = "pbfbench"
-    version = "0.3.0"
+    version = "0.4.0"
     description = "PlasBin-flow benchmarking framework."
     authors = [
         { name = "vepain", email = "victorepain@disroot.org" },
@@ -14,7 +14,11 @@
     license = { file = "LICENSE" }
     requires-python = ">=3.13"
 
-    dependencies = ["PyYAML >=6.0, < 6.1", "typer >=0.15, <0.16"]
+    dependencies = [
+        "PyYAML >=6.0, < 6.1",
+        "typer >=0.15, <0.16",
+        "pandas >=2.2,<2.3",
+    ]
 
     [project.scripts]
         pbfbench = "pbfbench.__main__:main"

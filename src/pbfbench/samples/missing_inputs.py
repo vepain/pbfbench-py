@@ -8,8 +8,13 @@ from contextlib import contextmanager
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+import pbfbench.abc.app as abc_app
+import pbfbench.abc.tool.config as abc_tool_cfg
+import pbfbench.abc.tool.description as abc_tool_desc
+import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.samples.file_system as smp_fs
+import pbfbench.samples.items as smp_items
 import pbfbench.samples.status as smp_status
 
 if TYPE_CHECKING:
@@ -31,6 +36,7 @@ class MissingInput:
         arg_name: str,
         tool_input: abc_topic_res_items.Result,
         reason: smp_status.ErrorStatus,
+        help_string: str,
     ) -> MissingInput:
         """Create missing input from tool input."""
         return cls(
@@ -39,7 +45,7 @@ class MissingInput:
             tool_input.exp_fs_manager().tool_dir().name,
             tool_input.exp_fs_manager().exp_dir().name,
             reason,
-            tool_input.origin_command(),
+            help_string,
         )
 
     def __init__(  # noqa: PLR0913
@@ -215,3 +221,52 @@ def write_sample_missing_inputs(
         sample_fs_manager.missing_inputs_tsv(),
     ) as out_miss_inputs:
         out_miss_inputs.write_missing_inputs(sample_missing_inputs)
+
+
+def sample_list[N: abc_tool_cfg.Names](
+    tool_inputs: dict[N, abc_topic_res_items.Result],
+    sample_item: smp_items.Item,
+    connector: abc_tool_visitor.ConnectorWithArguments,
+) -> list[MissingInput]:
+    """Get a list of missing inputs."""
+    list_missing_inputs: list[MissingInput] = []
+    for arg_name, tool_input in tool_inputs.items():
+        input_status = tool_input.check(sample_item)
+        match input_status:
+            case smp_status.ErrorStatus():
+                list_missing_inputs.append(
+                    MissingInput.from_tool_input(
+                        str(arg_name),
+                        tool_input,
+                        input_status,
+                        _get_help_str(tool_input, connector.description()),
+                    ),
+                )
+    return list_missing_inputs
+
+
+def _get_help_str(
+    tool_input: abc_topic_res_items.Result,
+    requesting_tool_description: abc_tool_desc.Description,
+) -> str:
+    """Get help string."""
+    match tool_input:
+        case abc_topic_res_items.Original():
+            return (
+                "pbfbench"
+                f" {tool_input.exp_fs_manager().tool_description().topic().cmd()}"
+                f" {tool_input.exp_fs_manager().tool_description().cmd()}"
+                f" {abc_app.FinalCommands.RUN}"
+                " --help"
+            )
+        case abc_topic_res_items.Formatted():
+            return (
+                "pbfbench"
+                f" {requesting_tool_description.topic().cmd()}"
+                f" {requesting_tool_description.cmd()}"
+                f" {abc_app.FinalCommands.INIT}"
+                " --help"
+            )
+
+        case _:  # REFACTOR Result should be a Protocol?
+            raise NotImplementedError

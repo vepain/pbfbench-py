@@ -5,9 +5,10 @@ Make the connexion between:
 2. input (checked) -> shell lines builder
 """
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from pathlib import Path
+from typing import final
 
 import pbfbench.abc.tool.config as abc_tool_config
 import pbfbench.abc.tool.description as abc_tool_desc
@@ -60,20 +61,25 @@ class ArgumentPath[
 
     def arg_to_checkable_input(
         self,
-        data_fs_manager: exp_fs.Manager,
+        data_exp_fs_manager: exp_fs.DataManager,
         arg: abc_tool_config.Arg,
     ) -> R:
         """Convert argument to input."""
         tool = self._topic_tools(arg.tool_name())
         exp_name = arg.exp_name()
-        return self._result_visitor.result_builder_from_tool(tool)(
-            exp_fs.Manager(data_fs_manager.root_dir(), tool.to_description(), exp_name),
+        result_builder: type[R] = self._result_visitor.result_builder_from_tool(tool)
+        return result_builder(
+            exp_fs.WorkManager(
+                data_exp_fs_manager.root_dir(),
+                tool.to_description(),
+                exp_name,
+            ),
         )
 
     def input_to_sh_lines_builder(
         self,
         input_result: R,
-        work_exp_fs_manager: exp_fs.Manager,
+        work_exp_fs_manager: exp_fs.WorkManager,
     ) -> abc_tool_shell.ArgBashLinesBuilder[R]:
         """Convert input to shell lines builder."""
         return self._sh_lines_builder_type(
@@ -82,14 +88,71 @@ class ArgumentPath[
         )
 
 
-class Connector[ArgNames: abc_tool_config.Names]:
-    """Tool connectors."""
+class ConnectorWithOptions[ExpConfig: exp_cfg.ConfigWithOptions](ABC):
+    """Base tool connector."""
 
     @classmethod
     @abstractmethod
-    def config_type(cls) -> type[exp_cfg.Config[ArgNames]]:
+    def config_type(cls) -> type[ExpConfig]:
         """Get experiment config type."""
         raise NotImplementedError
+
+    def __init__(
+        self,
+        tool_description: abc_tool_desc.Description,
+    ) -> None:
+        """Initialize."""
+        self._tool_description = tool_description
+
+    def description(self) -> abc_tool_desc.Description:
+        """Get tool description."""
+        return self._tool_description
+
+    def read_config(self, config_path: Path) -> ExpConfig:
+        """Read config."""
+        return self.config_type().from_yaml(config_path)
+
+    @abstractmethod
+    def inputs_to_commands(
+        self,
+        config: ExpConfig,
+        data_exp_fs_manager: exp_fs.DataManager,
+        work_exp_fs_manager: exp_fs.WorkManager,
+    ) -> abc_tool_shell._CommandsWithOptions:
+        """Convert inputs to commands."""
+        raise NotImplementedError
+
+
+@final
+class ConnectorOnlyOptions(ConnectorWithOptions[exp_cfg.ConfigOnlyOptions]):
+    """Tool connector for tool with only options."""
+
+    @classmethod
+    def config_type(cls) -> type[exp_cfg.ConfigOnlyOptions]:
+        """Get experiment config type."""
+        return exp_cfg.ConfigOnlyOptions
+
+    def inputs_to_commands(
+        self,
+        config: exp_cfg.ConfigOnlyOptions,
+        data_exp_fs_manager: exp_fs.DataManager,
+        work_exp_fs_manager: exp_fs.WorkManager,
+    ) -> abc_tool_shell.CommandsOnlyOptions:
+        """Convert inputs to commands."""
+        return abc_tool_shell.CommandsOnlyOptions(
+            abc_tool_shell.OptionBashLinesBuilder(config.tool_configs().options()),
+            data_exp_fs_manager,
+            work_exp_fs_manager,
+        )
+
+
+class ConnectorWithArguments[
+    ArgNames: abc_tool_config.Names,
+    ExpConfig: exp_cfg.ConfigWithArguments,
+](
+    ConnectorWithOptions[ExpConfig],
+):
+    """Tool connectors for tool with arguments."""
 
     def __init__(
         self,
@@ -97,29 +160,20 @@ class Connector[ArgNames: abc_tool_config.Names]:
         arg_names_and_paths: dict[ArgNames, ArgumentPath],
     ) -> None:
         """Initialize."""
-        self._tool_description = tool_description
+        super().__init__(tool_description)
         self._arg_names_and_paths = dict(arg_names_and_paths)
-
-    def description(self) -> abc_tool_desc.Description:
-        """Get tool description."""
-        return self._tool_description
 
     def arg_names_and_paths(self) -> Iterator[tuple[ArgNames, ArgumentPath]]:
         """Get argument names and paths."""
         yield from self._arg_names_and_paths.items()
 
-    def read_config(self, config_path: Path) -> exp_cfg.Config[ArgNames]:
-        """Read config."""
-        return self.config_type().from_yaml(config_path)
-
-    def check_arguments_implement_results(
-        self,
-        config: exp_cfg.Config[ArgNames],
-    ) -> list[ValueError]:
+    def check_arguments_implement_results(self, config: ExpConfig) -> list[ValueError]:
         """Check arguments implement results."""
         value_errors: list[ValueError] = []
-        tool_config: abc_tool_config.Config = config.tool_configs()
+        tool_config: abc_tool_config.ConfigWithArguments = config.tool_configs()
         arguments: abc_tool_config.Arguments = tool_config.arguments()
+        name: ArgNames
+        arg_path: ArgumentPath
         for name, arg_path in self._arg_names_and_paths.items():
             ok_tool_set_str: str = (
                 "{"
@@ -155,16 +209,16 @@ class Connector[ArgNames: abc_tool_config.Names]:
 
     def config_to_inputs(
         self,
-        config: exp_cfg.Config[ArgNames],
-        data_fs_manager: exp_fs.Manager,
+        config: ExpConfig,
+        data_exp_fs_manager: exp_fs.DataManager,
     ) -> dict[ArgNames, abc_topic_res_items.Result]:
         """Convert config to inputs."""
-        tool_config: abc_tool_config.Config = config.tool_configs()
+        tool_config: abc_tool_config.ConfigWithArguments = config.tool_configs()
         arguments: abc_tool_config.Arguments = tool_config.arguments()
         names_with_results: dict[ArgNames, abc_topic_res_items.Result] = {}
         for name, arg_path in self._arg_names_and_paths.items():
             result: abc_topic_res_items.Result = arg_path.arg_to_checkable_input(
-                data_fs_manager,
+                data_exp_fs_manager,
                 arguments[name],
             )
             names_with_results[name] = result
@@ -172,13 +226,14 @@ class Connector[ArgNames: abc_tool_config.Names]:
 
     def inputs_to_commands(
         self,
-        config: exp_cfg.Config[ArgNames],
-        names_to_input_results: dict[ArgNames, abc_topic_res_items.Result],
-        work_exp_fs_manager: exp_fs.Manager,
-    ) -> abc_tool_shell.Commands:
+        config: ExpConfig,
+        data_exp_fs_manager: exp_fs.DataManager,
+        work_exp_fs_manager: exp_fs.WorkManager,
+    ) -> abc_tool_shell.CommandsWithArguments:
         """Convert inputs to commands."""
-        tool_config: abc_tool_config.Config = config.tool_configs()
-        return abc_tool_shell.Commands(
+        names_to_input_results = self.config_to_inputs(config, data_exp_fs_manager)
+        tool_config: abc_tool_config.ConfigWithArguments = config.tool_configs()
+        return abc_tool_shell.CommandsWithArguments(
             [
                 arg_path.input_to_sh_lines_builder(
                     names_to_input_results[name],
@@ -187,5 +242,6 @@ class Connector[ArgNames: abc_tool_config.Names]:
                 for name, arg_path in self._arg_names_and_paths.items()
             ],
             abc_tool_shell.OptionBashLinesBuilder(tool_config.options()),
+            data_exp_fs_manager,
             work_exp_fs_manager,
         )
