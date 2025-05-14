@@ -1,5 +1,6 @@
 # To-dos
 
+* [ ] Run exp config checks (and config subcmd) are not the same as exp config checks for init subcmd (difference of tool coverage in visitors)
 * [ ] PBF format seeds (`pbf_seeds.tsv`)
 * [ ] PBF format plasmidness (`pbf_plasmidness.tsv`)
 
@@ -18,6 +19,15 @@
 
 ## Features
 
+### Assembly Topic
+
+* [ ] SKESA
+* [ ] Unicycler
+* [ ] GFA connector
+  * [ ] Format the GFA contig name and add segment property "SC" a str equals to the previous name
+  * [ ] Export FASTA from modified GFA
+* [ ] Check if GFA must be standardized (which type of standardization?)
+
 ### SEEDS Topic
 
 * [ ] Platon results logics
@@ -31,7 +41,6 @@ Both run and result logics
 * [ ] PlasGraph2
 * [ ] RFPlasmid
 * [ ] MLPlasmids (R managment and species name)
-
 
 ### BINNING Topic
 
