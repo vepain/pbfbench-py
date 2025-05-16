@@ -2,26 +2,25 @@
 
 from enum import StrEnum
 
-import pbfbench.experiment.file_system as exp_fs
 
+class SACCTState(StrEnum):
+    """Slurm states recognized by sacct.
 
-class Status(StrEnum):
-    """Slurm status."""
+    From: https://slurm.schedmd.com/sacct.html#SECTION_JOB-STATE-CODES
+    """
 
-    INIT_ENV_ERROR = "init_env_error"
-    COMMAND_ERROR = "command_error"
-    CLOSE_ENV_ERROR = "close_env_error"
-    END = "end"
-
-
-def get_status(work_exp_fs_manager: exp_fs.WorkManager, job_id: str) -> Status | None:
-    """Get sample experiment status."""
-    if work_exp_fs_manager.sbatch_init_env_error_file(job_id).exists():
-        return Status.INIT_ENV_ERROR
-    if work_exp_fs_manager.sbatch_command_error_file(job_id).exists():
-        return Status.COMMAND_ERROR
-    if work_exp_fs_manager.sbatch_close_env_error_file(job_id).exists():
-        return Status.CLOSE_ENV_ERROR
-    if work_exp_fs_manager.sbatch_end_file(job_id).exists():
-        return Status.END
-    return None
+    BOOT_FAIL = "BOOT_FAIL"
+    CANCELLED = "CANCELLED"
+    COMPLETED = "COMPLETED"
+    DEADLINE = "DEADLINE"
+    FAILED = "FAILED"
+    NODE_FAIL = "NODE_FAIL"
+    OUT_OF_MEMORY = "OUT_OF_MEMORY"
+    PENDING = "PENDING"
+    PREEMPTED = "PREEMPTED"
+    RUNNING = "RUNNING"
+    REQUEUED = "REQUEUED"
+    RESIZING = "RESIZING"
+    REVOKED = "REVOKED"
+    SUSPENDED = "SUSPENDED"
+    TIMEOUT = "TIMEOUT"

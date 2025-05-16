@@ -91,7 +91,7 @@ def init(
     #
     # Seeds
     #
-    # TODO verify config exists (use already existing functions)
+    # TODO verify config exists (use already existing functions) [Not urgent]
     # REFACTOR generalize this but e.g. plasmidness needs also the GFA tool provider
     # REFACTOR to get the subconnector, use instead class attribute for Connector?
     # * Connector must implement abc classmethod to_arg_paths -> Iterable[ArgPath]

@@ -24,4 +24,8 @@
         pbfbench = "pbfbench.__main__:main"
 
 [tool.setuptools.package-data]
-    pbfbench = ["py.typed", "topics/**/core_command.sh"]
+    pbfbench = [
+        "py.typed",
+        "experiment/bash/sbatch_template.sh",
+        "topics/**/core_command.sh",
+    ]

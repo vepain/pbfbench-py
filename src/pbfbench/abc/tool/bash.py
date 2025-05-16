@@ -8,16 +8,16 @@ from typing import TYPE_CHECKING
 import pbfbench.abc.module_meta as abc_meta_mod
 import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.topic.results.items as abc_topic_res_items
+import pbfbench.bash.items as bash_items
 import pbfbench.experiment.file_system as exp_fs
-import pbfbench.samples.shell as smp_sh
-import pbfbench.shell as sh
+import pbfbench.samples.bash as smp_sh
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
     from pathlib import Path
 
 
-class ArgBashLinesBuilder[R: abc_topic_res_items.Result](ABC):
+class Argument[R: abc_topic_res_items.Result](ABC):
     """Argument bash lines builder."""
 
     def __init__(
@@ -62,10 +62,10 @@ class ArgBashLinesBuilder[R: abc_topic_res_items.Result](ABC):
         raise NotImplementedError
 
 
-class OptionBashLinesBuilder:
+class Options:
     """Bash lines builder for user tool options."""
 
-    USER_TOOL_OPTIONS_VAR = sh.Variable("USER_TOOL_OPTIONS")
+    USER_TOOL_OPTIONS_VAR = bash_items.Variable("USER_TOOL_OPTIONS")
 
     def __init__(self, tool_options: abc_tool_cfg.StringOpts) -> None:
         """Initialize."""
@@ -85,14 +85,14 @@ class OptionBashLinesBuilder:
 class _CommandsWithOptions:
     """Commands with options."""
 
-    SAMPLES_TSV_VAR = sh.Variable("SAMPLES_TSV")
-    WORK_EXP_SAMPLE_DIR_VAR = sh.Variable("WORK_EXP_SAMPLE_DIR")
+    SAMPLES_TSV_VAR = bash_items.Variable("SAMPLES_TSV")
+    WORK_EXP_SAMPLE_DIR_VAR = bash_items.Variable("WORK_EXP_SAMPLE_DIR")
 
     CORE_COMMAND_SH_FILENAME = "core_command.sh"
 
     def __init__(
         self,
-        opts_sh_lines_builder: OptionBashLinesBuilder,
+        opts_sh_lines_builder: Options,
         data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,
     ) -> None:
@@ -113,7 +113,7 @@ class _CommandsWithOptions:
         yield ("")
         yield from self.core_commands()
 
-    def opts_sh_lines_builder(self) -> OptionBashLinesBuilder:
+    def opts_sh_lines_builder(self) -> Options:
         """Get options bash lines builder."""
         return self._opts_sh_lines_builder
 
@@ -128,7 +128,7 @@ class _CommandsWithOptions:
     def set_samples_tsv_var(self) -> Iterator[str]:
         """Set samples tsv variable."""
         yield self.SAMPLES_TSV_VAR.set(
-            sh.path_to_str(self._data_exp_fs_manager.samples_tsv()),
+            bash_items.path_to_str(self._data_exp_fs_manager.samples_tsv()),
         )
 
     def set_work_sample_exp_dir(self) -> Iterator[str]:
@@ -136,7 +136,9 @@ class _CommandsWithOptions:
         work_exp_sample_dir = smp_sh.sample_shell_fs_manager(
             self._work_exp_fs_manager,
         ).sample_dir()
-        yield self.WORK_EXP_SAMPLE_DIR_VAR.set(sh.path_to_str(work_exp_sample_dir))
+        yield self.WORK_EXP_SAMPLE_DIR_VAR.set(
+            bash_items.path_to_str(work_exp_sample_dir),
+        )
 
     def core_commands(self) -> Iterator[str]:
         """Iterate over the tool command lines."""
@@ -165,8 +167,8 @@ class CommandsWithArguments(_CommandsWithOptions):
 
     def __init__(
         self,
-        arg_sh_lines_builders: Iterable[ArgBashLinesBuilder],
-        opts_sh_lines_builder: OptionBashLinesBuilder,
+        arg_sh_lines_builders: Iterable[Argument],
+        opts_sh_lines_builder: Options,
         data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,
     ) -> None:
@@ -178,7 +180,7 @@ class CommandsWithArguments(_CommandsWithOptions):
             work_exp_fs_manager,
         )
 
-    def arg_sh_lines_builders(self) -> Iterator[ArgBashLinesBuilder]:
+    def arg_sh_lines_builders(self) -> Iterator[Argument]:
         """Get argument bash lines builders."""
         yield from self._arg_sh_lines_builders
 

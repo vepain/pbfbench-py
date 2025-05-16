@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, final
 
@@ -46,6 +47,7 @@ def build_application_only_options(
 
 def build_application_with_arguments(
     connector: abc_tool_visitor.ConnectorWithArguments,
+    init_app_type: type[InitAPP] | None,
 ) -> typer.Typer:
     """Build tool application when tool has arguments."""
     tool_description = connector.description()
@@ -54,20 +56,26 @@ def build_application_with_arguments(
         help=f"Subcommand for tool `{tool_description.name()}`",
         rich_markup_mode="rich",
     )
-    run_app = RunAppWithArguments(connector)
-    app.command(name=run_app.NAME, help=run_app.help())(run_app.main)
+    #
+    # Init and run apps
+    #
+    run_app: _RunAppWithArguments
+    if init_app_type is not None:
+        init_app = init_app_type(connector)
+        app.command(name=init_app.NAME, help=init_app.help())(init_app.main)
+        run_app = InitAndRunAppWithArguments(connector, init_app.init)
+        app.command(name=run_app.NAME, help=run_app.help())(run_app.main)
+    else:
+        run_app = OnlyRunAppWithArguments(connector)
+        app.command(name=run_app.NAME, help=run_app.help())(run_app.main)
+
+    #
+    # Config apps
+    #
     config_app = ConfigAppWithArguments(connector)
     app.command(name=config_app.NAME, help=config_app.help())(config_app.main)
     # TODO add check when ready
     return app
-
-
-def add_init(app: typer.Typer, init_app: InitAPP) -> None:
-    """Build topic init application."""
-    app.command(name=init_app.NAME, help=init_app.help())(init_app.main)
-
-
-# FIXME add init app: do not remove existing experiments because it adds only new files
 
 
 class Arguments:
@@ -84,7 +92,16 @@ class Arguments:
     )
 
 
-class RunAppWithOptions[C: abc_tool_visitor.ConnectorWithOptions](ABC):
+class Options:
+    """Tool application options."""
+
+    WITHOUT_INIT = typer.Option(
+        "--without-init/--with-init",
+        help="Run the tool without initializing the experiment",
+    )
+
+
+class RunAppWithOptions[C: abc_tool_visitor.ConnectorWithOptions]:
     """Run application."""
 
     NAME = abc_app.FinalCommands.RUN
@@ -100,17 +117,6 @@ class RunAppWithOptions[C: abc_tool_visitor.ConnectorWithOptions](ABC):
     def help(self) -> str:
         """Get help string."""
         return f"Run {self._connector.description().name()} tool."
-
-    @abstractmethod
-    def main(
-        self,
-        data_dir: Annotated[Path, Arguments.DATA_DIR],
-        work_dir: Annotated[Path, Arguments.WORK_DIR],
-        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
-        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
-    ) -> None:
-        """Run tool."""
-        raise NotImplementedError
 
 
 @final
@@ -159,28 +165,15 @@ class RunAppOnlyOptions(RunAppWithOptions[abc_tool_visitor.ConnectorOnlyOptions]
         raise typer.Exit(0)
 
 
-@final
-class RunAppWithArguments(RunAppWithOptions[abc_tool_visitor.ConnectorWithArguments]):
-    """Run application."""
+class _RunAppWithArguments(RunAppWithOptions[abc_tool_visitor.ConnectorWithArguments]):
+    """Run application abc."""
 
-    def main(
+    def _only_run(
         self,
-        data_dir: Annotated[Path, Arguments.DATA_DIR],
-        work_dir: Annotated[Path, Arguments.WORK_DIR],
-        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
-        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
+        data_exp_fs_manager: exp_fs.DataManager,
+        work_exp_fs_manager: exp_fs.WorkManager,
+        exp_config: exp_cfg.ConfigWithArguments,
     ) -> None:
-        """Run tool."""
-        root_logging.init_logger(_LOGGER, "Run tool", debug)
-
-        (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
-            _check_experiment_success_with_arguments(
-                data_dir,
-                work_dir,
-                exp_config_yaml,
-                self._connector,
-            )
-        )
         #
         # Use the tool connector to run the experiment
         #
@@ -207,7 +200,84 @@ class RunAppWithArguments(RunAppWithOptions[abc_tool_visitor.ConnectorWithArgume
             _number_of_running_samples - len(run_stats.samples_with_errors()),
             len(run_stats.samples_with_errors()),
         )
+
+
+@final
+class OnlyRunAppWithArguments(_RunAppWithArguments):
+    """Run application with only run."""
+
+    def main(
+        self,
+        data_dir: Annotated[Path, Arguments.DATA_DIR],
+        work_dir: Annotated[Path, Arguments.WORK_DIR],
+        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
+        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
+    ) -> None:
+        """Run tool."""
+        root_logging.init_logger(_LOGGER, "Run tool", debug)
+
+        (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
+            _check_experiment_success_with_arguments(
+                data_dir,
+                work_dir,
+                exp_config_yaml,
+                self._connector,
+            )
+        )
+
+        self._only_run(data_exp_fs_manager, work_exp_fs_manager, exp_config)
+
         raise typer.Exit(0)
+
+
+@final
+class InitAndRunAppWithArguments(_RunAppWithArguments):
+    """Run application with init and run."""
+
+    def __init__(
+        self,
+        connector: abc_tool_visitor.ConnectorWithArguments,
+        init_function: Callable[
+            [exp_fs.DataManager, exp_fs.WorkManager, exp_cfg.ConfigWithArguments],
+            None,
+        ],
+    ) -> None:
+        """Initialize."""
+        super().__init__(connector)
+        self.__init_function = init_function
+
+    def main(
+        self,
+        data_dir: Annotated[Path, Arguments.DATA_DIR],
+        work_dir: Annotated[Path, Arguments.WORK_DIR],
+        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
+        without_init: Annotated[bool, Options.WITHOUT_INIT] = False,
+        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
+    ) -> None:
+        """Init and run the tool."""
+        root_logging.init_logger(_LOGGER, "Init and run the tool", debug)
+
+        (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
+            _check_experiment_success_with_arguments(
+                data_dir,
+                work_dir,
+                exp_config_yaml,
+                self._connector,
+            )
+        )
+
+        if not without_init:
+            self.__init_function(data_exp_fs_manager, work_exp_fs_manager, exp_config)
+        else:
+            _LOGGER.info("Skipping initialization.")
+
+        self._only_run(data_exp_fs_manager, work_exp_fs_manager, exp_config)
+
+        raise typer.Exit(0)
+
+    def help(self) -> str:
+        """Get help string."""
+        return f"Initialize and run {self._connector.description().name()} tool."
 
 
 class ConfigAppWithOptions[
@@ -366,12 +436,13 @@ class InitAPP(ABC):
         )
 
         # TODO copy config in data dir (already created it seems)
-        # REFACTOR generalize with runApp
 
-        self._init(data_exp_fs_manager, work_exp_fs_manager, exp_config)
+        self.init(data_exp_fs_manager, work_exp_fs_manager, exp_config)
+
+        typer.Exit(0)
 
     @abstractmethod
-    def _init(
+    def init(
         self,
         data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,

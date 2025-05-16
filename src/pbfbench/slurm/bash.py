@@ -7,9 +7,11 @@ import subprocess
 from itertools import chain
 from typing import TYPE_CHECKING
 
+import pbfbench.bash.items as bash_items
 import pbfbench.experiment.file_system as exp_fs
-import pbfbench.shell as sh
+import pbfbench.experiment.slurm.file_system as exp_slurm_fs
 import pbfbench.slurm.config as slurm_cfg
+import pbfbench.slurm.status as slurm_status
 from pbfbench import subprocess_lib
 
 if TYPE_CHECKING:
@@ -26,8 +28,8 @@ def array_task_job_id(array_job_id: str, task_job_id: str) -> str:
     return f"{array_job_id}_{task_job_id}"
 
 
-SLURM_ARRAY_JOB_ID_VAR = sh.Variable("SLURM_ARRAY_JOB_ID")
-SLURM_ARRAY_TASK_ID_VAR = sh.Variable("SLURM_ARRAY_TASK_ID")
+SLURM_ARRAY_JOB_ID_VAR = bash_items.Variable("SLURM_ARRAY_JOB_ID")
+SLURM_ARRAY_TASK_ID_VAR = bash_items.Variable("SLURM_ARRAY_TASK_ID")
 SLURM_JOB_ID_FROM_VARS = array_task_job_id(
     SLURM_ARRAY_JOB_ID_VAR.eval(),
     SLURM_ARRAY_TASK_ID_VAR.eval(),
@@ -55,9 +57,11 @@ class SbatchCommentLinesBuilder:
             f"{cls.COMMENT} {line}"
             for line in chain(
                 cls._job_name_lines(work_exp_fs_manager),
-                iter(slurm_config),
                 cls._job_array_lines(samples_to_run_indices),
-                cls._sbatch_option_log_lines(work_exp_fs_manager),
+                cls._sbatch_option_log_lines(
+                    work_exp_fs_manager.slurm_log_fs_manager(),
+                ),
+                iter(slurm_config),
             )
         )
 
@@ -84,62 +88,11 @@ class SbatchCommentLinesBuilder:
     @classmethod
     def _sbatch_option_log_lines(
         cls,
-        work_exp_fs_manager: exp_fs.WorkManager,
+        logs_manager: exp_slurm_fs.LogsManager,
     ) -> Iterator[str]:
         """Iterate over the sbatch log option lines."""
-        yield f"--output={work_exp_fs_manager.sbatch_out_file(cls.JOB_ID)}"
-        yield f"--error={work_exp_fs_manager.sbatch_err_file(cls.JOB_ID)}"
-
-
-class ExitFunctionLinesBuilder:
-    """Exit function lines builder."""
-
-    EXIT_INIT_ENV_ERROR_FN_NAME = "exit_init_env_error"
-    EXIT_COMMAND_ERROR_FN_NAME = "exit_command_error"
-    EXIT_CLOSE_ENV_ERROR_FN_NAME = "exit_close_env_error"
-    EXIT_END_FN_NAME = "exit_end"
-
-    @classmethod
-    def lines(cls, work_exp_fs_manager: exp_fs.WorkManager) -> Iterator[str]:
-        """Iterate over bash lines defining the exit functions."""
-        yield from chain(
-            cls._err_fn_lines(
-                cls.EXIT_INIT_ENV_ERROR_FN_NAME,
-                work_exp_fs_manager.sbatch_init_env_error_file(SLURM_JOB_ID_FROM_VARS),
-            ),
-            cls._err_fn_lines(
-                cls.EXIT_COMMAND_ERROR_FN_NAME,
-                work_exp_fs_manager.sbatch_command_error_file(SLURM_JOB_ID_FROM_VARS),
-            ),
-            cls._err_fn_lines(
-                cls.EXIT_CLOSE_ENV_ERROR_FN_NAME,
-                work_exp_fs_manager.sbatch_close_env_error_file(SLURM_JOB_ID_FROM_VARS),
-            ),
-            cls._ok_fn_lines(
-                cls.EXIT_END_FN_NAME,
-                work_exp_fs_manager.sbatch_end_file(SLURM_JOB_ID_FROM_VARS),
-            ),
-        )
-
-    @classmethod
-    def _function_lines(
-        cls,
-        fn_name: str,
-        status_file: Path,
-        code: int,
-    ) -> Iterator[str]:
-        yield f"function {fn_name}" + " {"
-        yield f"  touch {status_file}"
-        yield f"  exit {code}"
-        yield "}"
-
-    @classmethod
-    def _ok_fn_lines(cls, fn_name: str, status_file: Path) -> Iterator[str]:
-        yield from cls._function_lines(fn_name, status_file, 0)
-
-    @classmethod
-    def _err_fn_lines(cls, fn_name: str, status_file: Path) -> Iterator[str]:
-        yield from cls._function_lines(fn_name, status_file, 1)
+        yield f"--output={logs_manager.stdout(cls.JOB_ID)}"
+        yield f"--error={logs_manager.stderr(cls.JOB_ID)}"
 
 
 SACCT_CMD = "sacct"
@@ -148,19 +101,31 @@ BASH_CMD = "bash"
 
 def write_slurm_stats(job_id: str, psv_path: Path) -> None:
     """Write sbatch stats."""
-    tmp_bash_script_path = psv_path.with_suffix(".sh")
-
-    with tmp_bash_script_path.open("w") as f:
-        f.write(sh.BASH_SHEBANG + "\n")
-        f.write(f"{SACCT_CMD} --long --jobs {job_id} --parsable2 > {psv_path}")
+    sacct_cmd = f"{SACCT_CMD} --long --jobs {job_id} --parsable2 > {psv_path}"
 
     cmd_path = subprocess_lib.command_path(BASH_CMD)
     result = subprocess.run(  # noqa: S603
-        [str(x) for x in [cmd_path, tmp_bash_script_path]],
+        [str(x) for x in [cmd_path, "-c", f"'{sacct_cmd}'"]],
         capture_output=True,
+        text=True,
         check=False,
     )
     _LOGGER.debug("%s stdout: %s", SACCT_CMD, result.stdout)
     _LOGGER.debug("%s stderr: %s", SACCT_CMD, result.stderr)
 
-    tmp_bash_script_path.unlink()
+
+def get_states(job_ids: Iterable[str]) -> dict[str, slurm_status.SACCTState]:
+    """Get jobs states."""
+    cmd_path = subprocess_lib.command_path(SACCT_CMD)
+    result = subprocess.run(  # noqa: S602
+        f"{cmd_path} --jobs " + ",".join(job_ids) + " --format=JobID,State -P -X",
+        shell=True,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    job_states: dict[str, slurm_status.SACCTState] = {}
+    for stdout_line in result.stdout.splitlines()[1:]:
+        columns = stdout_line.split("|")
+        job_states[columns[0]] = slurm_status.SACCTState(columns[1])
+    return job_states

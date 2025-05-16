@@ -8,9 +8,6 @@ import pbfbench.topics.assembly.description as asm_desc
 import pbfbench.topics.plasmidness.description as plasmidness_desc
 import pbfbench.topics.seeds.description as seeds_desc
 
-# REFACTOR reverse the sense: topic container.???
-# * avoid module path hack
-
 
 @final
 class Topics(abc_topic_visitor.Topics):

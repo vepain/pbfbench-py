@@ -24,6 +24,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [Unreleased] - yyyy-mm-dd
+
+### Added
+
+* When `init` subcommand exists, add it to `run` subcommand process (with option to not initialize the experiment)
+
+### Changed
+
+* Tree file structure in data directory
+* Big internal refactoring
+
+### Fixed
+
+* Manage `sbatch` externality
+
 ## [0.4.0] - 2025-05-14
 
 ### Added

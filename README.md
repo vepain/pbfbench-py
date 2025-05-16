@@ -1,6 +1,14 @@
 # PlasBin-flow benchmarking framework
 
-## Setup Python virtual environment
+## Install
+
+Requires:
+
+* `slurm`
+* `bash`
+* `python 3.13`
+
+### Python environments
 
 ### With conda
 
@@ -17,7 +25,7 @@
   conda activate pbfbench-dev
   ```
 
-### With virtualenv
+#### With virtualenv
 
 ```sh
 python3.13 -m virtualenv .venv_pbfbench_313

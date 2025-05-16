@@ -45,6 +45,7 @@ def samples_to_format_result(
     """
     # TODO log that requires to run before init
     # TODO perhaps missing inputs for check should be good (I removed it...)
+    # Just for logs (only for init app in that case, bc run app will after logs it)
     done_input = (
         row_numbered_sample
         for row_numbered_sample in all_samples

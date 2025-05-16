@@ -164,29 +164,72 @@ type PermissionStatus = PermissionOK | PermissionErrors
 
 def _check_read_write_access(data_dir: Path, work_dir: Path) -> PermissionStatus:
     """Check read and write access."""
+    match status := _check_read_write_access_data(data_dir):
+        case PermissionErrors():
+            return status
+
+    match status := _check_read_write_access_work(work_dir):
+        case PermissionErrors():
+            return status
+
+    return PermissionOK.READ_WRITE
+
+
+def _check_read_write_access_data(data_dir: Path) -> PermissionStatus:
+    """Check read and write access."""
     if not data_dir.exists():
         _LOGGER.error("Data directory %s does not exist", data_dir)
         return PermissionErrors.NO_READ_ACCESS
+
+    file_test = data_dir / "test_read_write.txt"
+    try:
+        file_test.write_text("test")
+    except OSError:
+        _LOGGER.exception("No write access to %s", data_dir)
+        return PermissionErrors.NO_WRITE_ACCESS
+
+    try:
+        file_test.read_text()
+    except OSError:
+        _LOGGER.exception("No read access to %s", data_dir)
+        file_test.unlink()
+        return PermissionErrors.NO_READ_ACCESS
+
+    file_test.unlink()
+
+    return PermissionOK.READ_WRITE
+
+
+def _check_read_write_access_work(work_dir: Path) -> PermissionStatus:
+    """Check read and write access."""
     try:
         work_dir.mkdir(parents=True, exist_ok=True)
     except OSError:
         _LOGGER.exception("No write access to %s", work_dir)
         return PermissionErrors.NO_WRITE_ACCESS
+    file_test = work_dir / "test_read_write.txt"
 
-    for test_dir in (data_dir, work_dir):
-        file_test = test_dir / "test_read_write.txt"
-        try:
-            file_test.write_text("test")
-        except OSError:
-            _LOGGER.exception("No write access to %s", test_dir)
-            return PermissionErrors.NO_WRITE_ACCESS
-        try:
-            file_test.read_text()
-        except OSError:
-            _LOGGER.exception("No read access to %s", test_dir)
-            file_test.unlink()
-            return PermissionErrors.NO_READ_ACCESS
+    try:
+        file_test.write_text("test")
+    except OSError:
+        _LOGGER.exception("No write access to %s", work_dir)
+        file_test.unlink(missing_ok=True)
+        if not any(work_dir.iterdir()):
+            work_dir.rmdir()
+        return PermissionErrors.NO_WRITE_ACCESS
+
+    try:
+        file_test.read_text()
+    except OSError:
+        _LOGGER.exception("No read access to %s", work_dir)
         file_test.unlink()
+        if not any(work_dir.iterdir()):
+            work_dir.rmdir()
+        return PermissionErrors.NO_READ_ACCESS
+
+    file_test.unlink()
+    if not any(work_dir.iterdir()):
+        work_dir.rmdir()
 
     return PermissionOK.READ_WRITE
 

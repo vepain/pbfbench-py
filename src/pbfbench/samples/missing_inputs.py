@@ -28,8 +28,6 @@ _LOGGER = logging.getLogger(__name__)
 class MissingInput:
     """Missing input item."""
 
-    # REFACTOR may take as input topic and tool descriptions
-    # When tool and topic will be separated
     @classmethod
     def from_tool_input(
         cls,
@@ -268,5 +266,5 @@ def _get_help_str(
                 " --help"
             )
 
-        case _:  # REFACTOR Result should be a Protocol?
+        case _:
             raise NotImplementedError

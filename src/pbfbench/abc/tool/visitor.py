@@ -10,9 +10,9 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import final
 
+import pbfbench.abc.tool.bash as abc_tool_bash
 import pbfbench.abc.tool.config as abc_tool_config
 import pbfbench.abc.tool.description as abc_tool_desc
-import pbfbench.abc.tool.shell as abc_tool_shell
 import pbfbench.abc.topic.results.items as abc_topic_res_items
 import pbfbench.abc.topic.results.visitors as topic_res_visitors
 import pbfbench.abc.topic.visitor as abc_topic_visitor
@@ -30,7 +30,7 @@ class ArgumentPath[
         self,
         topic_tools: type[T],
         result_visitor: type[topic_res_visitors.Visitor[T, R]],
-        sh_lines_builder_type: type[abc_tool_shell.ArgBashLinesBuilder[R]],
+        sh_lines_builder_type: type[abc_tool_bash.Argument[R]],
     ) -> None:
         """Initialize."""
         self._topic_tools = topic_tools
@@ -47,7 +47,7 @@ class ArgumentPath[
         """Get result visitor function."""
         return self._result_visitor
 
-    def sh_lines_builder_type(self) -> type[abc_tool_shell.ArgBashLinesBuilder[R]]:
+    def sh_lines_builder_type(self) -> type[abc_tool_bash.Argument[R]]:
         """Get shell lines builder type."""
         return self._sh_lines_builder_type
 
@@ -80,7 +80,7 @@ class ArgumentPath[
         self,
         input_result: R,
         work_exp_fs_manager: exp_fs.WorkManager,
-    ) -> abc_tool_shell.ArgBashLinesBuilder[R]:
+    ) -> abc_tool_bash.Argument[R]:
         """Convert input to shell lines builder."""
         return self._sh_lines_builder_type(
             input_result,
@@ -118,7 +118,7 @@ class ConnectorWithOptions[ExpConfig: exp_cfg.ConfigWithOptions](ABC):
         config: ExpConfig,
         data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,
-    ) -> abc_tool_shell._CommandsWithOptions:
+    ) -> abc_tool_bash._CommandsWithOptions:
         """Convert inputs to commands."""
         raise NotImplementedError
 
@@ -137,10 +137,10 @@ class ConnectorOnlyOptions(ConnectorWithOptions[exp_cfg.ConfigOnlyOptions]):
         config: exp_cfg.ConfigOnlyOptions,
         data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,
-    ) -> abc_tool_shell.CommandsOnlyOptions:
+    ) -> abc_tool_bash.CommandsOnlyOptions:
         """Convert inputs to commands."""
-        return abc_tool_shell.CommandsOnlyOptions(
-            abc_tool_shell.OptionBashLinesBuilder(config.tool_configs().options()),
+        return abc_tool_bash.CommandsOnlyOptions(
+            abc_tool_bash.Options(config.tool_configs().options()),
             data_exp_fs_manager,
             work_exp_fs_manager,
         )
@@ -229,11 +229,11 @@ class ConnectorWithArguments[
         config: ExpConfig,
         data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,
-    ) -> abc_tool_shell.CommandsWithArguments:
+    ) -> abc_tool_bash.CommandsWithArguments:
         """Convert inputs to commands."""
         names_to_input_results = self.config_to_inputs(config, data_exp_fs_manager)
         tool_config: abc_tool_config.ConfigWithArguments = config.tool_configs()
-        return abc_tool_shell.CommandsWithArguments(
+        return abc_tool_bash.CommandsWithArguments(
             [
                 arg_path.input_to_sh_lines_builder(
                     names_to_input_results[name],
@@ -241,7 +241,7 @@ class ConnectorWithArguments[
                 )
                 for name, arg_path in self._arg_names_and_paths.items()
             ],
-            abc_tool_shell.OptionBashLinesBuilder(tool_config.options()),
+            abc_tool_bash.Options(tool_config.options()),
             data_exp_fs_manager,
             work_exp_fs_manager,
         )
