@@ -1,23 +1,20 @@
 # To-dos
 
-* [ ] Run exp config checks (and config subcmd) are not the same as exp config checks for init subcmd (difference of tool coverage in visitors)
-* [ ] PBF format seeds (`pbf_seeds.tsv`)
-* [ ] PBF format plasmidness (`pbf_plasmidness.tsv`)
+## Refactoring
 
->[!WARNING]
-> It seems some tools (MLPlasmids) need the full name of the species, which thus must be specified in the `samples.tsv` file
-> MLPlasmids is not the priority for this project.
+* [ ] Uniformize: `run` exp config checks (and `config` subcmd) are not the same as in `init` exp config checks (difference of tool coverage in visitors)
 
 ## Logs
 
 * [ ] Add sbatch error status to sample error reasons (except error close env which can be a sample warning status file)
   * [ ] Add list of sample warnings in exp warning tsv file
 
-## Limitations
-
-* [ ] (To document) The environment wrapper logics are not robust for commands with inline comments (do not finish a command with a comment)
-
 ## Features
+
+### User interface
+
+* [ ] Add `--all` option for `init` subcommand
+* [ ] Add a command `complete` to finish managing sbatch jobs (in case pbfbench cmd run falled in a time limit)
 
 ### Assembly Topic
 
@@ -41,6 +38,11 @@ Both run and result logics
 * [ ] PlasGraph2
 * [ ] RFPlasmid
 * [ ] MLPlasmids (R managment and species name)
+
+  >[!WARNING]
+  > It seems some tools (MLPlasmids) need the full name of the species, which thus must be specified in the `samples.tsv` file.
+  > Or instead Python should set the variable according the column header used (enables type verification).
+  > MLPlasmids is not the priority for this project.
 
 ### BINNING Topic
 
