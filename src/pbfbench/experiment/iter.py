@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.abc.topic.results.items as abc_topic_res_items
+import pbfbench.experiment.errors as exp_errors
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.missing_inputs as smp_miss_in
@@ -18,20 +19,20 @@ if TYPE_CHECKING:
 
 def samples_to_run(
     data_exp_fs_manager: exp_fs.DataManager,
-    all_samples: Iterable[smp_fs.RowNumberedItem],
 ) -> Iterator[smp_fs.RowNumberedItem]:
     """Get samples with error status.
 
     They correspond to samples for which the experiment is not done.
     """
-    return (
-        row_numbered_sample
-        for row_numbered_sample in all_samples
-        if smp_status.get_status(
-            data_exp_fs_manager.sample_fs_manager(row_numbered_sample.item()),
+    with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
+        return (
+            row_numbered_sample
+            for row_numbered_sample in smp_tsv_in.iter_row_numbered_items()
+            if smp_status.get_status(
+                data_exp_fs_manager.sample_fs_manager(row_numbered_sample.item()),
+            )
+            != smp_status.OKStatus.OK
         )
-        != smp_status.OKStatus.OK
-    )
 
 
 def samples_to_format_result(
@@ -61,6 +62,23 @@ def samples_to_format_result(
         for row_numbered_sample in done_input
         if formatted_result_builder.check(row_numbered_sample.item())
         != smp_status.OKStatus.OK
+    )
+
+
+def samples_to_complete(
+    data_exp_fs_manager: exp_fs.DataManager,
+) -> Iterator[smp_fs.RowNumberedItem]:
+    """Get samples to complete."""
+    with exp_errors.ErrorsTSVReader.open(
+        data_exp_fs_manager.errors_tsv(),
+    ) as in_exp_errors:
+        samples_id_with_errors = {
+            sample_error.sample_id() for sample_error in in_exp_errors
+        }
+    return (
+        row_numbered_item
+        for row_numbered_item in samples_to_run(data_exp_fs_manager)
+        if row_numbered_item.item().exp_sample_id() not in samples_id_with_errors
     )
 
 

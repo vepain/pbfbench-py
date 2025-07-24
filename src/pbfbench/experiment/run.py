@@ -139,17 +139,9 @@ def _get_samples_to_run(
     run_stats: exp_stats.RunStatsWithOptions,
 ) -> list[smp_fs.RowNumberedItem]:
     """Get samples to run."""
-    with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
-        samples_to_run = list(
-            exp_iter.samples_to_run(
-                data_exp_fs_manager,
-                smp_tsv_in.iter_row_numbered_items(),
-            ),
-        )
+    samples_to_run = list(exp_iter.samples_to_run(data_exp_fs_manager))
     run_stats.add_samples_to_run(len(samples_to_run))
-
     _LOGGER.info("Number of samples to run: %d", len(samples_to_run))
-
     return samples_to_run
 
 
