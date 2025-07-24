@@ -248,6 +248,8 @@ def _get_help_str(
     requesting_tool_description: abc_tool_desc.Description,
 ) -> str:
     """Get help string."""
+    # REFACTOR ugly pattern because in one case requesting_tool_description is not used
+    # Could be solve if put Result visitor logic in config(?)
     match tool_input:
         case abc_topic_res_items.Original():
             return (
