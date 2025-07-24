@@ -3,6 +3,7 @@
 from typing import final
 
 import pbfbench.abc.tool.visitor as abc_tool_visitor
+import pbfbench.topics.assembly.results.items as asm_res_items
 import pbfbench.topics.assembly.results.visitor as asm_res_visitor
 import pbfbench.topics.assembly.visitor as asm_visitor
 import pbfbench.topics.binning.pangebin_once.config as pangebin_once_cfg
@@ -32,20 +33,29 @@ class Connector(
 CONNECTOR = Connector(
     pangebin_once_desc.DESCRIPTION,
     {
-        pangebin_once_cfg.Names.GFA: abc_tool_visitor.ArgumentPath(
+        pangebin_once_cfg.Names.GFA: abc_tool_visitor.ArgumentPath[
+            asm_visitor.Tools,
+            asm_res_items.AsmGraphGZ,
+        ](
             asm_visitor.Tools,
             asm_res_visitor.AsmGraphGZ,
             pangebin_once_sh.GFAInputLinesBuilder,
         ),
-        pangebin_once_cfg.Names.SEEDS: abc_tool_visitor.ArgumentPath(
+        pangebin_once_cfg.Names.SEEDS: abc_tool_visitor.ArgumentPath[
+            seeds_visitor.Tools,
+            seeds_pbf_in_res.Seeds,
+        ](
             seeds_visitor.Tools,
             seeds_pbf_in_res.SeedsVisitor,
             pangebin_once_sh.SeedsInputLinesBuilder,
         ),
-        pangebin_once_cfg.Names.PLASMIDNESS: abc_tool_visitor.ArgumentPath(
+        pangebin_once_cfg.Names.PLASMIDNESS: abc_tool_visitor.ArgumentPath[
+            plm_visitor.Tools,
+            plm_pbf_in_res.Plasmidness,
+        ](
             plm_visitor.Tools,
             plm_pbf_in_res.PlasmidnessVisitor,
             pangebin_once_sh.PlasmidnessInputLinesBuilder,
-        ),  # FIXME how to verify the link between classes because no errors raised
+        ),
     },
 )
