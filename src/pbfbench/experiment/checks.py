@@ -125,8 +125,10 @@ def check_experiment_with_arguments[
 
     _LOGGER.debug("Experiment config:\n%s", exp_config.to_yaml_dump())
 
+    # REFACTOR only change comparing to "check_experiment_with_only_options"
     if not _check_config_inputs(exp_config, tool_connector):
         return ErrorsWithArguments.WRONG_INPUT_TOOLS
+    # ---
 
     data_exp_fs_manager, work_exp_fs_manager = exp_fs.data_and_working_managers(
         data_dir,
@@ -272,13 +274,13 @@ type SameExperimentStatus = SameExperimentOK | SameExperimentErrors
 
 
 def _is_same_experiment(
-    data_exp_fs_manager: exp_fs.DataManager,
+    exp_fs_manager: exp_fs.ManagerBase,
     config: exp_cfg.ConfigWithOptions,
 ) -> SameExperimentStatus:
     """Check if experiment is the same."""
     try:
         config_in_data = type(config).from_yaml(
-            data_exp_fs_manager.config_yaml(),
+            exp_fs_manager.config_yaml(),
         )
     except Exception:
         _LOGGER.exception(
