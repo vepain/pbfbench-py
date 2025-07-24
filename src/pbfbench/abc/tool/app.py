@@ -101,6 +101,62 @@ class Options:
     )
 
 
+class InitAPP(ABC):
+    """Init application."""
+
+    NAME = abc_app.FinalCommands.INIT
+
+    def __init__(
+        self,
+        connector: abc_tool_visitor.ConnectorWithArguments,
+    ) -> None:
+        """Initialize."""
+        self.__connector = connector
+
+    def connector(self) -> abc_tool_visitor.ConnectorWithArguments:
+        """Get connector."""
+        return self.__connector
+
+    def help(self) -> str:
+        """Get help string."""
+        return f"Initialize inputs for {self.__connector.description().name()} tool."
+
+    def main(
+        self,
+        data_dir: Annotated[Path, Arguments.DATA_DIR],
+        work_dir: Annotated[Path, Arguments.WORK_DIR],
+        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
+        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
+    ) -> None:
+        """Init tool."""
+        root_logging.init_logger(_LOGGER, "Initialize inputs for the tool", debug)
+
+        (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
+            _check_experiment_success_with_arguments(
+                data_dir,
+                work_dir,
+                exp_config_yaml,
+                self.__connector,
+            )
+        )
+
+        # TODO copy config in data dir (already created it seems)
+
+        self.init(data_exp_fs_manager, work_exp_fs_manager, exp_config)
+
+        typer.Exit(0)
+
+    @abstractmethod
+    def init(
+        self,
+        data_exp_fs_manager: exp_fs.DataManager,
+        work_exp_fs_manager: exp_fs.WorkManager,
+        config: exp_cfg.ConfigWithArguments,
+    ) -> None:
+        """Init tool."""
+        raise NotImplementedError
+
+
 class RunAppWithOptions[C: abc_tool_visitor.ConnectorWithOptions]:
     """Run application."""
 
@@ -394,62 +450,6 @@ class ConfigAppWithArguments(
                 "$input_experiment_name",
             )
         return tool_args_type(args)
-
-
-class InitAPP(ABC):
-    """Init application."""
-
-    NAME = abc_app.FinalCommands.INIT
-
-    def __init__(
-        self,
-        connector: abc_tool_visitor.ConnectorWithArguments,
-    ) -> None:
-        """Initialize."""
-        self.__connector = connector
-
-    def connector(self) -> abc_tool_visitor.ConnectorWithArguments:
-        """Get connector."""
-        return self.__connector
-
-    def help(self) -> str:
-        """Get help string."""
-        return f"Initialize inputs for {self.__connector.description().name()} tool."
-
-    def main(
-        self,
-        data_dir: Annotated[Path, Arguments.DATA_DIR],
-        work_dir: Annotated[Path, Arguments.WORK_DIR],
-        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
-        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
-    ) -> None:
-        """Init tool."""
-        root_logging.init_logger(_LOGGER, "Initialize inputs for the tool", debug)
-
-        (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
-            _check_experiment_success_with_arguments(
-                data_dir,
-                work_dir,
-                exp_config_yaml,
-                self.__connector,
-            )
-        )
-
-        # TODO copy config in data dir (already created it seems)
-
-        self.init(data_exp_fs_manager, work_exp_fs_manager, exp_config)
-
-        typer.Exit(0)
-
-    @abstractmethod
-    def init(
-        self,
-        data_exp_fs_manager: exp_fs.DataManager,
-        work_exp_fs_manager: exp_fs.WorkManager,
-        config: exp_cfg.ConfigWithArguments,
-    ) -> None:
-        """Init tool."""
-        raise NotImplementedError
 
 
 def _check_experiment_success_only_options(
