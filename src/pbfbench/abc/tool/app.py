@@ -18,9 +18,12 @@ import pbfbench.abc.tool.config as abc_tool_config
 import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.abc.topic.visitor as abc_topic_visitor
 import pbfbench.experiment.checks as exp_checks
+import pbfbench.experiment.complete as exp_complete
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.experiment.run as exp_run
+import pbfbench.experiment.stats as exp_stats
+import pbfbench.samples.file_system as smp_fs
 import pbfbench.slurm.config as slurm_cfg
 from pbfbench import root_logging
 
@@ -334,6 +337,73 @@ class InitAndRunAppWithArguments(_RunAppWithArguments):
     def help(self) -> str:
         """Get help string."""
         return f"Initialize and run {self._connector.description().name()} tool."
+
+
+class ResumeApp[C: abc_tool_visitor.ConnectorWithOptions]:
+    """Resume application base class."""
+
+    NAME = "resume"
+
+    def __init__(self, connector: C) -> None:
+        """Initialize."""
+        self._connector = connector
+
+    def main(
+        self,
+        data_dir: Annotated[Path, Arguments.DATA_DIR],
+        work_dir: Annotated[Path, Arguments.WORK_DIR],
+        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
+        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
+    ) -> None:
+        """Resume the tool jobs."""
+        root_logging.init_logger(_LOGGER, "Resume tool jobs", debug)
+
+        # REFACTOR ugly if-else because of exp_config type (see todos file for details)
+        exp_config: exp_cfg.ConfigWithOptions
+        if isinstance(self._connector, abc_tool_visitor.ConnectorOnlyOptions):
+            (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
+                _check_experiment_success_only_options(
+                    data_dir,
+                    work_dir,
+                    exp_config_yaml,
+                    self._connector,
+                )
+            )
+        elif isinstance(self._connector, abc_tool_visitor.ConnectorWithArguments):
+            (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
+                _check_experiment_success_with_arguments(
+                    data_dir,
+                    work_dir,
+                    exp_config_yaml,
+                    self._connector,
+                )
+            )
+        else:
+            _LOGGER.critical("Unsupported connector type: %s", type(self._connector))
+            raise typer.Exit(1)
+        # REFACTOR wrap in a function with Typer.Exit
+        exp_checks._is_same_experiment(work_exp_fs_manager, exp_config)
+
+        # TODO [!] unfinished todos
+        # REFACTOR do not use run_stats but a sub object #
+        # concerning only the task `complete_eperiment`
+        # FIXME tmp fix for mypy
+        not_finished_samples: list[smp_fs.RowNumberedItem] = []
+        run_stats = exp_stats.RunStatsWithOptions(0, 0, None)
+        exp_complete.complete_experiment(
+            not_finished_samples,
+            data_exp_fs_manager,
+            work_exp_fs_manager,
+            run_stats,
+        )
+
+        raise typer.Exit(0)
+
+    def help(self) -> str:
+        """Get help string."""
+        return (
+            f"Complete pbfbench jobs for {self._connector.description().name()} tool."
+        )
 
 
 class ConfigAppWithOptions[
