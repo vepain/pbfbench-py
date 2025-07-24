@@ -68,7 +68,7 @@ def _finished_job_deamon(
         )
 
         while in_running_job_ids:
-            time.sleep(60)
+            time.sleep(30)
 
             _tmp_in_running_job_ids: list[tuple[str, smp_fs.RowNumberedItem]] = []
             finished_ok_jobs: list[
