@@ -6,19 +6,17 @@ import logging
 from typing import TYPE_CHECKING
 
 import pbfbench.abc.tool.config as abc_tool_cfg
-import pbfbench.abc.tool.visitor as abc_tool_visitor
-import pbfbench.abc.topic.results.items as abc_topic_res_items
+import pbfbench.abc.tool.connector as abc_tool_connector
+import pbfbench.abc.topic.results as abc_topic_res
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.experiment.iter as exp_iter
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.topics.binning.pangebin_once.config as pangebin_once_cfg
-import pbfbench.topics.plasmidness.pbf_input.results as plm_pbf_in_res
-import pbfbench.topics.plasmidness.plasgraph2.plasbin_flow as plasgraph2_pbf
-import pbfbench.topics.plasmidness.visitor as plm_visitor
-import pbfbench.topics.seeds.pbf_input.results as seeds_pbf_in_res
-import pbfbench.topics.seeds.platon.plasbin_flow as platon_pbf
-import pbfbench.topics.seeds.visitor as seeds_visitor
+import pbfbench.topics.classification.pbf_input.results as class_pbf_in_res
+import pbfbench.topics.classification.plasgraph2.plasbin_flow as plasgraph2_pbf
+import pbfbench.topics.classification.platon.plasbin_flow as platon_pbf
+import pbfbench.topics.classification.visitor as class_visitor
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -83,7 +81,7 @@ class InitStats:
 def init(
     data_exp_fs_manager: exp_fs.DataManager,
     exp_config: exp_cfg.ConfigWithArguments,
-    tool_connector: abc_tool_visitor.ConnectorWithArguments,
+    tool_connector: abc_tool_connector.ConnectorWithArguments,
 ) -> InitStats:
     """Init pangebin-once."""
     init_stats = InitStats.new(data_exp_fs_manager)
@@ -99,7 +97,7 @@ def init(
     # FormattedVisitor links to FormattedResult type and convert functions
     _tool_cfg: abc_tool_cfg.ConfigWithArguments = exp_config.tool_configs()
     seeds_arg = _tool_cfg.arguments()[pangebin_once_cfg.Names.SEEDS]
-    seeds_tool = seeds_visitor.Tools(seeds_arg.tool_name())
+    seeds_tool = class_visitor.Tools(seeds_arg.tool_name())
     seeds_in_data_exp_fs_manager = exp_fs.DataManager(
         data_exp_fs_manager.root_dir(),
         seeds_tool.to_description(),
@@ -107,11 +105,11 @@ def init(
     )
     samples_to_format_the_seeds = _get_samples_to_format_the_inputs(
         data_exp_fs_manager,
-        seeds_pbf_in_res.Seeds(seeds_in_data_exp_fs_manager),
+        class_pbf_in_res.Seeds(seeds_in_data_exp_fs_manager),
         init_stats,
     )
     match seeds_tool:
-        case seeds_visitor.Tools.PLATON:
+        case class_visitor.Tools.PLATON:
             convert_function = platon_pbf.convert
         # FIXME force match cover with return
 
@@ -128,29 +126,29 @@ def init(
     #
     # REFACTOR same refactor comment as above
 
-    plm_arg = _tool_cfg.arguments()[pangebin_once_cfg.Names.PLASMIDNESS]
-    plm_tool = plm_visitor.Tools(plm_arg.tool_name())
-    plm_in_data_exp_fs_manager = exp_fs.DataManager(
+    class_arg = _tool_cfg.arguments()[pangebin_once_cfg.Names.PLASMIDNESS]
+    class_tool = class_visitor.Tools(class_arg.tool_name())
+    class_in_data_exp_fs_manager = exp_fs.DataManager(
         data_exp_fs_manager.root_dir(),
-        plm_tool.to_description(),
-        plm_arg.exp_name(),
+        class_tool.to_description(),
+        class_arg.exp_name(),
     )
-    match plm_tool:
-        case plm_visitor.Tools.PLASCLASS:
+    match class_tool:
+        case class_visitor.Tools.PLASCLASS:
             raise NotImplementedError  # TODO implement for plasclass
-        case plm_visitor.Tools.PLASGRAPH2:
+        case class_visitor.Tools.PLASGRAPH2:
             convert_function = plasgraph2_pbf.convert
         # REFACTOR force match cover with return
 
     samples_to_format_the_plm = _get_samples_to_format_the_inputs(
         data_exp_fs_manager,
-        plm_pbf_in_res.Plasmidness(plm_in_data_exp_fs_manager),
+        class_pbf_in_res.Plasmidness(class_in_data_exp_fs_manager),
         init_stats,
     )
     for sample in samples_to_format_the_plm:
         # REFACTOR (1) here we simulate that Visitor
         convert_function(
-            plm_in_data_exp_fs_manager,
+            class_in_data_exp_fs_manager,
             sample.item(),
         )
 
@@ -159,7 +157,7 @@ def init(
 
 def _get_samples_to_format_the_inputs(
     data_exp_fs_manager: exp_fs.DataManager,
-    formatted_result_builder: abc_topic_res_items.Formatted,
+    formatted_result_builder: abc_topic_res.Formatted,
     init_stats: InitStats,
 ) -> list[smp_fs.RowNumberedItem]:
     """Get samples to run."""

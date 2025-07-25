@@ -8,8 +8,7 @@ import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.topic.visitor as abc_topic_visitor
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.topics.assembly.visitor as asm_visitor
-import pbfbench.topics.plasmidness.visitor as plm_visitor
-import pbfbench.topics.seeds.visitor as seeds_visitor
+import pbfbench.topics.classification.visitor as class_visitor
 
 
 @final
@@ -26,9 +25,9 @@ class Names(abc_tool_cfg.Names):
             case Names.GFA:
                 return asm_visitor.Tools
             case Names.SEEDS:
-                return seeds_visitor.Tools
+                return class_visitor.Tools
             case Names.PLASMIDNESS:
-                return plm_visitor.Tools
+                return class_visitor.Tools
 
 
 @final

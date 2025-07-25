@@ -15,7 +15,7 @@ import typer
 
 import pbfbench.abc.app as abc_app
 import pbfbench.abc.tool.config as abc_tool_config
-import pbfbench.abc.tool.visitor as abc_tool_visitor
+import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.abc.topic.visitor as abc_topic_visitor
 import pbfbench.experiment.checks as exp_checks
 import pbfbench.experiment.complete as exp_complete
@@ -31,7 +31,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def build_application_only_options(
-    connector: abc_tool_visitor.ConnectorOnlyOptions,
+    connector: abc_tool_connector.ConnectorOnlyOptions,
 ) -> typer.Typer:
     """Build tool application when tool has only options."""
     tool_description = connector.description()
@@ -49,7 +49,7 @@ def build_application_only_options(
 
 
 def build_application_with_arguments(
-    connector: abc_tool_visitor.ConnectorWithArguments,
+    connector: abc_tool_connector.ConnectorWithArguments,
     init_app_type: type[InitAPP] | None,
 ) -> typer.Typer:
     """Build tool application when tool has arguments."""
@@ -111,12 +111,12 @@ class InitAPP(ABC):
 
     def __init__(
         self,
-        connector: abc_tool_visitor.ConnectorWithArguments,
+        connector: abc_tool_connector.ConnectorWithArguments,
     ) -> None:
         """Initialize."""
         self.__connector = connector
 
-    def connector(self) -> abc_tool_visitor.ConnectorWithArguments:
+    def connector(self) -> abc_tool_connector.ConnectorWithArguments:
         """Get connector."""
         return self.__connector
 
@@ -160,7 +160,7 @@ class InitAPP(ABC):
         raise NotImplementedError
 
 
-class RunAppWithOptions[C: abc_tool_visitor.ConnectorWithOptions]:
+class RunAppWithOptions[C: abc_tool_connector.ConnectorWithOptions]:
     """Run application."""
 
     NAME = abc_app.FinalCommands.RUN
@@ -179,7 +179,7 @@ class RunAppWithOptions[C: abc_tool_visitor.ConnectorWithOptions]:
 
 
 @final
-class RunAppOnlyOptions(RunAppWithOptions[abc_tool_visitor.ConnectorOnlyOptions]):
+class RunAppOnlyOptions(RunAppWithOptions[abc_tool_connector.ConnectorOnlyOptions]):
     """Run application."""
 
     def main(
@@ -224,7 +224,9 @@ class RunAppOnlyOptions(RunAppWithOptions[abc_tool_visitor.ConnectorOnlyOptions]
         raise typer.Exit(0)
 
 
-class _RunAppWithArguments(RunAppWithOptions[abc_tool_visitor.ConnectorWithArguments]):
+class _RunAppWithArguments(
+    RunAppWithOptions[abc_tool_connector.ConnectorWithArguments],
+):
     """Run application abc."""
 
     def _only_run(
@@ -295,7 +297,7 @@ class InitAndRunAppWithArguments(_RunAppWithArguments):
 
     def __init__(
         self,
-        connector: abc_tool_visitor.ConnectorWithArguments,
+        connector: abc_tool_connector.ConnectorWithArguments,
         init_function: Callable[
             [exp_fs.DataManager, exp_fs.WorkManager, exp_cfg.ConfigWithArguments],
             None,
@@ -339,7 +341,7 @@ class InitAndRunAppWithArguments(_RunAppWithArguments):
         return f"Initialize and run {self._connector.description().name()} tool."
 
 
-class ResumeApp[C: abc_tool_visitor.ConnectorWithOptions]:
+class ResumeApp[C: abc_tool_connector.ConnectorWithOptions]:
     """Resume application base class."""
 
     NAME = "resume"
@@ -360,7 +362,7 @@ class ResumeApp[C: abc_tool_visitor.ConnectorWithOptions]:
 
         # REFACTOR ugly if-else because of exp_config type (see todos file for details)
         exp_config: exp_cfg.ConfigWithOptions
-        if isinstance(self._connector, abc_tool_visitor.ConnectorOnlyOptions):
+        if isinstance(self._connector, abc_tool_connector.ConnectorOnlyOptions):
             (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
                 _check_experiment_success_only_options(
                     data_dir,
@@ -369,7 +371,7 @@ class ResumeApp[C: abc_tool_visitor.ConnectorWithOptions]:
                     self._connector,
                 )
             )
-        elif isinstance(self._connector, abc_tool_visitor.ConnectorWithArguments):
+        elif isinstance(self._connector, abc_tool_connector.ConnectorWithArguments):
             (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
                 _check_experiment_success_with_arguments(
                     data_dir,
@@ -407,7 +409,7 @@ class ResumeApp[C: abc_tool_visitor.ConnectorWithOptions]:
 
 
 class ConfigAppWithOptions[
-    Connector: abc_tool_visitor.ConnectorWithOptions,
+    Connector: abc_tool_connector.ConnectorWithOptions,
     ToolConfig: abc_tool_config.ConfigWithOptions,
 ](ABC):
     """Config application base class."""
@@ -470,7 +472,7 @@ class ConfigAppWithOptions[
 @final
 class ConfigAppOnlyOptions(
     ConfigAppWithOptions[
-        abc_tool_visitor.ConnectorWithOptions,
+        abc_tool_connector.ConnectorWithOptions,
         abc_tool_config.ConfigWithOptions,
     ],
 ):
@@ -486,7 +488,7 @@ class ConfigAppOnlyOptions(
 @final
 class ConfigAppWithArguments(
     ConfigAppWithOptions[
-        abc_tool_visitor.ConnectorWithArguments,
+        abc_tool_connector.ConnectorWithArguments,
         abc_tool_config.ConfigWithArguments,
     ],
 ):
@@ -526,7 +528,7 @@ def _check_experiment_success_only_options(
     data_dir: Path,
     work_dir: Path,
     exp_config_yaml: Path,
-    tool_connector: abc_tool_visitor.ConnectorOnlyOptions,
+    tool_connector: abc_tool_connector.ConnectorOnlyOptions,
 ) -> tuple[exp_fs.DataManager, exp_fs.WorkManager, exp_cfg.ConfigOnlyOptions]:
     #
     # Resolve absolute paths
@@ -556,7 +558,7 @@ def _check_experiment_success_with_arguments(
     data_dir: Path,
     work_dir: Path,
     exp_config_yaml: Path,
-    tool_connector: abc_tool_visitor.ConnectorWithArguments,
+    tool_connector: abc_tool_connector.ConnectorWithArguments,
 ) -> tuple[exp_fs.DataManager, exp_fs.WorkManager, exp_cfg.ConfigWithArguments]:
     #
     # Resolve absolute paths

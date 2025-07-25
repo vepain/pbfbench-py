@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pbfbench.abc.tool.config as abc_tool_cfg
-import pbfbench.abc.tool.visitor as abc_tool_visitor
-import pbfbench.abc.topic.results.items as abc_topic_res_items
+import pbfbench.abc.tool.connector as abc_tool_connector
+import pbfbench.abc.topic.results as abc_topic_res
 import pbfbench.experiment.errors as exp_errors
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.samples.file_system as smp_fs
@@ -36,7 +36,7 @@ def samples_to_run(
 
 
 def samples_to_format_result(
-    formatted_result_builder: abc_topic_res_items.Formatted,
+    formatted_result_builder: abc_topic_res.Formatted,
     all_samples: Iterable[smp_fs.RowNumberedItem],
 ) -> Iterator[smp_fs.RowNumberedItem]:
     """Get input samples to format result.
@@ -85,8 +85,8 @@ def samples_to_complete(
 def checked_input_samples_to_run(
     work_exp_fs_manager: exp_fs.WorkManager,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
-    tool_inputs: dict[abc_tool_cfg.Names, abc_topic_res_items.Result],
-    connector: abc_tool_visitor.ConnectorWithArguments,
+    tool_inputs: dict[abc_tool_cfg.Names, abc_topic_res.Result],
+    connector: abc_tool_connector.ConnectorWithArguments,
 ) -> tuple[list[smp_fs.RowNumberedItem], list[smp_fs.RowNumberedItem]]:
     """Return row numbered samples to run and those with missing inputs."""
     checked_samples_to_run: list[smp_fs.RowNumberedItem] = []

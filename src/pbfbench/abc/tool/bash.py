@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pbfbench.abc.module_meta as abc_meta_mod
 import pbfbench.abc.tool.config as abc_tool_cfg
-import pbfbench.abc.topic.results.items as abc_topic_res_items
+import pbfbench.abc.topic.results as abc_topic_res
 import pbfbench.bash.items as bash_items
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.samples.bash as smp_sh
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-class Argument[R: abc_topic_res_items.Result](ABC):
+class Argument[R: abc_topic_res.Result](ABC):
     """Argument bash lines builder."""
 
     def __init__(

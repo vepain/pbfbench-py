@@ -6,7 +6,7 @@ import logging
 import shutil
 import subprocess
 
-import pbfbench.abc.tool.visitor as abc_tool_visitor
+import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.experiment.bash.create as exp_bash
 import pbfbench.experiment.complete as exp_complete
 import pbfbench.experiment.config as exp_cfg
@@ -26,7 +26,7 @@ def run_experiment_on_samples_only_options(
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
     exp_config: exp_cfg.ConfigOnlyOptions,
-    tool_connector: abc_tool_visitor.ConnectorOnlyOptions,
+    tool_connector: abc_tool_connector.ConnectorOnlyOptions,
 ) -> exp_stats.RunStatsOnlyOptions:
     """Run the experiment."""
     # REFACTOR use markdown print and do better app prints
@@ -66,7 +66,7 @@ def run_experiment_on_samples_with_arguments(
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
     exp_config: exp_cfg.ConfigWithArguments,
-    tool_connector: abc_tool_visitor.ConnectorWithArguments,
+    tool_connector: abc_tool_connector.ConnectorWithArguments,
 ) -> exp_stats.RunStatsWithArguments:
     """Run the experiment."""
     # REFACTOR use markdown print and do better app prints
@@ -146,7 +146,7 @@ def _get_samples_to_run(
 
 
 def _filter_missing_inputs(
-    tool_connector: abc_tool_visitor.ConnectorWithArguments,
+    tool_connector: abc_tool_connector.ConnectorWithArguments,
     exp_config: exp_cfg.ConfigWithArguments,
     samples_to_run: list[smp_fs.RowNumberedItem],
     data_exp_fs_manager: exp_fs.DataManager,
@@ -211,7 +211,7 @@ def _manage_samples_to_send_to_sbatch(  # noqa: PLR0913
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
     exp_config: exp_cfg.ConfigWithOptions,
-    tool_connector: abc_tool_visitor.ConnectorWithOptions,
+    tool_connector: abc_tool_connector.ConnectorWithOptions,
     run_stats: exp_stats.RunStatsWithOptions,
 ) -> None:
     """Manage samples to send to sbatch."""
@@ -277,7 +277,7 @@ def _refresh_data_date(
 
 
 def _create_and_run_sbatch_script(
-    tool_connector: abc_tool_visitor.ConnectorWithOptions,
+    tool_connector: abc_tool_connector.ConnectorWithOptions,
     exp_config: exp_cfg.ConfigWithOptions,
     checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
     data_exp_fs_manager: exp_fs.DataManager,

@@ -6,13 +6,12 @@ from typing import final
 
 import pbfbench.abc.tool.bash as abc_tool_bash
 import pbfbench.bash.items as bash_items
-import pbfbench.topics.assembly.results.items as asm_res_items
-import pbfbench.topics.plasmidness.pbf_input.results as plm_pbf_in_res
-import pbfbench.topics.seeds.pbf_input.results as seeds_pbf_in_res
+import pbfbench.topics.assembly.results as asm_res
+import pbfbench.topics.classification.pbf_input.results as class_pbf_in_res
 
 
 @final
-class GFAInputLinesBuilder(abc_tool_bash.Argument[asm_res_items.AsmGraphGZ]):
+class GFAInputLinesBuilder(abc_tool_bash.Argument[asm_res.AsmGraphGZ]):
     """GFA input bash lines builder."""
 
     GFA_GZ_VAR = bash_items.Variable("GFA")
@@ -34,7 +33,7 @@ class GFAInputLinesBuilder(abc_tool_bash.Argument[asm_res_items.AsmGraphGZ]):
 
 @final
 class SeedsInputLinesBuilder(
-    abc_tool_bash.Argument[seeds_pbf_in_res.Seeds],
+    abc_tool_bash.Argument[class_pbf_in_res.Seeds],
 ):
     """Seeds input bash lines builder."""
 
@@ -57,7 +56,7 @@ class SeedsInputLinesBuilder(
 
 @final
 class PlasmidnessInputLinesBuilder(
-    abc_tool_bash.Argument[plm_pbf_in_res.Plasmidness],
+    abc_tool_bash.Argument[class_pbf_in_res.Plasmidness],
 ):
     """Plasmidness input bash lines builder."""
 

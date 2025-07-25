@@ -6,9 +6,9 @@
 from __future__ import annotations
 
 import pbfbench.abc.tool.app as abc_tool_app
-import pbfbench.abc.tool.visitor as abc_tool_visitor
+import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.topics.assembly.unicycler.description as unicycler_desc
 
 APP = abc_tool_app.build_application_only_options(
-    abc_tool_visitor.ConnectorOnlyOptions(unicycler_desc.DESCRIPTION),
+    abc_tool_connector.ConnectorOnlyOptions(unicycler_desc.DESCRIPTION),
 )

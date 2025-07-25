@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, assert_never
 
 import pbfbench.abc.tool.bash as abc_tool_bash
+import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.abc.tool.environments as abc_tools_envs
-import pbfbench.abc.tool.visitor as abc_tool_visitor
 import pbfbench.bash.items as bash_items
 import pbfbench.experiment.bash.items as exp_bash_items
 import pbfbench.experiment.config as exp_cfg
@@ -30,7 +30,7 @@ def run_scripts(
     work_exp_fs_manager: exp_fs.WorkManager,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
     exp_config: exp_cfg.ConfigWithOptions,
-    tool_connector: abc_tool_visitor.ConnectorWithOptions,
+    tool_connector: abc_tool_connector.ConnectorWithOptions,
 ) -> Path:
     """Create the run script."""
     work_exp_fs_manager.slurm_log_fs_manager().log_dir().mkdir(

@@ -7,7 +7,7 @@ from enum import StrEnum
 from pathlib import Path
 
 import pbfbench.abc.tool.config as abc_tool_config
-import pbfbench.abc.tool.visitor as abc_tool_visitor
+import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
 
@@ -71,7 +71,7 @@ def check_experiment_with_only_options(
     data_dir: Path,
     work_dir: Path,
     exp_config_yaml: Path,
-    tool_connector: abc_tool_visitor.ConnectorOnlyOptions,
+    tool_connector: abc_tool_connector.ConnectorOnlyOptions,
 ) -> OKOnlyOptions | ErrorOnlyOptions:
     """Check experiment."""
     match _check_read_write_access(data_dir, work_dir):
@@ -110,7 +110,7 @@ def check_experiment_with_arguments[
     data_dir: Path,
     work_dir: Path,
     exp_config_yaml: Path,
-    tool_connector: abc_tool_visitor.ConnectorWithArguments[N, ExpConfig],
+    tool_connector: abc_tool_connector.ConnectorWithArguments[N, ExpConfig],
 ) -> OKWithArguments | ErrorsWithArguments:
     """Check experiment."""
     match _check_read_write_access(data_dir, work_dir):
@@ -238,7 +238,7 @@ def _check_read_write_access_work(work_dir: Path) -> PermissionStatus:
 
 def _check_config_inputs(
     config: exp_cfg.ConfigWithArguments,
-    connector: abc_tool_visitor.ConnectorWithArguments,
+    connector: abc_tool_connector.ConnectorWithArguments,
 ) -> bool:
     """Check config inputs."""
     value_errors = connector.check_arguments_implement_results(config)

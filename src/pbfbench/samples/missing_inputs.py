@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 
 import pbfbench.abc.app as abc_app
 import pbfbench.abc.tool.config as abc_tool_cfg
+import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.abc.tool.description as abc_tool_desc
-import pbfbench.abc.tool.visitor as abc_tool_visitor
-import pbfbench.abc.topic.results.items as abc_topic_res_items
+import pbfbench.abc.topic.results as abc_topic_res
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.items as smp_items
 import pbfbench.samples.status as smp_status
@@ -32,7 +32,7 @@ class MissingInput:
     def from_tool_input(
         cls,
         arg_name: str,
-        tool_input: abc_topic_res_items.Result,
+        tool_input: abc_topic_res.Result,
         reason: smp_status.ErrorStatus,
         help_string: str,
     ) -> MissingInput:
@@ -222,9 +222,9 @@ def write_sample_missing_inputs(
 
 
 def sample_list[N: abc_tool_cfg.Names](
-    tool_inputs: dict[N, abc_topic_res_items.Result],
+    tool_inputs: dict[N, abc_topic_res.Result],
     sample_item: smp_items.Item,
-    connector: abc_tool_visitor.ConnectorWithArguments,
+    connector: abc_tool_connector.ConnectorWithArguments,
 ) -> list[MissingInput]:
     """Get a list of missing inputs."""
     list_missing_inputs: list[MissingInput] = []
@@ -244,14 +244,14 @@ def sample_list[N: abc_tool_cfg.Names](
 
 
 def _get_help_str(
-    tool_input: abc_topic_res_items.Result,
+    tool_input: abc_topic_res.Result,
     requesting_tool_description: abc_tool_desc.Description,
 ) -> str:
     """Get help string."""
     # REFACTOR ugly pattern because in one case requesting_tool_description is not used
     # Could be solve if put Result visitor logic in config(?)
     match tool_input:
-        case abc_topic_res_items.Original():
+        case abc_topic_res.Original():
             return (
                 "pbfbench"
                 f" {tool_input.exp_fs_manager().tool_description().topic().cmd()}"
@@ -259,7 +259,7 @@ def _get_help_str(
                 f" {abc_app.FinalCommands.RUN}"
                 " --help"
             )
-        case abc_topic_res_items.Formatted():
+        case abc_topic_res.Formatted():
             return (
                 "pbfbench"
                 f" {requesting_tool_description.topic().cmd()}"

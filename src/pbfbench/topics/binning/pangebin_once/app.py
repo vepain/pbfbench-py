@@ -10,8 +10,8 @@ from typing import final
 import pbfbench.abc.tool.app as abc_tool_app
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
+import pbfbench.topics.binning.pangebin_once.connector as pangebin_once_visitor
 import pbfbench.topics.binning.pangebin_once.init as pangebin_once_init
-import pbfbench.topics.binning.pangebin_once.visitor as pangebin_once_visitor
 
 
 @final
@@ -30,6 +30,7 @@ class InitApp(abc_tool_app.InitAPP):
             config,
             self.connector(),
         )
+        # TODO CONTINUE
 
 
 APP = abc_tool_app.build_application_with_arguments(
