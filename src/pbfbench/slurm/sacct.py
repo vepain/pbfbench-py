@@ -3,7 +3,7 @@
 from enum import StrEnum
 
 
-class SACCTState(StrEnum):
+class State(StrEnum):
     """Slurm states recognized by sacct.
 
     From: https://slurm.schedmd.com/sacct.html#SECTION_JOB-STATE-CODES

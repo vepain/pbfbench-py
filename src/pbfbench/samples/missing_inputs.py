@@ -33,7 +33,7 @@ class MissingInput:
         cls,
         arg_name: str,
         tool_input: abc_topic_res.Result,
-        reason: smp_status.ErrorStatus,
+        reason: smp_status.Error,
         help_string: str,
     ) -> MissingInput:
         """Create missing input from tool input."""
@@ -52,7 +52,7 @@ class MissingInput:
         topic_name: str,
         tool_name: str,
         experiment_name: str,
-        reason: smp_status.ErrorStatus,
+        reason: smp_status.Error,
         help_string: str,
     ) -> None:
         """Initialize."""
@@ -79,7 +79,7 @@ class MissingInput:
         """Get experiment name."""
         return self.__exp_name
 
-    def reason(self) -> smp_status.ErrorStatus:
+    def reason(self) -> smp_status.Error:
         """Get reason."""
         return self.__reason
 
@@ -132,7 +132,7 @@ class MissingInputsTSVReader:
                 self.__get_cell(row, MissingInputsTSVHeader.TOPIC),
                 self.__get_cell(row, MissingInputsTSVHeader.TOOL),
                 self.__get_cell(row, MissingInputsTSVHeader.TOOL),
-                smp_status.ErrorStatus(
+                smp_status.Error(
                     self.__get_cell(row, MissingInputsTSVHeader.REASON),
                 ),
                 self.__get_cell(row, MissingInputsTSVHeader.HELP),
@@ -231,7 +231,7 @@ def sample_list[N: abc_tool_cfg.Names](
     for arg_name, tool_input in tool_inputs.items():
         input_status = tool_input.check(sample_item)
         match input_status:
-            case smp_status.ErrorStatus():
+            case smp_status.Error():
                 list_missing_inputs.append(
                     MissingInput.from_tool_input(
                         str(arg_name),

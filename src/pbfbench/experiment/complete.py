@@ -18,8 +18,8 @@ import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.slurm.status as smp_slurm_status
 import pbfbench.samples.status as smp_status
 import pbfbench.slurm.bash as slurm_bash
-import pbfbench.slurm.status as slurm_status
 from pbfbench import root_logging
+from pbfbench.slurm import sacct
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,10 +72,10 @@ def _finished_job_deamon(
 
             _tmp_in_running_job_ids: list[tuple[str, smp_fs.RowNumberedItem]] = []
             finished_ok_jobs: list[
-                tuple[str, smp_fs.RowNumberedItem, slurm_status.SACCTState | None]
+                tuple[str, smp_fs.RowNumberedItem, sacct.State | None]
             ] = []
             finished_error_jobs: list[
-                tuple[str, smp_fs.RowNumberedItem, slurm_status.SACCTState | None]
+                tuple[str, smp_fs.RowNumberedItem, sacct.State | None]
             ] = []
             for job_id, row_numbered_item in in_running_job_ids:
                 sample_status, sacct_state = _get_job_status(
@@ -83,17 +83,17 @@ def _finished_job_deamon(
                     job_id,
                 )
                 match sample_status:
-                    case smp_status.OKStatus.OK:
+                    case smp_status.OK.OK:
                         finished_ok_jobs.append(
                             (job_id, row_numbered_item, sacct_state),
                         )
 
-                    case smp_status.ErrorStatus.ERROR:
+                    case smp_status.Error.ERROR:
                         finished_error_jobs.append(
                             (job_id, row_numbered_item, sacct_state),
                         )
 
-                    case smp_status.ErrorStatus.NOT_RUN:
+                    case smp_status.Error.NOT_RUN:
                         _tmp_in_running_job_ids.append((job_id, row_numbered_item))
 
             _manage_finished_job(
@@ -139,18 +139,14 @@ def _get_job_status(
             )
             .exists()
         ):
-            return smp_status.OKStatus.OK, None
-        return smp_status.ErrorStatus.ERROR, None
+            return smp_status.OK.OK, None
+        return smp_status.Error.ERROR, None
     return smp_status.from_sacct_state(states[sample_job_id]), states[sample_job_id]
 
 
 def _manage_finished_job(
-    ok_job_ids: list[
-        tuple[str, smp_fs.RowNumberedItem, slurm_status.SACCTState | None]
-    ],
-    error_job_ids: list[
-        tuple[str, smp_fs.RowNumberedItem, slurm_status.SACCTState | None]
-    ],
+    ok_job_ids: list[tuple[str, smp_fs.RowNumberedItem, sacct.State | None]],
+    error_job_ids: list[tuple[str, smp_fs.RowNumberedItem, sacct.State | None]],
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
     run_stats: exp_stats.RunStatsWithOptions,
@@ -220,7 +216,7 @@ def _manage_finished_error_job(
     out_exp_errors.write_error_sample(
         exp_errors.SampleError(
             row_numbered_item.item().exp_sample_id(),
-            smp_status.ErrorStatus.ERROR,
+            smp_status.Error.ERROR,
         ),
     )
 
@@ -228,7 +224,7 @@ def _manage_finished_error_job(
 def _move_slurm_logs_to_work_sample_dir(
     job_id: str,
     row_numbered_item: smp_fs.RowNumberedItem,
-    sacct_state: slurm_status.SACCTState | None,
+    sacct_state: sacct.State | None,
     work_exp_fs_manager: exp_fs.WorkManager,
 ) -> None:
     sample_fs_manager = work_exp_fs_manager.sample_fs_manager(row_numbered_item.item())

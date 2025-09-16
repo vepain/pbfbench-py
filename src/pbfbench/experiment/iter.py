@@ -31,7 +31,7 @@ def samples_to_run(
             if smp_status.get_status(
                 data_exp_fs_manager.sample_fs_manager(row_numbered_sample.item()),
             )
-            != smp_status.OKStatus.OK
+            != smp_status.OK.OK
         )
 
 
@@ -55,13 +55,13 @@ def samples_to_format_result(
                 row_numbered_sample.item(),
             ),
         )
-        == smp_status.OKStatus.OK
+        == smp_status.OK.OK
     )
     return (
         row_numbered_sample
         for row_numbered_sample in done_input
         if formatted_result_builder.check(row_numbered_sample.item())
-        != smp_status.OKStatus.OK
+        != smp_status.OK.OK
     )
 
 

@@ -24,7 +24,7 @@ class SampleError:
     def __init__(
         self,
         sample_id: str,
-        reason: smp_status.ErrorStatus,
+        reason: smp_status.Error,
     ) -> None:
         """Initialize."""
         self.__sample_id = sample_id
@@ -34,7 +34,7 @@ class SampleError:
         """Get sample ID."""
         return self.__sample_id
 
-    def reason(self) -> smp_status.ErrorStatus:
+    def reason(self) -> smp_status.Error:
         """Get reason."""
         return self.__reason
 
@@ -75,7 +75,7 @@ class ErrorsTSVReader:
         """Iterate over error samples."""
         for row in self.__csv_reader:
             sample_id = self.__get_cell(row, ErrorsTSVHeader.SAMPLE_ID)
-            error_status = smp_status.ErrorStatus(
+            error_status = smp_status.Error(
                 self.__get_cell(row, ErrorsTSVHeader.REASON),
             )
             yield SampleError(sample_id, error_status)

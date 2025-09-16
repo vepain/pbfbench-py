@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pbfbench.samples.slurm.status as smp_slurm_status
-import pbfbench.slurm.status as slurm_status
+from pbfbench.slurm import sacct
 
 
 class Manager:
@@ -72,7 +72,7 @@ class JobStateFileManager:
     PREFIX = "job_state"
 
     @classmethod
-    def filename(cls, sacct_state: slurm_status.SACCTState) -> Path:
+    def filename(cls, sacct_state: sacct.State) -> Path:
         """Build job state file."""
         return Path(f"{cls.PREFIX}.{sacct_state}")
 
@@ -80,7 +80,7 @@ class JobStateFileManager:
         """Initialize."""
         self.__directory = directory
 
-    def path(self, sacct_state: slurm_status.SACCTState) -> Path:
+    def path(self, sacct_state: sacct.State) -> Path:
         """Get job state file."""
         return self.__directory / self.filename(sacct_state)
 
@@ -106,6 +106,6 @@ class JobStateFileManager:
 
         return path
 
-    def extract_sacct_state(self) -> slurm_status.SACCTState:
+    def extract_sacct_state(self) -> sacct.State:
         """Get job state."""
-        return slurm_status.SACCTState(self.find_path().suffix)
+        return sacct.State(self.find_path().suffix)

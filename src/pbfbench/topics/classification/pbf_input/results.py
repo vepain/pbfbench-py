@@ -22,8 +22,8 @@ class Plasmidness(abc_topic_res.Formatted):
     def check(self, sample_item: smp_items.Item) -> smp_status.Status:
         """Check input(s)."""
         if self.tsv(sample_item.exp_sample_id()).exists():
-            return smp_status.OKStatus.OK
-        return smp_status.ErrorStatus.NOT_RUN
+            return smp_status.OK.OK
+        return smp_status.Error.NOT_RUN
 
 
 @final
@@ -49,8 +49,8 @@ class Seeds(abc_topic_res.Formatted):
     def check(self, sample_item: smp_items.Item) -> smp_status.Status:
         """Check input(s)."""
         if self.tsv(sample_item.exp_sample_id()).exists():
-            return smp_status.OKStatus.OK
-        return smp_status.ErrorStatus.NOT_RUN
+            return smp_status.OK.OK
+        return smp_status.Error.NOT_RUN
 
 
 @final

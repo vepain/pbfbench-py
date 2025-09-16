@@ -11,8 +11,8 @@ import pbfbench.bash.items as bash_items
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.experiment.slurm.file_system as exp_slurm_fs
 import pbfbench.slurm.config as slurm_cfg
-import pbfbench.slurm.status as slurm_status
 from pbfbench import subprocess_lib
+from pbfbench.slurm import sacct
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -114,7 +114,7 @@ def write_slurm_stats(job_id: str, psv_path: Path) -> None:
     _LOGGER.debug("%s stderr: %s", SACCT_CMD, result.stderr)
 
 
-def get_states(job_ids: Iterable[str]) -> dict[str, slurm_status.SACCTState]:
+def get_states(job_ids: Iterable[str]) -> dict[str, sacct.State]:
     """Get jobs states."""
     cmd_path = subprocess_lib.command_path(SACCT_CMD)
     result = subprocess.run(  # noqa: S602
@@ -124,8 +124,8 @@ def get_states(job_ids: Iterable[str]) -> dict[str, slurm_status.SACCTState]:
         text=True,
         check=False,
     )
-    job_states: dict[str, slurm_status.SACCTState] = {}
+    job_states: dict[str, sacct.State] = {}
     for stdout_line in result.stdout.splitlines()[1:]:
         columns = stdout_line.split("|")
-        job_states[columns[0]] = slurm_status.SACCTState(columns[1])
+        job_states[columns[0]] = sacct.State(columns[1])
     return job_states
