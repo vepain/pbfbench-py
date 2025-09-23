@@ -9,54 +9,54 @@ from pathlib import Path
 from typing import TYPE_CHECKING, assert_never
 
 import pbfbench.abc.tool.bash as abc_tool_bash
-import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.abc.tool.environments as abc_tools_envs
 import pbfbench.bash.items as bash_items
-import pbfbench.experiment.bash.items as exp_bash_items
-import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
+import pbfbench.experiment.managers as exp_managers
 import pbfbench.experiment.slurm.status as exp_slurm_status
 import pbfbench.samples.bash as smp_sh
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.slurm.bash as slurm_bash
 import pbfbench.slurm.config as slurm_cfg
 
+from . import items as exp_bash_items
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
 
 def run_scripts(
-    data_exp_fs_manager: exp_fs.DataManager,
-    work_exp_fs_manager: exp_fs.WorkManager,
+    exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
-    exp_config: exp_cfg.ConfigWithOptions,
-    tool_connector: abc_tool_connector.ConnectorWithOptions,
 ) -> Path:
     """Create the run script."""
-    work_exp_fs_manager.slurm_log_fs_manager().log_dir().mkdir(
+    exp_manager.work_fs_manager().slurm_log_fs_manager().log_dir().mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    tool_commands = tool_connector.inputs_to_commands(
-        exp_config,
-        data_exp_fs_manager,
-        work_exp_fs_manager,
+    tool_commands = exp_manager.tool_connector().sh_commands(
+        exp_manager.data_fs_manager(),
+        exp_manager.work_fs_manager(),
     )
     tool_bash_env_wrapper = abc_tools_envs.BashEnvWrapper(
-        data_exp_fs_manager.tool_env_script_sh(),
+        exp_manager.data_fs_manager().tool_env_script_sh(),
     )
 
     for sub_script_path in (
-        _init_env_script(work_exp_fs_manager, tool_bash_env_wrapper),
-        _command_script(data_exp_fs_manager, work_exp_fs_manager, tool_commands),
-        _close_env_script(work_exp_fs_manager, tool_bash_env_wrapper),
+        _init_env_script(exp_manager.work_fs_manager(), tool_bash_env_wrapper),
+        _command_script(
+            exp_manager.data_fs_manager(),
+            exp_manager.work_fs_manager(),
+            tool_commands,
+        ),
+        _close_env_script(exp_manager.work_fs_manager(), tool_bash_env_wrapper),
     ):
         _add_x_permissions(sub_script_path)
-        _copy_to_data_dir(sub_script_path, data_exp_fs_manager)
+        _copy_to_data_dir(sub_script_path, exp_manager.data_fs_manager())
 
     return _sbatch_script(
-        work_exp_fs_manager,
+        exp_manager.work_fs_manager(),
         exp_config.slurm_config(),
         samples_to_run,
     )
@@ -79,7 +79,7 @@ def _init_env_script(
 def _command_script(
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
-    tool_cmd: abc_tool_bash._CommandsWithOptions,
+    tool_cmd: abc_tool_bash.CommandsWithOptions,
 ) -> Path:
     """Write the command script (which `srun` will call)."""
     script_path = work_exp_fs_manager.scripts_fs_manager().step_script(
@@ -286,12 +286,12 @@ class CommandLinesBuilder:
     def lines(
         cls,
         data_exp_fs_manager: exp_fs.DataManager,
-        tool_cmd: abc_tool_bash._CommandsWithOptions,
+        tool_cmd: abc_tool_bash.CommandsWithOptions,
     ) -> Iterator[str]:
         """Return command lines."""
         yield bash_items.BASH_SHEBANG
         yield ""
-        yield "set -e"
+        yield "set -e"  # exit error at the first command failing
         yield ""
         yield from smp_sh.SpeSmpIDLinesBuilder(
             data_exp_fs_manager.samples_tsv(),

@@ -10,7 +10,7 @@
 # PBFBENCH_DO:ARRAY_JOB_ID_FILE
 
 if [[ ! -f ${ARRAY_JOB_ID_FILE} ]]; then
-    echo "${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}" >"${ARRAY_JOB_ID_FILE}"
+    echo "${SLURM_ARRAY_JOB_ID}" >"${ARRAY_JOB_ID_FILE}"
 fi
 
 # ------------------------------------------------------------------------------------ #

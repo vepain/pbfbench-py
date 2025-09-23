@@ -11,7 +11,8 @@ import typer
 import pbfbench.doc.app as doc_app
 import pbfbench.help.app as help_app
 import pbfbench.topics.assembly.app as assembly_app
-import pbfbench.topics.binning.app as binning_app
+
+# import pbfbench.topics.binning.app as binning_app
 import pbfbench.topics.classification.app as class_app
 
 
@@ -45,5 +46,9 @@ for app in (doc_app.APP, help_app.APP):
 #
 # Topics
 #
-for app in (assembly_app.APP, class_app.APP, binning_app.APP):
+for app in (
+    assembly_app.APP,
+    class_app.APP,
+    # binning_app.APP
+):
     APP.add_typer(app, rich_help_panel=CommandCategories.TOPICS)

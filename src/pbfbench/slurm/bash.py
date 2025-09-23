@@ -114,8 +114,19 @@ def write_slurm_stats(job_id: str, psv_path: Path) -> None:
     _LOGGER.debug("%s stderr: %s", SACCT_CMD, result.stderr)
 
 
+def get_state(job_id: str) -> sacct.State | None:
+    """Get job state if exists for the job id."""
+    return get_states([job_id]).get(job_id, None)
+
+
 def get_states(job_ids: Iterable[str]) -> dict[str, sacct.State]:
-    """Get jobs states."""
+    """Get jobs states.
+
+    Warning
+    -------
+    The job id can be absent from the sacct output.
+    The user must verify if the job id is in the dictionary keys.
+    """
     cmd_path = subprocess_lib.command_path(SACCT_CMD)
     result = subprocess.run(  # noqa: S602
         f"{cmd_path} --jobs " + ",".join(job_ids) + " --format=JobID,State -P -X",

@@ -1,246 +1,445 @@
-"""Tool connector module.
+"""Tool connector module."""
 
-Make the connexion between:
-1. argument (YAML) -> input (to check)
-2. input (checked) -> shell lines builder
-"""
+from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
-from pathlib import Path
-from typing import final
+from enum import StrEnum
+from typing import TYPE_CHECKING, Self, TypeVar, final
 
-import pbfbench.abc.tool.bash as abc_tool_bash
-import pbfbench.abc.tool.config as abc_tool_config
-import pbfbench.abc.tool.description as abc_tool_desc
 import pbfbench.abc.topic.results as abc_topic_res
 import pbfbench.abc.topic.visitor as abc_topic_visitor
-import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
 
+from . import bash as abc_tool_bash
+from . import config as abc_tool_cfg
+from . import description as abc_tool_desc
 
-class ArgumentPath[
-    T: abc_topic_visitor.Tools,
-    R: abc_topic_res.Result,
-]:
-    """Tool connector."""
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class Names(StrEnum):
+    """Tool names."""
+
+    @abstractmethod
+    def topic_tools(self) -> type[abc_topic_visitor.Tools]:
+        """Get topic tools."""
+        raise NotImplementedError
+
+
+class InvalidToolNameError[N: Names, T: abc_topic_visitor.Tools]:
+    """Invalid tool name error."""
 
     def __init__(
         self,
-        topic_tools: type[T],
-        result_visitor: type[abc_topic_res.Visitor[T, R]],
-        sh_lines_builder_type: type[abc_tool_bash.Argument[R]],
+        arg_name: N,
+        invalid_tool_name: str,
+        valid_tools: Iterable[T],
     ) -> None:
-        """Initialize."""
-        self._topic_tools = topic_tools
-        self._result_visitor = result_visitor
-        self._sh_lines_builder_type = sh_lines_builder_type
+        self._arg_name = arg_name
+        self._invalid_tool_name = invalid_tool_name
+        self._valid_tools = tuple(valid_tools)
 
-    def topic_tools(self) -> type[T]:
-        """Get topic tools."""
-        return self._topic_tools
+    def arg_name(self) -> N:
+        """Get argument name."""
+        return self._arg_name
 
-    def result_visitor(
-        self,
-    ) -> type[abc_topic_res.Visitor[T, R]]:
+    def invalid_tool_name(self) -> str:
+        """Get invalid tool name."""
+        return self._invalid_tool_name
+
+    def valid_tools(self) -> tuple[T, ...]:
+        """Get list of valid tools."""
+        return self._valid_tools
+
+
+class Arg[N: Names, T: abc_topic_visitor.Tools, R: abc_topic_res.Result](ABC):
+    """Tool argument configuration."""
+
+    @classmethod
+    def config_type(cls) -> type[abc_tool_cfg.Arg]:
+        """Get config type."""
+        return abc_tool_cfg.Arg
+
+    @classmethod
+    @abstractmethod
+    def name(cls) -> N:
+        """Get name."""
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def tools_type(cls) -> type[T]:
+        """Get tools type."""
+        raise NotImplementedError
+
+    @classmethod
+    def valid_tools(cls) -> Iterable[T]:
+        """Get valid tools."""
+        return (
+            tool
+            for tool in cls.tools_type()
+            if cls.result_visitor().tool_gives_the_result(tool)
+        )
+
+    @classmethod
+    @abstractmethod
+    def result_visitor(cls) -> type[abc_topic_res.Visitor[T, R]]:
         """Get result visitor function."""
-        return self._result_visitor
+        raise NotImplementedError
 
-    def sh_lines_builder_type(self) -> type[abc_tool_bash.Argument[R]]:
-        """Get shell lines builder type."""
-        return self._sh_lines_builder_type
+    @classmethod
+    @abstractmethod
+    def sh_lines_builder_type(cls) -> type[abc_tool_bash.Argument[R]]:
+        """Get shell lines builder."""
+        raise NotImplementedError
 
-    def check_tool_implement_result(self, tool: T) -> bool:
-        """Check tool implement result."""
+    @classmethod
+    def from_config(cls, config: abc_tool_cfg.Arg) -> Self | InvalidToolNameError[N, T]:
+        """Convert dict to object."""
         try:
-            self._result_visitor.result_builder_from_tool(tool)
+            tool = cls.tools_type()(config.tool_name())
         except ValueError:
-            return False
-        return True
+            return InvalidToolNameError(
+                cls.name(),
+                config.tool_name(),
+                cls.valid_tools(),
+            )
+        match cls.result_visitor().result_builder_from_tool(tool):
+            case abc_topic_res.Error():
+                return InvalidToolNameError(
+                    cls.name(),
+                    config.tool_name(),
+                    cls.valid_tools(),
+                )
+        return cls(tool, config.exp_name())
 
-    def arg_to_checkable_input(
-        self,
-        data_exp_fs_manager: exp_fs.DataManager,
-        arg: abc_tool_config.Arg,
-    ) -> R:
+    def __init__(self, tool: T, exp_name: str) -> None:
+        """Initialize."""
+        self._tool = tool
+        self._exp_name = exp_name
+
+    def tool(self) -> T:
+        """Get tool."""
+        return self._tool
+
+    def exp_name(self) -> str:
+        """Get experiment name."""
+        return self._exp_name
+
+    def result(self, data_exp_fs_manager: exp_fs.DataManager) -> R:
         """Convert argument to input."""
-        tool = self._topic_tools(arg.tool_name())
-        exp_name = arg.exp_name()
-        result_builder: type[R] = self._result_visitor.result_builder_from_tool(tool)
-        return result_builder(
+        return self.result_visitor().result_builder()(
             exp_fs.WorkManager(
                 data_exp_fs_manager.root_dir(),
-                tool.to_description(),
-                exp_name,
+                self._tool.to_description(),
+                self._exp_name,
             ),
         )
 
-    def input_to_sh_lines_builder(
+    def sh_lines_builder(
         self,
-        input_result: R,
+        data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,
     ) -> abc_tool_bash.Argument[R]:
         """Convert input to shell lines builder."""
-        return self._sh_lines_builder_type(
-            input_result,
+        return self.sh_lines_builder_type()(
+            self.result(data_exp_fs_manager),
             work_exp_fs_manager,
         )
 
+    def to_config(self) -> abc_tool_cfg.Arg:
+        """Convert to config."""
+        return abc_tool_cfg.Arg(self._tool, self._exp_name)
 
-class ConnectorWithOptions[ExpConfig: exp_cfg.ConfigWithOptions](ABC):
-    """Base tool connector."""
+
+class MissingArgumentNameError[N: Names]:
+    """Missing argument name error."""
+
+    def __init__(self, missing_arg_name: N, names_type: type[N]) -> None:
+        self._missing_arg_name = missing_arg_name
+        self._names_type = names_type
+
+    def missing_arg_name(self) -> N:
+        """Get missing argument name."""
+        return self._missing_arg_name
+
+    def names_type(self) -> type[N]:
+        """Get names type."""
+        return self._names_type
+
+
+class ExtraArgumentNameError[N: Names]:
+    """Extra argument name error."""
+
+    def __init__(self, extra_arg_names: Iterable[str], names_type: type[N]) -> None:
+        self._extra_arg_names = tuple(extra_arg_names)
+        self._names_type = names_type
+
+    def extra_arg_names(self) -> tuple[str, ...]:
+        """Get extra argument name."""
+        return self._extra_arg_names
+
+    def names_type(self) -> type[N]:
+        """Get names type."""
+        return self._names_type
+
+
+ArgsLoadError = InvalidToolNameError | MissingArgumentNameError | ExtraArgumentNameError
+
+NamesTypeVar = TypeVar("NamesTypeVar", bound=Names)
+ArgWithName = Arg[
+    NamesTypeVar,
+    abc_topic_visitor.Tools,
+    abc_topic_res.Result,
+]
+
+
+class Arguments[N: Names](ABC):
+    """Tool arguments configuration."""
+
+    @classmethod
+    def config_type(cls) -> type[abc_tool_cfg.Arguments]:
+        """Get config type."""
+        return abc_tool_cfg.Arguments
 
     @classmethod
     @abstractmethod
-    def config_type(cls) -> type[ExpConfig]:
-        """Get experiment config type."""
+    def arg_types(cls) -> list[type[ArgWithName[N]]]:
+        """Get argument type."""
         raise NotImplementedError
 
-    def __init__(
-        self,
-        tool_description: abc_tool_desc.Description,
-    ) -> None:
-        """Initialize."""
-        self._tool_description = tool_description
-
-    def description(self) -> abc_tool_desc.Description:
-        """Get tool description."""
-        return self._tool_description
-
-    def read_config(self, config_path: Path) -> ExpConfig:
-        """Read config."""
-        return self.config_type().from_yaml(config_path)
-
+    @classmethod
     @abstractmethod
-    def inputs_to_commands(
+    def names_type(cls) -> type[N]:
+        """Get names type."""
+        raise NotImplementedError
+
+    @classmethod
+    def from_config(cls, config: abc_tool_cfg.Arguments) -> Self | ArgsLoadError:
+        """Convert dict to object."""
+        arg_dict: dict[N, ArgWithName[N]] = {}
+        for arg_type in cls.arg_types():
+            try:
+                arg_config = config[str(arg_type.name())]
+            except KeyError:
+                return MissingArgumentNameError(arg_type.name(), cls.names_type())
+
+            match arg_or_err := arg_type.from_config(arg_config):
+                case Arg():
+                    arg_dict[arg_type.name()] = arg_or_err
+                case InvalidToolNameError():
+                    return arg_or_err
+
+        if extra_arg := set(config.arguments().keys()) - {str(n) for n in arg_dict}:
+            return ExtraArgumentNameError(extra_arg, cls.names_type())
+
+        return cls(arg_dict)
+
+    def __init__(self, arguments: dict[N, ArgWithName[N]]) -> None:
+        self.__arguments = arguments
+
+    def __getitem__(self, name: N) -> ArgWithName[N]:
+        """Get argument."""
+        return self.__arguments[name]
+
+    def results(
         self,
-        config: ExpConfig,
+        data_exp_fs_manager: exp_fs.DataManager,
+    ) -> Iterator[tuple[N, abc_topic_res.Result]]:
+        """Iterate over results associated with the arguments."""
+        yield from (
+            (name, arg.result(data_exp_fs_manager))
+            for name, arg in self.__arguments.items()
+        )
+
+    def sh_lines_builders(
+        self,
         data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,
-    ) -> abc_tool_bash._CommandsWithOptions:
-        """Convert inputs to commands."""
-        raise NotImplementedError
+    ) -> Iterator[abc_tool_bash.Argument]:
+        """Convert to commands."""
+        return (
+            arg.sh_lines_builder(data_exp_fs_manager, work_exp_fs_manager)
+            for arg in self.__arguments.values()
+        )
+
+    def to_config(self) -> abc_tool_cfg.Arguments:
+        """Convert to config."""
+        return abc_tool_cfg.Arguments(
+            {str(name): arg.to_config() for name, arg in self.__arguments.items()},
+        )
 
 
 @final
-class ConnectorOnlyOptions(ConnectorWithOptions[exp_cfg.ConfigOnlyOptions]):
-    """Tool connector for tool with only options."""
+class StringOpts:
+    """String options.
+
+    When the options are regular short/long options.
+    """
 
     @classmethod
-    def config_type(cls) -> type[exp_cfg.ConfigOnlyOptions]:
-        """Get experiment config type."""
-        return exp_cfg.ConfigOnlyOptions
+    def from_config(cls, config: abc_tool_cfg.StringOpts) -> Self:
+        """Convert dict to object."""
+        return cls(config)
 
-    def inputs_to_commands(
+    def __init__(self, options: Iterable[str]) -> None:
+        self.__options = list(options)
+
+    def __bool__(self) -> bool:
+        """Check if options are not empty."""
+        return len(self.__options) > 0
+
+    def __len__(self) -> int:
+        """Get options length."""
+        return len(self.__options)
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate options."""
+        return iter(self.__options)
+
+    def sh_lines_builder(self) -> abc_tool_bash.Options:
+        """Get shell lines builder type."""
+        return abc_tool_bash.Options(self)
+
+    def to_config(self) -> abc_tool_cfg.StringOpts:
+        """Convert to config."""
+        return abc_tool_cfg.StringOpts(self.__options)
+
+
+class WithOptions[C: abc_tool_cfg.WithOptions, E](ABC):
+    """Tool config with options."""
+
+    @classmethod
+    @abstractmethod
+    def description(cls) -> abc_tool_desc.Description:
+        """Get tool description."""
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def config_type(cls) -> type[C]:
+        """Get config type."""
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def from_config(cls, config: C) -> Self | E:
+        """Convert dict to object."""
+        raise NotImplementedError
+
+    def __init__(self, options: StringOpts) -> None:
+        """Initialize."""
+        self._options = options
+
+    def options(self) -> StringOpts:
+        """Get options."""
+        return self._options
+
+    @abstractmethod
+    def to_config(self) -> abc_tool_cfg.WithOptions:
+        """Convert to config."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def sh_commands(
         self,
-        config: exp_cfg.ConfigOnlyOptions,
+        data_exp_fs_manager: exp_fs.DataManager,
+        work_exp_fs_manager: exp_fs.WorkManager,
+    ) -> abc_tool_bash.CommandsWithOptions:
+        """Get sh commands."""
+        raise NotImplementedError
+
+    def is_same(self, other: Self) -> bool:
+        """Check if configs are the same."""
+        return self.to_config().is_same(other.to_config())
+
+
+class OnlyOptions(WithOptions[abc_tool_cfg.OnlyOptions, "OnlyOptions"]):
+    """Tool config without arguments."""
+
+    @classmethod
+    def config_type(cls) -> type[abc_tool_cfg.OnlyOptions]:
+        """Get config type."""
+        return abc_tool_cfg.OnlyOptions
+
+    @classmethod
+    def from_config(cls, config: abc_tool_cfg.OnlyOptions) -> Self:
+        """Convert dict to object."""
+        return cls(StringOpts.from_config(config.options()))
+
+    def sh_commands(
+        self,
         data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,
     ) -> abc_tool_bash.CommandsOnlyOptions:
-        """Convert inputs to commands."""
+        """Get sh commands."""
         return abc_tool_bash.CommandsOnlyOptions(
-            abc_tool_bash.Options(config.tool_configs().options()),
+            abc_tool_bash.Options(self._options),
             data_exp_fs_manager,
             work_exp_fs_manager,
         )
 
+    def to_config(self) -> abc_tool_cfg.OnlyOptions:
+        """Convert to dict."""
+        return abc_tool_cfg.OnlyOptions(self._options.to_config())
 
-class ConnectorWithArguments[
-    ArgNames: abc_tool_config.Names,
-    ExpConfig: exp_cfg.ConfigWithArguments,
-](
-    ConnectorWithOptions[ExpConfig],
-):
-    """Tool connectors for tool with arguments."""
 
-    def __init__(
-        self,
-        tool_description: abc_tool_desc.Description,
-        arg_names_and_paths: dict[ArgNames, ArgumentPath],
-    ) -> None:
+class WithArguments[N: Names](WithOptions[abc_tool_cfg.WithArguments, ArgsLoadError]):
+    """Tool config with arguments."""
+
+    @classmethod
+    @abstractmethod
+    def arguments_type(cls) -> type[Arguments[N]]:
+        """Get argument arguments type."""
+        raise NotImplementedError
+
+    @classmethod
+    def config_type(cls) -> type[abc_tool_cfg.WithArguments]:
+        """Get config type."""
+        return abc_tool_cfg.WithArguments
+
+    @classmethod
+    def from_config(cls, config: abc_tool_cfg.WithArguments) -> Self | ArgsLoadError:
+        """Convert dict to object."""
+        match arg_or_err := cls.arguments_type().from_config(config.arguments()):
+            case Arguments():
+                return cls(arg_or_err, StringOpts.from_config(config.options()))
+            case _:
+                return arg_or_err
+
+    def __init__(self, arguments: Arguments[N], options: StringOpts) -> None:
         """Initialize."""
-        super().__init__(tool_description)
-        self._arg_names_and_paths = dict(arg_names_and_paths)
+        super().__init__(options)
+        self._arguments = arguments
 
-    def arg_names_and_paths(self) -> Iterator[tuple[ArgNames, ArgumentPath]]:
-        """Get argument names and paths."""
-        yield from self._arg_names_and_paths.items()
+    def arguments(self) -> Arguments[N]:
+        """Get arguments."""
+        return self._arguments
 
-    def check_arguments_implement_results(self, config: ExpConfig) -> list[ValueError]:
-        """Check arguments implement results."""
-        value_errors: list[ValueError] = []
-        tool_config: abc_tool_config.ConfigWithArguments = config.tool_configs()
-        arguments: abc_tool_config.Arguments = tool_config.arguments()
-        name: ArgNames
-        arg_path: ArgumentPath
-        for name, arg_path in self._arg_names_and_paths.items():
-            ok_tool_set_str: str = (
-                "{"
-                + ", ".join(
-                    [
-                        str(tool)
-                        for tool in arg_path.topic_tools()
-                        if arg_path.check_tool_implement_result(tool)
-                    ],
-                )
-                + "}"
-            )
-            try:
-                tool = name.topic_tools()(arguments[name].tool_name())
-            except ValueError:
-                _err_msg = (
-                    f"For argument `{name}`: "
-                    f"`{arguments[name].tool_name()}` is none of the tools"
-                    f" in {ok_tool_set_str}"
-                )
-                value_errors.append(ValueError(_err_msg))
-            else:
-                try:
-                    arg_path.result_visitor().result_builder_from_tool(tool)
-                except ValueError as value_error:
-                    _err_msg = (
-                        f"For argument `{name}`: "
-                        f"{value_error}"
-                        f" (choose one of the tool in {ok_tool_set_str})"
-                    )
-                    value_errors.append(ValueError(_err_msg))
-        return value_errors
-
-    def config_to_inputs(
+    def sh_commands(
         self,
-        config: ExpConfig,
-        data_exp_fs_manager: exp_fs.DataManager,
-    ) -> dict[ArgNames, abc_topic_res.Result]:
-        """Convert config to inputs."""
-        tool_config: abc_tool_config.ConfigWithArguments = config.tool_configs()
-        arguments: abc_tool_config.Arguments = tool_config.arguments()
-        names_with_results: dict[ArgNames, abc_topic_res.Result] = {}
-        for name, arg_path in self._arg_names_and_paths.items():
-            result: abc_topic_res.Result = arg_path.arg_to_checkable_input(
-                data_exp_fs_manager,
-                arguments[name],
-            )
-            names_with_results[name] = result
-        return names_with_results
-
-    def inputs_to_commands(
-        self,
-        config: ExpConfig,
         data_exp_fs_manager: exp_fs.DataManager,
         work_exp_fs_manager: exp_fs.WorkManager,
     ) -> abc_tool_bash.CommandsWithArguments:
-        """Convert inputs to commands."""
-        names_to_input_results = self.config_to_inputs(config, data_exp_fs_manager)
-        tool_config: abc_tool_config.ConfigWithArguments = config.tool_configs()
+        """Get sh commands."""
         return abc_tool_bash.CommandsWithArguments(
-            [
-                arg_path.input_to_sh_lines_builder(
-                    names_to_input_results[name],
-                    work_exp_fs_manager,
-                )
-                for name, arg_path in self._arg_names_and_paths.items()
-            ],
-            abc_tool_bash.Options(tool_config.options()),
+            self._arguments.sh_lines_builders(
+                data_exp_fs_manager,
+                work_exp_fs_manager,
+            ),
+            self.options().sh_lines_builder(),
             data_exp_fs_manager,
             work_exp_fs_manager,
+        )
+
+    def to_config(self) -> abc_tool_cfg.WithArguments:
+        """Convert to dict."""
+        return abc_tool_cfg.WithArguments(
+            self._arguments.to_config(),
+            self._options.to_config(),
         )
