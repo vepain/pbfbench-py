@@ -38,12 +38,22 @@ class PlasmidnessVisitor(
     def convert_fn(
         cls,
         tool: class_visitor.Tools,
-    ) -> abc_topic_res.ConvertFn[Plasmidness]:
+    ) -> abc_topic_res.ConvertFn[Plasmidness] | abc_topic_res.Error:
         """Get convert function."""
-        raise NotImplementedError
+
+        def _err(tool: class_visitor.Tools) -> abc_topic_res.Error:
+            return abc_topic_res.Error(
+                "Function to convert classification result to plasmidness result"
+                f" is not implemented for `{tool}` ",
+            )
+
         match tool:
             case class_visitor.Tools.PLATON:
-                _err_msg = "Platon tool "
+                return _err(tool)  # FEATURE Platon plasmidness convert
+            case class_visitor.Tools.PLASCLASS:
+                return _err(tool)  # FEATURE PlasClass plasmidness convert
+            case class_visitor.Tools.PLASGRAPH2:
+                return _err(tool)  # FEATURE PlasGraph2 plasmidness convert
 
     @classmethod
     def result_builder(cls) -> type[Plasmidness]:
@@ -68,12 +78,32 @@ class Seeds(abc_topic_res.Formatted):
         return smp_status.Error.NOT_RUN
 
 
-# TODO[2025-09-24 12:46:58] Continue SeedsVisitor fmt result
-# @final
-# class SeedsVisitor(abc_topic_res.FormattedVisitor[class_visitor.Tools, Seeds]):
-#     """Seeds result visitor."""
+@final
+class SeedsVisitor(abc_topic_res.FormattedVisitor[class_visitor.Tools, Seeds]):
+    """Seeds result visitor."""
 
-#     @classmethod
-#     def result_builder(cls) -> type[Seeds]:
-#         """Get result builder."""
-#         return Seeds
+    @classmethod
+    def convert_fn(
+        cls,
+        tool: class_visitor.Tools,
+    ) -> abc_topic_res.ConvertFn[Seeds] | abc_topic_res.Error:
+        """Get convert function."""
+
+        def _err(tool: class_visitor.Tools) -> abc_topic_res.Error:
+            return abc_topic_res.Error(
+                "Function to convert classification result to plasmidness result"
+                f" is not implemented for `{tool}` ",
+            )
+
+        match tool:
+            case class_visitor.Tools.PLATON:
+                return _err(tool)  # FEATURE Platon seeds convert
+            case class_visitor.Tools.PLASCLASS:
+                return _err(tool)  # FEATURE PlasClass seeds convert
+            case class_visitor.Tools.PLASGRAPH2:
+                return _err(tool)  # FEATURE PlasGraph2 seeds convert
+
+    @classmethod
+    def result_builder(cls) -> type[Seeds]:
+        """Get result builder."""
+        return Seeds
