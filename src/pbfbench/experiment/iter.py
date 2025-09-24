@@ -4,34 +4,30 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pbfbench.abc.tool.config as abc_tool_cfg
-import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.abc.topic.results as abc_topic_res
-import pbfbench.experiment.errors as exp_errors
-import pbfbench.experiment.file_system as exp_fs
 import pbfbench.samples.file_system as smp_fs
-import pbfbench.samples.missing_inputs as smp_miss_in
 import pbfbench.samples.status as smp_status
+
+from . import errors as exp_errors
+from . import file_system as exp_fs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
 
-def samples_to_run(
+def samples_with_status(
     data_exp_fs_manager: exp_fs.DataManager,
-) -> Iterator[smp_fs.RowNumberedItem]:
-    """Get samples with error status.
-
-    They correspond to samples for which the experiment is not done.
-    """
+) -> Iterator[tuple[smp_fs.RowNumberedItem, smp_status.Status]]:
+    """Get samples with their status."""
     with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
         return (
-            row_numbered_sample
-            for row_numbered_sample in smp_tsv_in.iter_row_numbered_items()
-            if smp_status.get_status(
-                data_exp_fs_manager.sample_fs_manager(row_numbered_sample.item()),
+            (
+                row_numbered_sample,
+                smp_status.get_status(
+                    data_exp_fs_manager.sample_fs_manager(row_numbered_sample.item()),
+                ),
             )
-            != smp_status.OK.OK
+            for row_numbered_sample in smp_tsv_in.iter_row_numbered_items()
         )
 
 
@@ -47,19 +43,9 @@ def samples_to_format_result(
     # TODO log that requires to run before init
     # TODO perhaps missing inputs for check should be good (I removed it...)
     # Just for logs (only for init app in that case, bc run app will after logs it)
-    done_input = (
-        row_numbered_sample
-        for row_numbered_sample in all_samples
-        if smp_status.get_status(
-            formatted_result_builder.exp_fs_manager().sample_fs_manager(
-                row_numbered_sample.item(),
-            ),
-        )
-        == smp_status.OK.OK
-    )
     return (
         row_numbered_sample
-        for row_numbered_sample in done_input
+        for row_numbered_sample in all_samples
         if formatted_result_builder.check(row_numbered_sample.item())
         != smp_status.OK.OK
     )
@@ -69,46 +55,15 @@ def samples_to_complete(
     data_exp_fs_manager: exp_fs.DataManager,
 ) -> Iterator[smp_fs.RowNumberedItem]:
     """Get samples to complete."""
+    # FIXME potentially useless
     with exp_errors.ErrorsTSVReader.open(
         data_exp_fs_manager.errors_tsv(),
     ) as in_exp_errors:
         samples_id_with_errors = {
-            sample_error.sample_id() for sample_error in in_exp_errors
+            sample_error.exp_sample_id() for sample_error in in_exp_errors
         }
     return (
         row_numbered_item
         for row_numbered_item in samples_to_run(data_exp_fs_manager)
         if row_numbered_item.item().exp_sample_id() not in samples_id_with_errors
     )
-
-
-def checked_input_samples_to_run(
-    work_exp_fs_manager: exp_fs.WorkManager,
-    samples_to_run: Iterable[smp_fs.RowNumberedItem],
-    tool_inputs: dict[abc_tool_cfg.Names, abc_topic_res.Result],
-    connector: abc_tool_connector.ConnectorWithArguments,
-) -> tuple[list[smp_fs.RowNumberedItem], list[smp_fs.RowNumberedItem]]:
-    """Return row numbered samples to run and those with missing inputs."""
-    checked_samples_to_run: list[smp_fs.RowNumberedItem] = []
-    samples_with_missing_inputs: list[smp_fs.RowNumberedItem] = []
-
-    for row_numbered_sample in samples_to_run:
-        sample_missing_inputs = smp_miss_in.sample_list(
-            tool_inputs,
-            row_numbered_sample.item(),
-            connector,
-        )
-
-        if sample_missing_inputs:
-            samples_with_missing_inputs.append(row_numbered_sample)
-            sample_fs_manager = work_exp_fs_manager.sample_fs_manager(
-                row_numbered_sample.item(),
-            )
-            smp_miss_in.write_sample_missing_inputs(
-                sample_fs_manager,
-                sample_missing_inputs,
-            )
-        else:
-            checked_samples_to_run.append(row_numbered_sample)
-
-    return checked_samples_to_run, samples_with_missing_inputs

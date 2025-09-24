@@ -13,5 +13,9 @@ from .platon import app as platon_app
 
 APP = abc_topic_app.build_application(
     class_desc.DESCRIPTION,
-    [plasclass_app.APP, plasgraphtwo_app.APP, platon_app.APP],
+    [
+        plasclass_app.APP,
+        plasgraphtwo_app.APP,
+        platon_app.APP,
+    ],
 )

@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from enum import StrEnum
 from typing import TYPE_CHECKING, Literal
 
+import pbfbench.samples.items as smp_items
 import pbfbench.samples.status as smp_status
 
 if TYPE_CHECKING:
@@ -21,18 +22,34 @@ _LOGGER = logging.getLogger(__name__)
 class SampleError:
     """Sample error."""
 
+    @classmethod
+    def sample_item_with_missing_inputs(
+        cls,
+        sample_item: smp_items.Item,
+    ) -> SampleError:
+        """Instantiate a sample error with a missing inputs reason."""
+        return cls(sample_item.exp_sample_id(), smp_status.Error.MISSING_INPUTS)
+
+    @classmethod
+    def sample_item_with_error(
+        cls,
+        sample_item: smp_items.Item,
+    ) -> SampleError:
+        """Instantiate a sample error with an error reason."""
+        return cls(sample_item.exp_sample_id(), smp_status.Error.ERROR)
+
     def __init__(
         self,
-        sample_id: str,
+        exp_sample_id: str,
         reason: smp_status.Error,
     ) -> None:
         """Initialize."""
-        self.__sample_id = sample_id
+        self.__exp_sample_id = exp_sample_id
         self.__reason = reason
 
-    def sample_id(self) -> str:
-        """Get sample ID."""
-        return self.__sample_id
+    def exp_sample_id(self) -> str:
+        """Get experiment sample ID."""
+        return self.__exp_sample_id
 
     def reason(self) -> smp_status.Error:
         """Get reason."""
@@ -74,11 +91,11 @@ class ErrorsTSVReader:
     def __iter__(self) -> Iterator[SampleError]:
         """Iterate over error samples."""
         for row in self.__csv_reader:
-            sample_id = self.__get_cell(row, ErrorsTSVHeader.SAMPLE_ID)
+            exp_sample_id = self.__get_cell(row, ErrorsTSVHeader.SAMPLE_ID)
             error_status = smp_status.Error(
                 self.__get_cell(row, ErrorsTSVHeader.REASON),
             )
-            yield SampleError(sample_id, error_status)
+            yield SampleError(exp_sample_id, error_status)
 
     def __get_cell(self, row: list[str], column_id: ErrorsTSVHeader) -> str:
         return row[self.__columns_index[column_id]]
@@ -138,7 +155,7 @@ class ErrorsTSVWriter:
         """Write error sample."""
         self.__csv_writer.writerow(
             [
-                error_sample.sample_id(),
+                error_sample.exp_sample_id(),
                 error_sample.reason(),
             ],
         )

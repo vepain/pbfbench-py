@@ -30,7 +30,7 @@ def convert(
     gfa_arg = plasgraph2_exp_cfg.tool_configs().arguments()[plasgraph2_cfg.Names.GFA]
     gfa_tool = asm_visitor.Tools.from_description(
         plasgraph2_cfg.Names.GFA.topic_tools()(
-            gfa_arg.tool_name(),
+            gfa_arg.tool(),
         ).to_description(),
     )
 

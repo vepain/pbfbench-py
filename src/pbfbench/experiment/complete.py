@@ -13,13 +13,14 @@ import pbfbench.experiment.bash.items as exp_bash_items
 import pbfbench.experiment.errors as exp_errors
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.experiment.slurm.status as exp_slurm_status
-import pbfbench.experiment.stats as exp_stats
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.slurm.status as smp_slurm_status
 import pbfbench.samples.status as smp_status
 import pbfbench.slurm.bash as slurm_bash
 from pbfbench import root_logging
 from pbfbench.slurm import sacct
+
+from .slurm import checks as exp_slurm_checks
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,14 +29,12 @@ def complete_experiment(
     not_finished_samples: list[smp_fs.RowNumberedItem],
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
-    run_stats: exp_stats.RunStatsWithOptions,
 ) -> None:
     """Complete experiment."""
     _finished_job_deamon(
         not_finished_samples,
         data_exp_fs_manager,
         work_exp_fs_manager,
-        run_stats,
     )
 
     _clean_work_directory(work_exp_fs_manager)
@@ -45,7 +44,6 @@ def _finished_job_deamon(
     not_finished_samples: list[smp_fs.RowNumberedItem],
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
-    run_stats: exp_stats.RunStatsWithOptions,
 ) -> None:
     """Run finished job deamon."""
     array_job_id = _get_array_job_id(work_exp_fs_manager)
@@ -101,7 +99,6 @@ def _finished_job_deamon(
                 finished_error_jobs,
                 data_exp_fs_manager,
                 work_exp_fs_manager,
-                run_stats,
             )
 
             progress.update(
@@ -126,10 +123,14 @@ def _get_array_job_id(work_exp_fs_manager: exp_fs.WorkManager) -> str:
 def _get_job_status(
     work_exp_fs_manager: exp_fs.WorkManager,
     sample_job_id: str,
-) -> tuple[smp_status.Status, slurm_status.SACCTState | None]:
+) -> tuple[smp_status.Status, sacct.State | None]:
     """Get sample experiment status from job id."""
-    states = slurm_bash.get_states([sample_job_id])
-    if sample_job_id not in states:
+    sacct_states = slurm_bash.get_states([sample_job_id])
+    #
+    # Unknown sacct state
+    #
+    if sample_job_id not in sacct_states:
+        # The job terminated with a success
         if (
             work_exp_fs_manager.slurm_log_fs_manager()
             .script_step_status_file(
@@ -140,8 +141,11 @@ def _get_job_status(
             .exists()
         ):
             return smp_status.OK.OK, None
+        # The job did not terminate or with an error
         return smp_status.Error.ERROR, None
-    return smp_status.from_sacct_state(states[sample_job_id]), states[sample_job_id]
+    return smp_status.from_sacct_state(sacct_states[sample_job_id]), sacct_states[
+        sample_job_id
+    ]
 
 
 def _manage_finished_job(
@@ -149,7 +153,6 @@ def _manage_finished_job(
     error_job_ids: list[tuple[str, smp_fs.RowNumberedItem, sacct.State | None]],
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
-    run_stats: exp_stats.RunStatsWithOptions,
 ) -> None:
     for job_id, row_numbered_item, _ in ok_job_ids:
         _manage_finished_ok_job(
@@ -167,12 +170,8 @@ def _manage_finished_job(
                     job_id,
                     row_numbered_item,
                     work_exp_fs_manager,
-                    run_stats,
                     out_exp_errors,
                 )
-        run_stats.add_samples_with_errors(
-            (row_numbered_item.item() for _, row_numbered_item, _ in error_job_ids),
-        )
 
     for job_id, row_numbered_item, sacct_state in chain(ok_job_ids, error_job_ids):
         _move_slurm_logs_to_work_sample_dir(
@@ -204,7 +203,6 @@ def _manage_finished_error_job(
     job_id: str,
     row_numbered_item: smp_fs.RowNumberedItem,
     work_exp_fs_manager: exp_fs.WorkManager,
-    run_stats: exp_stats.RunStatsWithOptions,
     out_exp_errors: exp_errors.ErrorsTSVWriter,
 ) -> None:
     sample_fs_manager = work_exp_fs_manager.sample_fs_manager(row_numbered_item.item())
@@ -212,12 +210,8 @@ def _manage_finished_error_job(
         work_exp_fs_manager.slurm_log_fs_manager().stderr(job_id),
         sample_fs_manager.errors_log(),
     )
-    run_stats.samples_with_errors().append(row_numbered_item.item().exp_sample_id())
     out_exp_errors.write_error_sample(
-        exp_errors.SampleError(
-            row_numbered_item.item().exp_sample_id(),
-            smp_status.Error.ERROR,
-        ),
+        exp_errors.SampleError.sample_item_with_error(row_numbered_item.item()),
     )
 
 
@@ -257,37 +251,20 @@ def _command_steps_process_from_slurm_logs(
     work_exp_fs_manager: exp_fs.WorkManager,
     job_id: str,
 ) -> smp_slurm_status.CommandStepsProcess:
-    def _script_step_status_from_files(
-        step: exp_bash_items.Steps,
-    ) -> exp_slurm_status.ScriptSteps:
-        ok_file = work_exp_fs_manager.slurm_log_fs_manager().script_step_status_file(
-            job_id,
-            step,
-            exp_slurm_status.ScriptSteps.OK,
-        )
-        error_file = work_exp_fs_manager.slurm_log_fs_manager().script_step_status_file(
-            job_id,
-            step,
-            exp_slurm_status.ScriptSteps.ERROR,
-        )
-        if ok_file.exists():
-            status = exp_slurm_status.ScriptSteps.OK
-        elif error_file.exists():
-            status = exp_slurm_status.ScriptSteps.ERROR
-        else:
-            status = exp_slurm_status.ScriptSteps.NULL
-        ok_file.unlink(missing_ok=True)
-        error_file.unlink(missing_ok=True)
-        return status
-
     return smp_slurm_status.CommandStepsProcess(
-        _script_step_status_from_files(
+        exp_slurm_checks.script_step_status(
+            work_exp_fs_manager,
+            job_id,
             exp_bash_items.Steps.INIT_ENV,
         ),
-        _script_step_status_from_files(
+        exp_slurm_checks.script_step_status(
+            work_exp_fs_manager,
+            job_id,
             exp_bash_items.Steps.COMMAND,
         ),
-        _script_step_status_from_files(
+        exp_slurm_checks.script_step_status(
+            work_exp_fs_manager,
+            job_id,
             exp_bash_items.Steps.CLOSE_ENV,
         ),
     )

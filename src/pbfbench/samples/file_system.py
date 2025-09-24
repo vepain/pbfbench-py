@@ -23,6 +23,15 @@ class Manager:
     ERRORS_LOG_NAME = Path("errors.log")
     DONE_LOG_NAME = Path("done.log")
 
+    @classmethod
+    def from_exp_dir_and_sample_item(
+        cls,
+        exp_dir: Path,
+        sample_item: smp_items.Item,
+    ) -> Manager:
+        """Get sample experiment file system manager."""
+        return cls(exp_dir / sample_item.exp_sample_id())
+
     def __init__(self, sample_dir: Path) -> None:
         """Inititialize."""
         self.__sample_dir = sample_dir

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import final
 
@@ -17,7 +16,7 @@ class ManagerBase:
     """Experiment file system manager base."""
 
     CONFIG_YAML_NAME = Path("config.yaml")
-    DATE_TXT_NAME = Path("date.txt")
+    IN_PROGRESS_YAML_NAME = Path("in_progress.yaml")
 
     SCRIPT_DIR_NAME = Path("scripts")
 
@@ -39,6 +38,7 @@ class ManagerBase:
 
     def _get_date_str(self) -> str:
         """Get date string."""
+        # FIXME use in_progress.yaml
         if not self.date_txt().exists():
             return _get_today_format_string()
         with self.date_txt().open("r") as f_in:
@@ -69,22 +69,15 @@ class ManagerBase:
         return self.tool_dir() / self._experiment_name
 
     #
-    # Date
-    #
-    def date_str(self) -> str:
-        """Get date string."""
-        return self._date_str
-
-    def date_txt(self) -> Path:
-        """Get the file containing the experiment date."""
-        return self.exp_dir() / self.DATE_TXT_NAME
-
-    #
     # Experiment files
     #
     def config_yaml(self) -> Path:
         """Get config file."""
         return self.exp_dir() / self.CONFIG_YAML_NAME
+
+    def in_progress_yaml(self) -> Path:
+        """Get in progress file."""
+        return self.exp_dir() / self.IN_PROGRESS_YAML_NAME
 
     #
     # Sbatch scripts
@@ -102,7 +95,7 @@ class ManagerBase:
 
     def sample_fs_manager(self, sample_item: smp_items.Item) -> smp_fs.Manager:
         """Get sample experiment directory path."""
-        return smp_fs.Manager(self.exp_dir() / sample_item.exp_sample_id())
+        return smp_fs.Manager.from_exp_dir_and_sample_item(self.exp_dir(), sample_item)
 
 
 @final
@@ -114,6 +107,7 @@ class DataManager(ManagerBase):
     TOOL_ENV_WRAPPER_SCRIPT_NAME = Path("env_wrapper.sh")
 
     ERRORS_TSV_NAME = Path("errors.tsv")
+    HISTORY_YAML_NAME = Path("history.yaml")
 
     def samples_tsv(self) -> Path:
         """Get samples TSV file."""
@@ -126,6 +120,10 @@ class DataManager(ManagerBase):
     def errors_tsv(self) -> Path:
         """Get errors file."""
         return self.exp_dir() / self.ERRORS_TSV_NAME
+
+    def history_yaml(self) -> Path:
+        """Get history file."""
+        return self.exp_dir() / self.HISTORY_YAML_NAME
 
 
 @final
@@ -151,11 +149,6 @@ class WorkManager(ManagerBase):
     def slurm_log_fs_manager(self) -> exp_slurm_fs.LogsManager:
         """Get slurm logs manager."""
         return self.__slurm_log_fs_manager
-
-
-def _get_today_format_string() -> str:
-    """Get date format string."""
-    return datetime.now(tz=UTC).strftime("%Y-%m-%d_%H-%M-%S")
 
 
 def data_and_working_managers(

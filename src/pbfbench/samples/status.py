@@ -21,7 +21,7 @@ class Error(StrEnum):
     NOT_RUN = "not_run"
     # One of the input is missing
     MISSING_INPUTS = "missing_inputs"
-    # An error occur during the sample experiment run
+    # An error occur during the sample experiment run or sacct state is unknown
     ERROR = "error"
 
 

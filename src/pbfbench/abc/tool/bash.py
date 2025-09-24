@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 import pbfbench.abc.module_meta as abc_meta_mod
-import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.topic.results as abc_topic_res
 import pbfbench.bash.items as bash_items
 import pbfbench.experiment.file_system as exp_fs
@@ -67,22 +66,22 @@ class Options:
 
     USER_TOOL_OPTIONS_VAR = bash_items.Variable("USER_TOOL_OPTIONS")
 
-    def __init__(self, tool_options: abc_tool_cfg.StringOpts) -> None:
+    def __init__(self, tool_options: Iterable[str]) -> None:
         """Initialize."""
         self.__tool_options = tool_options
 
-    def tool_options(self) -> abc_tool_cfg.StringOpts:
+    def tool_options(self) -> Iterable[str]:
         """Get tool options."""
         return self.__tool_options
 
     def set_options(self) -> Iterator[str]:
-        """Set user tool options sh variable."""
+        """Set user tool options sh array variable."""
         yield self.USER_TOOL_OPTIONS_VAR.set(
             "(" + " ".join(self.__tool_options) + ")",
         )
 
 
-class _CommandsWithOptions:
+class CommandsWithOptions:
     """Commands with options."""
 
     SAMPLES_TSV_VAR = bash_items.Variable("SAMPLES_TSV")
@@ -158,11 +157,11 @@ class _CommandsWithOptions:
         )
 
 
-class CommandsOnlyOptions(_CommandsWithOptions):
+class CommandsOnlyOptions(CommandsWithOptions):
     """Tool commands when the tool has no arguments."""
 
 
-class CommandsWithArguments(_CommandsWithOptions):
+class CommandsWithArguments(CommandsWithOptions):
     """Tool commands with options and arguments."""
 
     def __init__(

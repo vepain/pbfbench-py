@@ -49,15 +49,15 @@ class FastaGZVisitor(abc_topic_res.OriginalVisitor):
     def result_builder_from_tool(
         cls,
         tool: asm_visitor.Tools,
-    ) -> type[FastaGZ]:
+    ) -> abc_topic_res.Error | type[FastaGZ]:
         """Visit assembly FASTA tool result."""
         match tool:
             case asm_visitor.Tools.UNICYCLER:
-                return FastaGZ
+                return cls.result_builder()
             case asm_visitor.Tools.SKESA:
-                return FastaGZ
+                return cls.result_builder()
             case asm_visitor.Tools.GFA_CONNECTOR:
-                return FastaGZ
+                return cls.result_builder()
 
 
 @final
@@ -73,17 +73,16 @@ class AsmGraphGZVisitor(abc_topic_res.OriginalVisitor):
     def result_builder_from_tool(
         cls,
         tool: asm_visitor.Tools,
-    ) -> type[AsmGraphGZ]:
+    ) -> abc_topic_res.Error | type[AsmGraphGZ]:
         """Visit assembly graph (GFA) tool result."""
         match tool:
             case asm_visitor.Tools.UNICYCLER:
-                return AsmGraphGZ
+                return cls.result_builder()
             case asm_visitor.Tools.SKESA:
-                _err_msg = (
+                return abc_topic_res.Error(
                     f"{asm_visitor.Tools.SKESA} tool"
                     " does not provide a GFA file"
-                    f" but {asm_visitor.Tools.GFA_CONNECTOR} does"
+                    f" but {asm_visitor.Tools.GFA_CONNECTOR} does",
                 )
-                raise ValueError(_err_msg)
             case asm_visitor.Tools.GFA_CONNECTOR:
-                return AsmGraphGZ
+                return cls.result_builder()

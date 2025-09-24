@@ -12,7 +12,7 @@ try:
 except ImportError:
     from yaml import Dumper
 
-from typing import Any, Self
+from typing import Self
 
 
 class YAMLInterface(ABC):
@@ -27,12 +27,12 @@ class YAMLInterface(ABC):
 
     @classmethod
     @abstractmethod
-    def from_yaml_load(cls, pyyaml_obj: Any) -> Self:  # noqa: ANN401
+    def from_yaml_load(cls, pyyaml_obj: yaml.YAMLObject) -> Self:
         """Convert pyyaml object to self."""
         raise NotImplementedError
 
     @abstractmethod
-    def to_yaml_dump(self) -> Any:  # noqa: ANN401
+    def to_yaml_dump(self) -> yaml.YAMLObject:
         """Convert to dict."""
         raise NotImplementedError
 
