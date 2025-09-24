@@ -126,15 +126,16 @@ options:  # Platon options
 The SLURM configuration file is optional.
 
 You can obtain the default configuration with:
-<!-- FEATURE do slurm-config command -->
+
 ```sh
-pbfbench slurm-config > slurm_cfg.txt
+pbfbench slurm-opts [ACCOUNT_NAME] > slurm_cfg.sh
 ```
 
-Where `slurm_cfg.txt` contains:
+Where `slurm_cfg.sh` contains:
 
 ```sh
---mem=36 --cpus-per-task=16 ... # all but options for array jobs and logs which are automatically set
+> echo $( cat slurm_opts.sh )
+--mem=4096 --cpus-per-task=4 --time=1:00:00 --account=ACCOUNT_NAME
 ```
 
 ### Outputs
