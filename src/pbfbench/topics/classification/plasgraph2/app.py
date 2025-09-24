@@ -8,4 +8,4 @@ import pbfbench.abc.tool.app as abc_tool_app
 
 from . import connector
 
-APP = abc_tool_app.build_application_with_arguments(connector.Connector)
+APP = abc_tool_app.build_application(connector.Connector)

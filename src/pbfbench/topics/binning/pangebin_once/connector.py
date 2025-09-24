@@ -14,7 +14,7 @@ import pbfbench.topics.classification.visitor as class_visitor
 
 @final
 class Connector(
-    abc_tool_connector.ConnectorWithArguments[
+    abc_tool_connector.WithArguments[
         pangebin_once_cfg.Names,
         pangebin_once_cfg.ExpConfig,
     ],

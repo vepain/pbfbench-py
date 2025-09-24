@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import final
 
-import pbfbench.abc.tool.config as abc_tool_cfg
+import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.abc.topic.visitor as abc_topic_visitor
 import pbfbench.experiment.config as exp_cfg
 import pbfbench.topics.assembly.visitor as asm_visitor
@@ -12,7 +12,7 @@ import pbfbench.topics.classification.visitor as class_visitor
 
 
 @final
-class Names(abc_tool_cfg.Names):
+class Names(abc_tool_connector.Names):
     """Argument names."""
 
     GFA = "GFA"
@@ -31,7 +31,7 @@ class Names(abc_tool_cfg.Names):
 
 
 @final
-class Arguments(abc_tool_cfg.Arguments[Names]):
+class Arguments(abc_tool_connector.Arguments[Names]):
     """Arguments."""
 
     @classmethod
@@ -41,7 +41,7 @@ class Arguments(abc_tool_cfg.Arguments[Names]):
 
 
 @final
-class Config(abc_tool_cfg.ConfigWithArguments[Names]):
+class Config(abc_tool_connector.WithArguments[Names]):
     """Tool config."""
 
     @classmethod
@@ -51,7 +51,7 @@ class Config(abc_tool_cfg.ConfigWithArguments[Names]):
 
 
 @final
-class ExpConfig(exp_cfg.ConfigWithArguments[Config]):
+class ExpConfig(exp_cfg.WithArguments[Config]):
     """Experiment config."""
 
     @classmethod

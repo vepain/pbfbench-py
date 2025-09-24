@@ -6,6 +6,7 @@ import logging
 from enum import StrEnum
 from typing import TYPE_CHECKING, cast
 
+import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.slurm.bash as slurm_bash
 
@@ -40,29 +41,32 @@ class RunErrors(StrEnum):
     MISSING_TOOL_ENV_WRAPPER_SCRIPT = "missing_tool_env_wrapper_script"
 
 
-def check_before_start[
-    C: abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments,
-](
+def check_before_start(
     exp_name: str,
     data_dir: Path,
     work_dir: Path,
     tool_config_yaml: Path,
-    tool_connector_type: type[C],
+    tool_connector_type: type[
+        abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments
+    ],
 ) -> RunOK[exp_managers.OnlyOptions | exp_managers.WithArguments] | RunErrors:
     """Check experiment."""
     match _check_read_write_access(data_dir, work_dir):
         case PermissionErrors():
             return RunErrors.NO_PERMISSION
 
-    connector = _instantiate_connector(tool_connector_type, tool_config_yaml)
+    connector_or_error = _instantiate_connector(tool_connector_type, tool_config_yaml)
 
-    match connector:
+    match connector_or_error:
         case RunErrors():
-            return connector
+            return connector_or_error
 
-    _LOGGER.debug("Experiment config:\n%s", connector.to_yaml_dump())
+    _LOGGER.debug(
+        "Experiment config:\n%s",
+        connector_or_error.to_config().to_yaml_dump(),
+    )
 
-    exp_manager = _get_exp_manager(exp_name, data_dir, work_dir, connector)
+    exp_manager = _get_exp_manager(exp_name, data_dir, work_dir, connector_or_error)
 
     if _missing_env_wrapper_script(exp_manager.data_fs_manager()):
         return RunErrors.MISSING_TOOL_ENV_WRAPPER_SCRIPT
@@ -158,13 +162,27 @@ def _check_read_write_access_work(work_dir: Path) -> PermissionStatus:
     return PermissionOK.READ_WRITE
 
 
-def _instantiate_connector[
-    C: abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments,
-](
-    tool_connector_type: type[C],
+def _instantiate_connector(
+    tool_connector_type: type[
+        abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments
+    ],
     tool_config_yaml: Path,
 ) -> abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments | RunErrors:
-    match connector_or_error := tool_connector_type.from_yaml(tool_config_yaml):
+    if tool_connector_type is abc_tool_connector.OnlyOptions:
+        tool_connector_type = cast(
+            "type[abc_tool_connector.OnlyOptions]",
+            tool_connector_type,
+        )  # Mypy fails to infer otherwise
+        return tool_connector_type.from_config(
+            abc_tool_cfg.OnlyOptions.from_yaml(tool_config_yaml),
+        )
+    tool_connector_type = cast(
+        "type[abc_tool_connector.WithArguments]",
+        tool_connector_type,
+    )  # Mypy fails to infer otherwise
+    match connector_or_error := tool_connector_type.from_config(
+        abc_tool_cfg.WithArguments.from_yaml(tool_config_yaml),
+    ):
         case abc_tool_connector.InvalidToolNameError():
             _LOGGER.critical(
                 "Invalid tool name `%s` for argument name `%s`."
@@ -190,8 +208,7 @@ def _instantiate_connector[
                 ", ".join(str(name) for name in connector_or_error.names_type()),
             )
             return RunErrors.READ_CONFIG_FAILED
-        case abc_tool_connector.OnlyOptions() | abc_tool_connector.WithArguments():
-            return connector_or_error
+    return connector_or_error
 
 
 def _get_exp_manager(
@@ -289,13 +306,26 @@ def compare_config_vs_config_in_data(
     config_in_data_yaml: Path,
 ) -> ExperimentConfigComparison:
     """Compare two experimentation configs."""
-    match connector_in_data := type(connector).from_yaml(config_in_data_yaml):
-        case (
-            abc_tool_connector.InvalidToolNameError()
-            | abc_tool_connector.MissingArgumentNameError()
-            | abc_tool_connector.ExtraArgumentNameError()
-        ):
-            return DifferentExperimentConfigs.DIFFERENT_SYNTAX
+    connector_in_data: (
+        abc_tool_connector.OnlyOptions
+        | abc_tool_connector.WithArguments
+        | abc_tool_connector.ArgsLoadError
+    )
+    match connector:
+        case abc_tool_connector.OnlyOptions():
+            connector_in_data = abc_tool_connector.OnlyOptions.from_config(
+                abc_tool_cfg.OnlyOptions.from_yaml(config_in_data_yaml),
+            )
+        case abc_tool_connector.WithArguments():
+            match connector_in_data := type(connector).from_config(
+                abc_tool_cfg.WithArguments.from_yaml(config_in_data_yaml),
+            ):
+                case (
+                    abc_tool_connector.InvalidToolNameError()
+                    | abc_tool_connector.MissingArgumentNameError()
+                    | abc_tool_connector.ExtraArgumentNameError()
+                ):
+                    return DifferentExperimentConfigs.DIFFERENT_SYNTAX
 
     match connector:  # force for type checking
         case abc_tool_connector.OnlyOptions():

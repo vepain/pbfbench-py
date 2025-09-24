@@ -10,17 +10,14 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated, TypeVar, final
+from typing import Annotated, TypeVar, cast, final
 
 import typer
 
 import pbfbench.abc.app as abc_app
 import pbfbench.experiment.checks as exp_checks
-import pbfbench.experiment.complete as exp_complete
-import pbfbench.experiment.file_system as exp_fs
 import pbfbench.experiment.managers as exp_managers
 import pbfbench.experiment.run as exp_run
-import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.status as smp_status
 import pbfbench.slurm.config as slurm_cfg
 from pbfbench import root_logging
@@ -40,54 +37,35 @@ def log_filename() -> Path:
     )
 
 
-def build_application_only_options(
-    connector_type: type[abc_tool_connector.OnlyOptions],
+def build_application(
+    connector_type: type[
+        abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments
+    ],
 ) -> typer.Typer:
-    """Build tool application when tool has only options."""
-    # FIXME simplify that by generalization
+    """Build tool application."""
     tool_description = connector_type.description()
     app = typer.Typer(
         name=tool_description.cmd(),
         help=f"Subcommand for tool `{tool_description.name()}`",
         rich_markup_mode="rich",
     )
-    run_app = Run(connector_type)
-    app.command(name=run_app.NAME, help=run_app.help())(run_app.main)
-    config_app = ConfigAppOnlyOptions(connector_type)
-    app.command(name=config_app.NAME, help=config_app.help())(config_app.main)
-    # TODO add check when ready
-    return app
-
-
-def build_application_with_arguments(
-    connector_type: type[abc_tool_connector.WithArguments],
-) -> typer.Typer:
-    """Build tool application when tool has arguments."""
-    # FIXME simplify that by generalization
-    tool_description = connector_type.description()
-    app = typer.Typer(
-        name=tool_description.cmd(),
-        help=f"Subcommand for tool `{tool_description.name()}`",
-        rich_markup_mode="rich",
-    )
-    # #
-    # # Init and run apps
-    # #
-    # run_app: _RunAppWithArguments
-    # if init_app_type is not None:
-    #     init_app = init_app_type(connector_type)
-    #     app.command(name=init_app.NAME, help=init_app.help())(init_app.main)
-    #     run_app = InitAndRunAppWithArguments(connector_type, init_app.init)
-    #     app.command(name=run_app.NAME, help=run_app.help())(run_app.main)
-    # else:
-    #     run_app = OnlyRunAppWithArguments(connector_type)
-    #     app.command(name=run_app.NAME, help=run_app.help())(run_app.main)
+    #
+    # Run apps
+    #
     run_app = Run(connector_type)
     app.command(name=run_app.NAME, help=run_app.help())(run_app.main)
     #
     # Config apps
     #
-    config_app = ConfigAppWithArguments(connector_type)
+    config_app: ConfigAppWithOptions
+    if connector_type is abc_tool_connector.OnlyOptions:
+        config_app = ConfigAppOnlyOptions(
+            cast("type[abc_tool_connector.OnlyOptions]", connector_type),
+        )
+    else:
+        config_app = ConfigAppWithArguments(
+            cast("type[abc_tool_connector.WithArguments]", connector_type),
+        )
     app.command(name=config_app.NAME, help=config_app.help())(config_app.main)
     # TODO add check when ready
     return app
@@ -149,86 +127,29 @@ class RunOptions:
     )
 
 
-class InitAPP(ABC):
-    """Init application."""
-
-    # REFACTOR command will disappear
-
-    NAME = abc_app.FinalCommands.INIT
-
-    def __init__(
-        self,
-        connector: abc_tool_connector.WithArguments,
-    ) -> None:
-        """Initialize."""
-        self.__connector = connector
-
-    def connector(self) -> abc_tool_connector.WithArguments:
-        """Get connector."""
-        return self.__connector
-
-    def help(self) -> str:
-        """Get help string."""
-        # FIXME help command will change if init is done during run
-        return f"Initialize inputs for {self.__connector.description().name()} tool."
-
-    def main(
-        self,
-        data_dir: Annotated[Path, Arguments.DATA_DIR],
-        work_dir: Annotated[Path, Arguments.WORK_DIR],
-        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
-        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
-    ) -> None:
-        """Init tool."""
-        root_logging.init_logger(
-            _LOGGER,
-            "Initialize inputs for the tool",
-            debug,
-            log_file=log_filename(),
-        )
-
-        (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
-            _successfull_check_before_start_or_errror(
-                data_dir,
-                work_dir,
-                exp_config_yaml,
-                self.__connector,
-            )
-        )
-
-        # TODO copy config in data dir (already created it seems)
-
-        self.init(data_exp_fs_manager, work_exp_fs_manager, exp_config)
-
-        typer.Exit(0)
-
-    @abstractmethod
-    def init(
-        self,
-        data_exp_fs_manager: exp_fs.DataManager,
-        work_exp_fs_manager: exp_fs.WorkManager,
-        config: exp_cfg.WithArguments,
-    ) -> None:
-        """Init tool."""
-        raise NotImplementedError
-
-
 Connector = TypeVar(
     "Connector",
     bound=abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments,
 )
 
 
-class Run[C: abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments]:
+class Run[
+    CType: type[abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments],
+]:
     """Run application."""
 
     NAME = abc_app.FinalCommands.RUN
 
-    def __init__(self, tool_connector_type: type[C]) -> None:
+    def __init__(
+        self,
+        tool_connector_type: CType,
+    ) -> None:
         """Initialize."""
         self._tool_connector_type = tool_connector_type
 
-    def connector_type(self) -> type[C]:
+    def connector_type(
+        self,
+    ) -> CType:
         """Get connector."""
         return self._tool_connector_type
 
@@ -410,48 +331,10 @@ class ResumeApp[C: abc_tool_connector.WithOptions]:
 
         # TODO continue here
 
-        # REFACTOR ugly if-else because of exp_config type (see todos file for details)
-        exp_config: exp_cfg.WithOptions
-        if isinstance(self._connector, abc_tool_connector.OnlyOptions):
-            (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
-                _check_experiment_success_only_options(
-                    data_dir,
-                    work_dir,
-                    exp_config_yaml,
-                    self._connector,
-                )
-            )
-        elif isinstance(self._connector, abc_tool_connector.WithArguments):
-            (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
-                _successfull_check_before_start_or_errror(
-                    data_dir,
-                    work_dir,
-                    exp_config_yaml,
-                    self._connector,
-                )
-            )
-        else:
-            _LOGGER.critical("Unsupported connector type: %s", type(self._connector))
-            raise typer.Exit(1)
-        # REFACTOR wrap in a function with Typer.Exit
-        exp_checks.compare_config_vs_config_in_data(
-            work_exp_fs_manager,
-            exp_config,
-        )
-
-        # TODO [!] unfinished todos
-        # TODO merge with run cmd:
-        # * verify if experiment is running -> complete
-        # * otherwise -> init run and complete
-        # REFACTOR do not use stats as an object:
-        # * Read stats from file system (errors.tsv etc.)
-        # FIXME tmp fix for mypy
-        not_finished_samples: list[smp_fs.RowNumberedItem] = []
-        exp_complete.complete_experiment(
-            not_finished_samples,
-            data_exp_fs_manager,
-            work_exp_fs_manager,
-        )
+        # exp_checks.compare_config_vs_config_in_data(
+        #     work_exp_fs_manager,
+        #     exp_config,
+        # )
 
         raise typer.Exit(0)
 

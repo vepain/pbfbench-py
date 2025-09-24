@@ -4,12 +4,12 @@
 
 *From top to bottom:*
 
-* [ ] Move experiment name from the configuration to the command lines
-  * [ ] Update the doc
-  * [ ] Be carefull of comparing properly two tool configurations
-* [ ] Separate experiment config from SLURM configuration
-  * [ ] Change the doc
-  * [ ] Be carefull of comparing properly two tool configurations
+* [x] Move experiment name from the configuration to the command lines
+  * [x] Update the doc
+  * [x] Be carefull of comparing properly two tool configurations
+* [x] Separate experiment config from SLURM configuration
+  * [x] Change the doc
+  * [x] Be carefull of comparing properly two tool configurations
 * [ ] Verify data dire and work dir are not the same!
   * [ ] Update doc
 * [ ] Refactoring tool config to tool connector (merge of config and connector)

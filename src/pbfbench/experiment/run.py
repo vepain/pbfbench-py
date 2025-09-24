@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import shutil
-import subprocess
 from collections.abc import Callable
 
 import typer
@@ -13,8 +12,6 @@ import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.missing_inputs as smp_miss_in
 import pbfbench.samples.status as smp_status
-import pbfbench.slurm.bash as slurm_bash
-from pbfbench import subprocess_lib
 
 from . import checks as exp_checks
 from . import complete as exp_complete
@@ -22,7 +19,6 @@ from . import errors as exp_errors
 from . import file_system as exp_fs
 from . import iter as exp_iter
 from . import managers as exp_managers
-from .bash import create as exp_bash_create
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -227,25 +223,24 @@ def _manage_samples_to_send_to_sbatch(
         len(samples_to_run),
     )
 
-    _prepare_work_dirs(work_exp_fs_manager, exp_config)
+    _prepare_work_dirs(exp_manager)
 
     _refresh_data_date(
-        data_exp_fs_manager,
-        work_exp_fs_manager,
+        exp_manager.data_fs_manager(),
+        exp_manager.work_fs_manager(),
     )  # FIXME move it, prehaps will change
 
     _create_and_run_sbatch_script(
-        tool_connector,
-        exp_config,
+        exp_manager.tool_connector(),
         samples_to_run,
-        data_exp_fs_manager,
-        work_exp_fs_manager,
+        exp_manager.data_fs_manager(),
+        exp_manager.work_fs_manager(),
     )
 
     exp_complete.complete_experiment(
         samples_to_run,
-        data_exp_fs_manager,
-        work_exp_fs_manager,
+        exp_manager.data_fs_manager(),
+        exp_manager.work_fs_manager(),
     )
 
     # FIXME use in print stats end function
@@ -257,19 +252,20 @@ def _manage_samples_to_send_to_sbatch(
 
 
 def _prepare_work_dirs(
-    work_exp_fs_manager: exp_fs.WorkManager,
-    exp_config: exp_cfg.WithOptions,
+    exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
 ) -> None:
     """Prepare experiment file systems."""
-    shutil.rmtree(work_exp_fs_manager.exp_dir(), ignore_errors=True)
-    work_exp_fs_manager.exp_dir().mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(exp_manager.work_fs_manager().exp_dir(), ignore_errors=True)
+    exp_manager.work_fs_manager().exp_dir().mkdir(parents=True, exist_ok=True)
 
     # Create date file
-    with work_exp_fs_manager.date_txt().open("w") as f_out:
-        f_out.write(work_exp_fs_manager.date_str() + "\n")
+    # with exp_manager.work_fs_manager().date_txt().open("w") as f_out:
+    #     f_out.write(exp_manager.work_fs_manager().date_str() + "\n")
 
-    exp_config.to_yaml(work_exp_fs_manager.config_yaml())
-    work_exp_fs_manager.scripts_fs_manager().scripts_dir().mkdir(
+    exp_manager.tool_connector().to_config().to_yaml(
+        exp_manager.work_fs_manager().config_yaml(),
+    )
+    exp_manager.work_fs_manager().scripts_fs_manager().scripts_dir().mkdir(
         parents=True,
         exist_ok=True,
     )
@@ -285,27 +281,26 @@ def _refresh_data_date(
 
 def _create_and_run_sbatch_script(
     tool_connector: abc_tool_connector.WithOptions,
-    exp_config: exp_cfg.WithOptions,
     checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
     data_exp_fs_manager: exp_fs.DataManager,
     work_exp_fs_manager: exp_fs.WorkManager,
 ) -> None:
     """Run sbatch script."""
-    sbatch_script = exp_bash_create.run_scripts(
-        data_exp_fs_manager,
-        work_exp_fs_manager,
-        checked_inputs_samples_to_run,
-        exp_config,
-        tool_connector,
-    )
+    # sbatch_script = exp_bash_create.run_scripts(
+    #     data_exp_fs_manager,
+    #     work_exp_fs_manager,
+    #     checked_inputs_samples_to_run,
+    #     exp_config,
+    #     tool_connector,
+    # )
 
-    cmd_path = subprocess_lib.command_path(slurm_bash.SBATCH_CMD)
-    result = subprocess.run(  # noqa: S603
-        [str(x) for x in [cmd_path, sbatch_script]],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    # FIXME should check and return Error if failed
-    _LOGGER.debug("%s stdout: %s", slurm_bash.SBATCH_CMD, result.stdout)
-    _LOGGER.debug("%s stderr: %s", slurm_bash.SBATCH_CMD, result.stderr)
+    # cmd_path = subprocess_lib.command_path(slurm_bash.SBATCH_CMD)
+    # result = subprocess.run(
+    #     [str(x) for x in [cmd_path, sbatch_script]],
+    #     capture_output=True,
+    #     text=True,
+    #     check=False,
+    # )
+    # # FIXME should check and return Error if failed
+    # _LOGGER.debug("%s stdout: %s", slurm_bash.SBATCH_CMD, result.stdout)
+    # _LOGGER.debug("%s stderr: %s", slurm_bash.SBATCH_CMD, result.stderr)
