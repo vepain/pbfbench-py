@@ -4,12 +4,25 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import typer
 
-DEFAULT_SLURM_OPTIONS = "--mem=16 --cpus-per-task=4"
+from . import config
 
 
-def slurm_opts() -> str:
+class Arguments:
+    """SLURM app arguments."""
+
+    ACCOUNT_NAME = typer.Argument(
+        help="SLURM account name",
+    )
+
+
+def slurm_opts(
+    account_name: Annotated[str | None, Arguments.ACCOUNT_NAME] = None,
+) -> str:
     """Get default SLURM options string."""
-    typer.echo(DEFAULT_SLURM_OPTIONS)
-    return DEFAULT_SLURM_OPTIONS
+    options_str = config.default_slurm_options(account_name)
+    typer.echo(options_str)
+    return options_str

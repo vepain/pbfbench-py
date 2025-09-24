@@ -31,6 +31,7 @@ def start_new_experiment(
     exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
     target_samples_filter: Callable[[smp_status.Status], bool],
     format_inputs_fn: Callable[[exp_managers.WithArguments], None],
+    slurm_opts: str,
 ) -> None:
     """Run the experiment."""
     # REFACTOR use markdown print and do better app prints

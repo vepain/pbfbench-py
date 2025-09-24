@@ -2,19 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Self
 
-from pbfbench.yaml_interface import YAMLInterface
-
-
-class Config(list[str], YAMLInterface):
-    """Slurm config."""
-
-    @classmethod
-    def from_yaml_load(cls, pyyaml_obj: list[str]) -> Self:
-        """Convert pyyaml object to self."""
-        return cls(iter(pyyaml_obj))
-
-    def to_yaml_dump(self) -> list[str]:
-        """Convert to list."""
-        return list(self)
+def default_slurm_options(account_name: str | None) -> str:
+    """Return default SLURM options."""
+    account_opt = "" if account_name is None else f"--account={account_name}"
+    return f"--mem=4096 --cpus-per-task=4 --time=1:00:00 {account_opt}"

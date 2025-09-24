@@ -143,6 +143,10 @@ class RunOptions:
             " (can be completed with other flags to reduce the set of samples to run)"
         ),
     )
+    SLURM_OPTIONS = typer.Option(
+        "--slurm-opts",
+        help="SLURM options",
+    )
 
 
 class InitAPP(ABC):
@@ -243,6 +247,7 @@ class Run[C: abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments]:
         run_missing_inputs: Annotated[bool, RunOptions.RUN_MISSING_INPUTS] = False,
         run_error: Annotated[bool, RunOptions.RUN_ERROR] = False,
         run_all: Annotated[bool, RunOptions.RUN_ALL] = False,
+        slurm_opts: Annotated[str | None, RunOptions.SLURM_OPTIONS] = None,
         debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
     ) -> None:
         """Run tool."""
@@ -266,6 +271,9 @@ class Run[C: abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments]:
                 run_all,
             ),
             self._format_inputs,
+            slurm_opts
+            if slurm_opts is not None
+            else slurm_cfg.default_slurm_options(None),
         )
         # FIXME put here end print stats function
         # _LOGGER.info(
@@ -505,17 +513,6 @@ class ConfigAppWithOptions[
     def _fake_options_config(self) -> abc_tool_cfg.StringOpts:
         return abc_tool_cfg.StringOpts(
             ("--options1=value1", "--options2=value2"),
-        )
-
-    def _create_slurm_cfg(self) -> slurm_cfg.Config:
-        # FIXME move slurm config generator elsewhere
-        return slurm_cfg.Config(
-            [
-                "--mem=4096",
-                "--cpus-per-task=4",
-                "--time=1:00:00",
-                "--account=my-account_name",
-            ],
         )
 
 
