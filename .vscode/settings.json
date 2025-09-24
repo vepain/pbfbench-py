@@ -55,7 +55,8 @@
         "IDEA",
         "DOCU",
         "TOTEST",
-        "REFACTOR"
+        "REFACTOR",
+        "FEATURE"
     ],
     "todo-tree.highlights.customHighlight": {
         "BUG": {
@@ -97,6 +98,10 @@
         "XXX": {
             "foreground": "#2F4F4F",
             "icon": "x"
+        },
+        "FEATURE": {
+            "foreground": "#FFD700",
+            "icon": "star-fill"
         }
     },
     "todo-tree.highlights.defaultHighlight": {
