@@ -2,7 +2,7 @@
 
 
 # Due to typer usage:
-# ruff: noqa: TC001, TC003, UP007, FBT001, FBT002, PLR0913
+# ruff: noqa: TC003
 
 from __future__ import annotations
 
@@ -19,12 +19,6 @@ import pbfbench.topics.visitor as topics_visitor
 from pbfbench import root_logging
 
 _LOGGER = logging.getLogger(__name__)
-
-
-TOPICS_MODULES = [
-    "assembly",
-    "seeds",
-]
 
 
 def tool_tree(
