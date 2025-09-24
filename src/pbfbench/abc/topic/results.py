@@ -74,7 +74,7 @@ class Visitor[T: abc_topic_visitor.Tools, R: Result](ABC):
     @classmethod
     def tool_gives_the_result(cls, tool: T) -> bool:
         """Check if the tool gives the result."""
-        return cls.result_builder_from_tool(tool) is not Error
+        return not isinstance(cls.result_builder_from_tool(tool), Error)
 
 
 class OriginalVisitor[T: abc_topic_visitor.Tools, OriginalResult: Original](
