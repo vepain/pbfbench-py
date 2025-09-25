@@ -9,8 +9,13 @@ import pbfbench.abc.tool.description as abc_tool_desc
 import pbfbench.abc.topic.visitor as abc_topic_visitor
 import pbfbench.topics.assembly.results as asm_res
 import pbfbench.topics.assembly.visitor as asm_visitor
-import pbfbench.topics.classification.pbf_input.results as class_pbf_in_res
 import pbfbench.topics.classification.visitor as class_visitor
+from pbfbench.topics.binning.plasbin_flow.format.classification import (
+    results as fmt_class_res,
+)
+from pbfbench.topics.binning.plasbin_flow.format.classification import (
+    visitor as fmt_class_visitor,
+)
 
 from . import description as desc
 from . import shell as sh
@@ -62,7 +67,7 @@ class GFAArg(abc_tool_connector.Arg[Names, asm_visitor.Tools, asm_res.AsmGraphGZ
 
 @final
 class SeedsArg(
-    abc_tool_connector.Arg[Names, class_visitor.Tools, class_pbf_in_res.Seeds],
+    abc_tool_connector.Arg[Names, class_visitor.Tools, fmt_class_res.Seeds],
 ):
     """Seeds argument."""
 
@@ -77,9 +82,9 @@ class SeedsArg(
         return class_visitor.Tools
 
     @classmethod
-    def result_visitor(cls) -> type[class_pbf_in_res.SeedsVisitor]:
+    def result_visitor(cls) -> type[fmt_class_visitor.SeedsVisitor]:
         """Get result visitor."""
-        return class_pbf_in_res.SeedsVisitor
+        return fmt_class_visitor.SeedsVisitor
 
     @classmethod
     def sh_lines_builder_type(cls) -> type[sh.SeedsInputLinesBuilder]:
@@ -89,7 +94,7 @@ class SeedsArg(
 
 @final
 class PlasmidnessArg(
-    abc_tool_connector.Arg[Names, class_visitor.Tools, class_pbf_in_res.Plasmidness],
+    abc_tool_connector.Arg[Names, class_visitor.Tools, fmt_class_res.Plasmidness],
 ):
     """Plasmidness argument."""
 
@@ -104,9 +109,9 @@ class PlasmidnessArg(
         return class_visitor.Tools
 
     @classmethod
-    def result_visitor(cls) -> type[class_pbf_in_res.PlasmidnessVisitor]:
+    def result_visitor(cls) -> type[fmt_class_visitor.PlasmidnessVisitor]:
         """Get result visitor."""
-        return class_pbf_in_res.PlasmidnessVisitor
+        return fmt_class_visitor.PlasmidnessVisitor
 
     @classmethod
     def sh_lines_builder_type(

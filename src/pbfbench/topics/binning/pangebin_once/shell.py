@@ -7,7 +7,9 @@ from typing import final
 import pbfbench.abc.tool.bash as abc_tool_bash
 import pbfbench.bash.items as bash_items
 import pbfbench.topics.assembly.results as asm_res
-import pbfbench.topics.classification.pbf_input.results as class_pbf_in_res
+from pbfbench.topics.binning.plasbin_flow.format.classification import (
+    results as fmt_class_res,
+)
 
 
 @final
@@ -33,7 +35,7 @@ class GFAInputLinesBuilder(abc_tool_bash.Argument[asm_res.AsmGraphGZ]):
 
 @final
 class SeedsInputLinesBuilder(
-    abc_tool_bash.Argument[class_pbf_in_res.Seeds],
+    abc_tool_bash.Argument[fmt_class_res.Seeds],
 ):
     """Seeds input bash lines builder."""
 
@@ -56,7 +58,7 @@ class SeedsInputLinesBuilder(
 
 @final
 class PlasmidnessInputLinesBuilder(
-    abc_tool_bash.Argument[class_pbf_in_res.Plasmidness],
+    abc_tool_bash.Argument[fmt_class_res.Plasmidness],
 ):
     """Plasmidness input bash lines builder."""
 
