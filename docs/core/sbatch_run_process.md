@@ -54,12 +54,16 @@ When the `run` subcommand is called:
     * No: copy the configuration file to `DATA_DIR/.../EXP_NAME/config.yaml` and in `WORK_DIR/.../EXP_NAME/config.yaml` to keep a trace and for further checks
 3. Get the list of samples to run (according to the options), and:
     * Remove the sample lines from `DATA_DIR/.../errors.tsv` if it corresponds to a sample to run
-    * If inputs are required, loop on each sample, if there is a missing input:
-        * reset data sample directory and write the list of missing inputs in `DATA_DIR/.../SAMPLE_DIRNAME/missing_inputs.tsv`
-        * write missing inputs in `DATA_DIR/.../errors.tsv` file
-        * remove the concerning samples from the list of samples to run
-4. If inputs are required, format the input for each sample (if needed) #TODO [2025-09-19 18:20:38] CONTINUE HERE
-5. Create `scripts` directories (both in `DATA_DIR/.../$exp_name` and in `WORK_DIR/.../$exp_name`) and write the scripts in them.
+4. If inputs are required:
+    1. given a sample in the list of samples to run, format it if required
+        * if there is at least one of its argument for which the formatting fails:
+            1. log critical error
+            2. remove the sample from the list of samples to run
+    2. given a sample in the list of samples with format OK, if there is a missing input:
+        1. reset data sample directory and write the list of missing inputs in `DATA_DIR/.../SAMPLE_DIRNAME/missing_inputs.tsv`
+        2. write missing inputs in `DATA_DIR/.../errors.tsv` file
+        3. remove the concerning samples from the list of samples to run
+5. Create `scripts` directories (both in `DATA_DIR/.../EXP_NAME` and in `WORK_DIR/.../EXP_NAME`) and write the scripts in them. #TODO [2025-09-19 18:20:38] CONTINUE HERE
 6. Launch the SLURM jobs associated with the samples to run
     * Extract the job ID and remove the temporary array job ID file `logs/array_job.id`
 7. Write the in-progress experiment to the `DATA_DIR/.../EXP_NAME/in_progress.yaml` file. <!-- FIXME date file is now in in_progress.yaml file -->
@@ -114,7 +118,7 @@ When all the samples finish:
 
 1. Add the new complete experiment entry to `DATA_DIR/.../EXP_NAME/history.yaml`
 2. Remove the `DATA_DIR/.../EXP_NAME/in_progress.yaml` file
-3. Remove the whole `WORK_DIR/.../$exp_name` directory
+3. Remove the whole `WORK_DIR/.../EXP_NAME` directory
 
 ## File formats
 

@@ -46,5 +46,7 @@ class OnlyOptions(WithOptions[abc_tool_connector.OnlyOptions]):
 
 
 @final
-class WithArguments(WithOptions[abc_tool_connector.WithArguments]):
+class WithArguments[N: abc_tool_connector.Names](
+    WithOptions[abc_tool_connector.WithArguments[N]],
+):
     """Experiment manager with arguments."""

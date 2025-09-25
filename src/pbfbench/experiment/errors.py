@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from enum import StrEnum
 from typing import TYPE_CHECKING, Literal
 
+import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.items as smp_items
 import pbfbench.samples.status as smp_status
 
@@ -15,6 +16,8 @@ if TYPE_CHECKING:
     import _csv
     from collections.abc import Generator, Iterable, Iterator
     from pathlib import Path
+
+    from . import file_system as exp_fs
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -176,3 +179,43 @@ class ErrorsTSVWriter:
             raise ValueError(_err_msg)
         self.__csv_writer.writerow(header_names)
         return {column_name: index for index, column_name in enumerate(header_names)}
+
+
+def write_missing_inputs(
+    data_fs_manager: exp_fs.DataManager,
+    samples_with_missing_inputs: Iterable[smp_fs.RowNumberedItem],
+    write_mode: Literal["w", "a"],
+) -> None:
+    """Write experiment missing inputs."""
+    with ErrorsTSVWriter.open(
+        data_fs_manager.errors_tsv(),
+        write_mode,
+    ) as out_exp_errors:
+        out_exp_errors.write_error_samples(
+            (
+                SampleError.sample_item_with_missing_inputs(
+                    row_numbered_item.item(),
+                )
+                for row_numbered_item in samples_with_missing_inputs
+            ),
+        )
+
+
+def write_errors(
+    data_fs_manager: exp_fs.DataManager,
+    samples_with_errors: Iterable[smp_fs.RowNumberedItem],
+    write_mode: Literal["w", "a"],
+) -> None:
+    """Write experiment errors."""
+    with ErrorsTSVWriter.open(
+        data_fs_manager.errors_tsv(),
+        write_mode,
+    ) as out_exp_errors:
+        out_exp_errors.write_error_samples(
+            (
+                SampleError.sample_item_with_error(
+                    row_numbered_item.item(),
+                )
+                for row_numbered_item in samples_with_errors
+            ),
+        )

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from pathlib import Path
 from typing import final
 
 import pbfbench.abc.tool.description as abc_tool_desc
-import pbfbench.experiment.bash.file_system as exp_bash_fs
-import pbfbench.experiment.slurm.file_system as exp_slurm_fs
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.items as smp_items
+
+from . import in_progress as exp_in_progress
+from .bash import file_system as exp_bash_fs
+from .slurm import file_system as exp_slurm_fs
 
 
 class ManagerBase:
@@ -19,6 +22,12 @@ class ManagerBase:
     IN_PROGRESS_YAML_NAME = Path("in_progress.yaml")
 
     SCRIPT_DIR_NAME = Path("scripts")
+
+    @classmethod
+    @abstractmethod
+    def in_progress_yaml_type(cls) -> type[exp_in_progress.Base]:
+        """Get in progress metadata type."""
+        raise NotImplementedError
 
     def __init__(
         self,
@@ -30,19 +39,6 @@ class ManagerBase:
         self._root_directory_path = root_directory_path
         self._tool_description = tool_description
         self._experiment_name = experiment_name
-        self._date_str = self._get_date_str()
-        self._script_fs_manager = exp_bash_fs.Manager(
-            self.exp_dir() / self.SCRIPT_DIR_NAME,
-            self._date_str,
-        )
-
-    def _get_date_str(self) -> str:
-        """Get date string."""
-        # FIXME use in_progress.yaml
-        if not self.date_txt().exists():
-            return _get_today_format_string()
-        with self.date_txt().open("r") as f_in:
-            return f_in.read().strip()
 
     def tool_description(self) -> abc_tool_desc.Description:
         """Get tool description."""
@@ -82,9 +78,9 @@ class ManagerBase:
     #
     # Sbatch scripts
     #
-    def scripts_fs_manager(self) -> exp_bash_fs.Manager:
+    def scripts_fs_manager(self, date_str: str) -> exp_bash_fs.Manager:
         """Get experiment scripts file system manager."""
-        return self._script_fs_manager
+        return exp_bash_fs.Manager(self.exp_dir() / self.SCRIPT_DIR_NAME, date_str)
 
     #
     # Sample experiment directories
@@ -109,6 +105,11 @@ class DataManager(ManagerBase):
     ERRORS_TSV_NAME = Path("errors.tsv")
     HISTORY_YAML_NAME = Path("history.yaml")
 
+    @classmethod
+    def in_progress_yaml_type(cls) -> type[exp_in_progress.InDataDirectory]:
+        """Get in progress metadata type."""
+        return exp_in_progress.InDataDirectory
+
     def samples_tsv(self) -> Path:
         """Get samples TSV file."""
         return self.root_dir() / self.SAMPLES_TSV_NAME
@@ -131,6 +132,11 @@ class WorkManager(ManagerBase):
     """Work experiment manager."""
 
     TMP_SLURM_LOG_DIR_NAME = Path("logs")
+
+    @classmethod
+    def in_progress_yaml_type(cls) -> type[exp_in_progress.InWorkingDirectory]:
+        """Get in progress metadata type."""
+        return exp_in_progress.InWorkingDirectory
 
     def __init__(
         self,

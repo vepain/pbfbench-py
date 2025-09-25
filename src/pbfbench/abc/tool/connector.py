@@ -247,6 +247,10 @@ class Arguments[N: Names](ABC):
         """Get argument."""
         return self.__arguments[name]
 
+    def __iter__(self) -> Iterator[tuple[N, ArgWithName[N]]]:
+        """Iterate arguments."""
+        return iter(self.__arguments.items())
+
     def results(
         self,
         data_exp_fs_manager: exp_fs.DataManager,

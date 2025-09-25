@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import logging
-import shutil
 from contextlib import contextmanager
 from enum import StrEnum
 from typing import TYPE_CHECKING
@@ -221,15 +220,14 @@ def write_sample_missing_inputs(
     data_sample_fs_manager = exp_manager.data_fs_manager().sample_fs_manager(
         row_numbered_sample.item(),
     )
-    shutil.rmtree(data_sample_fs_manager.sample_dir(), ignore_errors=True)
-    data_sample_fs_manager.sample_dir().mkdir(parents=True, exist_ok=True)
+    smp_fs.reset_sample_dir(data_sample_fs_manager)
     with MissingInputsTSVWriter.open(
         data_sample_fs_manager.missing_inputs_tsv(),
     ) as out_miss_inputs:
         out_miss_inputs.write_missing_inputs(sample_missing_inputs)
 
 
-def sample_list[N: abc_tool_connector.Names](
+def for_sample[N: abc_tool_connector.Names](
     tool_inputs: dict[N, abc_topic_res.Result],
     sample_item: smp_items.Item,
     connector: abc_tool_connector.WithArguments,
