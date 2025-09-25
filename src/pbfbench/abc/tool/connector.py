@@ -443,3 +443,12 @@ class WithArguments[N: Names](WithOptions[abc_tool_cfg.WithArguments, ArgsLoadEr
             self._arguments.to_config(),
             self._options.to_config(),
         )
+
+
+def get_arg[A: Arg](
+    exp_fs_manager: exp_fs.ManagerBase,
+    arg_type: type[A],
+) -> A | InvalidToolNameError:
+    """Get argument."""
+    arg_config = abc_tool_cfg.Arg.from_yaml(exp_fs_manager.config_yaml())
+    return arg_type.from_config(arg_config)
