@@ -10,10 +10,10 @@
 * [x] Separate experiment config from SLURM configuration
   * [x] Change the doc
   * [x] Be carefull of comparing properly two tool configurations
+* [x] Refactoring tool config to tool connector (merge of config and connector)
+* [ ] Fix run/format/resume stages
 * [ ] Verify data dire and work dir are not the same!
   * [ ] Update doc
-* [ ] Refactoring tool config to tool connector (merge of config and connector)
-* [ ] Fix run/format/resume stages
 
 ## Refactoring
 

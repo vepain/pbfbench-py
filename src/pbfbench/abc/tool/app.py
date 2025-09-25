@@ -426,6 +426,8 @@ class ConfigAppWithArguments(
         args: dict[str, abc_tool_cfg.Arg] = {}
         for arg_type in self._connector_type.arguments_type().arg_types():
             tool_choice_str = " | ".join(map(str, arg_type.valid_tools()))
+            if not tool_choice_str:
+                tool_choice_str = "ERROR: no tool implements this argument"
             args[str(arg_type.name())] = abc_tool_cfg.Arg(
                 tool_choice_str,
                 "$input_experiment_name",

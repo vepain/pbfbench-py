@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import shutil
 from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
@@ -56,6 +57,12 @@ class Manager:
     def slurm_fs_manager(self) -> smp_slurm_fs.Manager:
         """Get slurm file system manager."""
         return self.__slurm_fs_manager
+
+
+def reset_sample_dir(manager: Manager) -> None:
+    """Reset sample directory."""
+    shutil.rmtree(manager.sample_dir(), ignore_errors=True)
+    manager.sample_dir().mkdir(parents=True, exist_ok=True)
 
 
 class TSVHeader(StrEnum):

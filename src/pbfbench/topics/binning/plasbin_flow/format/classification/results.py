@@ -6,7 +6,6 @@ from typing import final
 import pbfbench.abc.topic.results as abc_topic_res
 import pbfbench.samples.items as smp_items
 import pbfbench.samples.status as smp_status
-import pbfbench.topics.classification.visitor as class_visitor
 
 
 @final
@@ -27,31 +26,6 @@ class Plasmidness(abc_topic_res.Formatted):
 
 
 @final
-class PlasmidnessVisitor(
-    abc_topic_res.FormattedVisitor[class_visitor.Tools, Plasmidness],
-):
-    """Plasmidness result visitor."""
-
-    # TODO[2025-09-24 12:31:12] Mimic as for result visitor (with Error)
-
-    @classmethod
-    def convert_fn(
-        cls,
-        tool: class_visitor.Tools,
-    ) -> abc_topic_res.ConvertFn[Plasmidness]:
-        """Get convert function."""
-        raise NotImplementedError
-        match tool:
-            case class_visitor.Tools.PLATON:
-                _err_msg = "Platon tool "
-
-    @classmethod
-    def result_builder(cls) -> type[Plasmidness]:
-        """Get result builder."""
-        return Plasmidness
-
-
-@final
 class Seeds(abc_topic_res.Formatted):
     """Seeds PlasBin-flow formatted result."""
 
@@ -66,14 +40,3 @@ class Seeds(abc_topic_res.Formatted):
         if self.tsv(sample_item.exp_sample_id()).exists():
             return smp_status.OK.OK
         return smp_status.Error.NOT_RUN
-
-
-# TODO[2025-09-24 12:46:58] Continue SeedsVisitor fmt result
-# @final
-# class SeedsVisitor(abc_topic_res.FormattedVisitor[class_visitor.Tools, Seeds]):
-#     """Seeds result visitor."""
-
-#     @classmethod
-#     def result_builder(cls) -> type[Seeds]:
-#         """Get result builder."""
-#         return Seeds

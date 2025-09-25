@@ -5,10 +5,12 @@ from __future__ import annotations
 import logging
 import shutil
 from collections.abc import Callable
+from typing import cast
 
 import typer
 
 import pbfbench.abc.tool.connector as abc_tool_connector
+import pbfbench.abc.topic.results as abc_topic_res
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.missing_inputs as smp_miss_in
 import pbfbench.samples.status as smp_status
@@ -26,7 +28,6 @@ _LOGGER = logging.getLogger(__name__)
 def start_new_experiment(
     exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
     target_samples_filter: Callable[[smp_status.Status], bool],
-    format_inputs_fn: Callable[[exp_managers.WithArguments], None],
     slurm_opts: str,
 ) -> None:
     """Run the experiment."""
@@ -49,11 +50,8 @@ def start_new_experiment(
 
     _remove_from_previous_error_list_samples_to_run(exp_manager, samples_to_run)
 
-    match exp_manager:
-        case exp_managers.WithArguments():
-            samples_to_run = _filter_missing_inputs(exp_manager, samples_to_run)
-
-            format_inputs_fn(exp_manager)
+    if isinstance(exp_manager, exp_managers.WithArguments):
+        samples_to_run = _manage_inputs(exp_manager, samples_to_run)
 
     _manage_samples_to_send_to_sbatch(exp_manager, samples_to_run)
 
@@ -144,24 +142,84 @@ def _remove_from_previous_error_list_samples_to_run(
         errors_tsv_writer.write_error_samples(to_keep_in_list)
 
 
-def _filter_missing_inputs(
+def _manage_inputs(
     exp_manager: exp_managers.WithArguments,
     samples_to_run: list[smp_fs.RowNumberedItem],
 ) -> list[smp_fs.RowNumberedItem]:
+    """Manage inputs."""
+    # FIXME cannot check missing input if need to format before.
+    # * but we should check the missing input for the formatting
+    samples_format_ok = _format_inputs(exp_manager, samples_to_run)
+    return _filter_missing_inputs(exp_manager, samples_format_ok)
+
+
+def _format_inputs[N: abc_tool_connector.Names](
+    exp_manager: exp_managers.WithArguments[N],
+    samples_to_run: list[smp_fs.RowNumberedItem],
+) -> list[smp_fs.RowNumberedItem]:
+    samples_format_ok: list[smp_fs.RowNumberedItem] = []
+    samples_format_err: list[smp_fs.RowNumberedItem] = []
+
+    tool_inputs_to_fmt: list[tuple[exp_fs.DataManager, abc_topic_res.ConvertFn]] = []
+    missing_convert_fn = False
+    for _, arg in exp_manager.tool_connector().arguments():
+        result_visitor = arg.result_visitor()
+        if result_visitor is abc_topic_res.FormattedVisitor:
+            result_visitor = cast(
+                "type[abc_topic_res.FormattedVisitor]",
+                result_visitor,
+            )
+            convert_fn_or_err = result_visitor.convert_fn(arg.tool())
+            if isinstance(convert_fn_or_err, abc_topic_res.Error):
+                _LOGGER.critical("%s", convert_fn_or_err)
+                missing_convert_fn = True
+                continue
+
+            in_data_exp_fs_manager = exp_fs.DataManager(
+                exp_manager.data_fs_manager().root_dir(),
+                arg.tool().to_description(),
+                arg.exp_name(),
+            )
+
+            tool_inputs_to_fmt.append((in_data_exp_fs_manager, convert_fn_or_err))
+
+    if missing_convert_fn:
+        return []
+
+    for row_numbered_sample in samples_to_run:
+        for in_data_exp_fs_manager, convert_fn in tool_inputs_to_fmt:
+            # OPTIMIZE do not redo format if exists?
+            try:
+                convert_fn(in_data_exp_fs_manager, row_numbered_sample.item())
+            except Exception:
+                _LOGGER.exception(
+                    "Error formatting sample %s",
+                    row_numbered_sample.item().exp_sample_id(),
+                )
+                samples_format_err.append(row_numbered_sample)
+            else:
+                samples_format_ok.append(row_numbered_sample)
+
+    return samples_format_ok
+
+
+def _filter_missing_inputs[N: abc_tool_connector.Names](
+    exp_manager: exp_managers.WithArguments[N],
+    samples_to_run: list[smp_fs.RowNumberedItem],
+) -> list[smp_fs.RowNumberedItem]:
     """Filter missing inputs."""
-    checked_samples_to_run: list[smp_fs.RowNumberedItem] = []
+    if not samples_to_run:
+        return []
+
+    samples_without_missing_inputs: list[smp_fs.RowNumberedItem] = []
     samples_with_missing_inputs: list[smp_fs.RowNumberedItem] = []
 
     tool_inputs = dict(
-        exp_manager.tool_connector()
-        .arguments()
-        .results(
-            exp_manager.data_fs_manager(),
-        ),
+        exp_manager.tool_connector().arguments().results(exp_manager.data_fs_manager()),
     )
 
     for row_numbered_sample in samples_to_run:
-        sample_missing_inputs = smp_miss_in.sample_list(
+        sample_missing_inputs = smp_miss_in.for_sample(
             tool_inputs,
             row_numbered_sample.item(),
             exp_manager.tool_connector(),
@@ -175,38 +233,34 @@ def _filter_missing_inputs(
                 sample_missing_inputs,
             )
         else:
-            checked_samples_to_run.append(row_numbered_sample)
+            samples_without_missing_inputs.append(row_numbered_sample)
 
-    _write_experiment_missing_inputs(
-        samples_with_missing_inputs,
-        exp_manager.data_fs_manager(),
-    )
-
-    return checked_samples_to_run
-
-
-def _write_experiment_missing_inputs(
-    samples_with_missing_inputs: list[smp_fs.RowNumberedItem],
-    data_exp_fs_manager: exp_fs.DataManager,
-) -> None:
-    """Write experiment missing inputs."""
-    _LOGGER.error("Samples with missing inputs: %d", len(samples_with_missing_inputs))
-
-    if not samples_with_missing_inputs:
-        return
-
-    with exp_errors.ErrorsTSVWriter.open(
-        data_exp_fs_manager.errors_tsv(),
-        "w",
-    ) as out_exp_errors:
-        out_exp_errors.write_error_samples(
-            (
-                exp_errors.SampleError.sample_item_with_missing_inputs(
-                    row_numbered_item.item(),
-                )
-                for row_numbered_item in samples_with_missing_inputs
-            ),
+    if samples_with_missing_inputs:
+        _LOGGER.error(
+            "Samples with missing inputs: %d",
+            len(samples_with_missing_inputs),
         )
+        exp_errors.write_missing_inputs(
+            exp_manager.data_fs_manager(),
+            samples_with_missing_inputs,
+            "a",
+        )
+
+    return samples_without_missing_inputs
+
+
+# FIXME WORK IN PROGRESS ---
+
+
+def _write_scripts(
+    exp_manager: exp_managers.WithArguments,
+    samples_to_run: list[smp_fs.RowNumberedItem],
+):
+    """Write the scripts."""
+    exp_manager.work_fs_manager().scripts_fs_manager().scripts_dir().mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
 
 def _manage_samples_to_send_to_sbatch(
@@ -223,7 +277,10 @@ def _manage_samples_to_send_to_sbatch(
         len(samples_to_run),
     )
 
-    _prepare_work_dirs(exp_manager)
+    exp_manager.work_fs_manager().scripts_fs_manager().scripts_dir().mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     _refresh_data_date(
         exp_manager.data_fs_manager(),
@@ -249,26 +306,6 @@ def _manage_samples_to_send_to_sbatch(
     #         "Samples with errors: %d",
     #         len(run_stats.samples_with_errors()),
     #     )
-
-
-def _prepare_work_dirs(
-    exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
-) -> None:
-    """Prepare experiment file systems."""
-    shutil.rmtree(exp_manager.work_fs_manager().exp_dir(), ignore_errors=True)
-    exp_manager.work_fs_manager().exp_dir().mkdir(parents=True, exist_ok=True)
-
-    # Create date file
-    # with exp_manager.work_fs_manager().date_txt().open("w") as f_out:
-    #     f_out.write(exp_manager.work_fs_manager().date_str() + "\n")
-
-    exp_manager.tool_connector().to_config().to_yaml(
-        exp_manager.work_fs_manager().config_yaml(),
-    )
-    exp_manager.work_fs_manager().scripts_fs_manager().scripts_dir().mkdir(
-        parents=True,
-        exist_ok=True,
-    )
 
 
 def _refresh_data_date(

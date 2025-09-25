@@ -10,10 +10,9 @@ import typer
 
 from .doc import app as doc_app
 from .help import app as help_app
-
-# import pbfbench.topics.binning.app as binning_app
 from .slurm import app as slurm_app
 from .topics.assembly import app as assembly_app
+from .topics.binning import app as binning_app
 from .topics.classification import app as class_app
 
 
@@ -51,6 +50,6 @@ APP.command(rich_help_panel=CommandCategories.UTILITIES)(slurm_app.slurm_opts)
 for app in (
     assembly_app.APP,
     class_app.APP,
-    # binning_app.APP
+    binning_app.APP,
 ):
     APP.add_typer(app, rich_help_panel=CommandCategories.TOPICS)
