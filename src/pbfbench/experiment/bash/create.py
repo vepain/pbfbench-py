@@ -17,9 +17,9 @@ import pbfbench.experiment.slurm.status as exp_slurm_status
 import pbfbench.samples.bash as smp_sh
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.slurm.bash as slurm_bash
-import pbfbench.slurm.config as slurm_cfg
 
 from . import items as exp_bash_items
+from . import manager
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -28,8 +28,13 @@ if TYPE_CHECKING:
 def run_scripts(
     exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
+    slurm_opts: str,
 ) -> Path:
     """Create the run script."""
+    sh_manager = manager.Manager.from_exp_fs_manager(exp_manager)
+    sh_manager.data_sh_fs_manager().scripts_dir().mkdir(parents=True, exist_ok=True)
+    sh_manager.work_sh_fs_manager().scripts_dir().mkdir(parents=True, exist_ok=True)
+
     exp_manager.work_fs_manager().slurm_log_fs_manager().log_dir().mkdir(
         parents=True,
         exist_ok=True,
@@ -44,30 +49,23 @@ def run_scripts(
     )
 
     for sub_script_path in (
-        _init_env_script(exp_manager.work_fs_manager(), tool_bash_env_wrapper),
-        _command_script(
-            exp_manager.data_fs_manager(),
-            exp_manager.work_fs_manager(),
-            tool_commands,
-        ),
-        _close_env_script(exp_manager.work_fs_manager(), tool_bash_env_wrapper),
+        _init_env_script(sh_manager, tool_bash_env_wrapper),
+        _command_script(exp_manager, sh_manager, tool_commands),
+        _close_env_script(sh_manager, tool_bash_env_wrapper),
     ):
         _add_x_permissions(sub_script_path)
-        _copy_to_data_dir(sub_script_path, exp_manager.data_fs_manager())
 
-    return _sbatch_script(
-        exp_manager.work_fs_manager(),
-        exp_config.slurm_config(),
-        samples_to_run,
-    )
+        shutil.copy(sub_script_path, sh_manager.data_sh_fs_manager().scripts_dir())
+
+    return _sbatch_script(exp_manager, sh_manager, samples_to_run, slurm_opts)
 
 
 def _init_env_script(
-    work_exp_fs_manager: exp_fs.WorkManager,
+    sh_manager: manager.Manager,
     tool_bash_env_wrapper: abc_tools_envs.BashEnvWrapper,
 ) -> Path:
     """Write the init environment script."""
-    script_path = work_exp_fs_manager.scripts_fs_manager().step_script(
+    script_path = sh_manager.work_sh_fs_manager().step_script(
         exp_bash_items.Steps.INIT_ENV,
     )
     with script_path.open("w") as f_out:
@@ -77,27 +75,27 @@ def _init_env_script(
 
 
 def _command_script(
-    data_exp_fs_manager: exp_fs.DataManager,
-    work_exp_fs_manager: exp_fs.WorkManager,
+    exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
+    sh_manager: manager.Manager,
     tool_cmd: abc_tool_bash.CommandsWithOptions,
 ) -> Path:
     """Write the command script (which `srun` will call)."""
-    script_path = work_exp_fs_manager.scripts_fs_manager().step_script(
+    script_path = sh_manager.work_sh_fs_manager().step_script(
         exp_bash_items.Steps.COMMAND,
     )
     with script_path.open("w") as command_out:
         command_out.write(f"{bash_items.BASH_SHEBANG}\n\n")
-        for line in CommandLinesBuilder.lines(data_exp_fs_manager, tool_cmd):
+        for line in CommandLinesBuilder.lines(exp_manager.data_fs_manager(), tool_cmd):
             command_out.write(line + "\n")
     return script_path
 
 
 def _close_env_script(
-    work_exp_fs_manager: exp_fs.WorkManager,
+    sh_manager: manager.Manager,
     tool_bash_env_wrapper: abc_tools_envs.BashEnvWrapper,
 ) -> Path:
     """Write the close environment script."""
-    script_path = work_exp_fs_manager.scripts_fs_manager().step_script(
+    script_path = sh_manager.work_sh_fs_manager().step_script(
         exp_bash_items.Steps.CLOSE_ENV,
     )
     with script_path.open("w") as f_out:
@@ -112,25 +110,19 @@ def _add_x_permissions(cmd_sh_path: Path) -> None:
     cmd_sh_path.chmod(st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
-def _copy_to_data_dir(
-    script_path: Path,
-    data_exp_fs_manager: exp_fs.DataManager,
-) -> None:
-    """Copy the script to the data directory."""
-    shutil.copy(script_path, data_exp_fs_manager.scripts_fs_manager().scripts_dir())
-
-
 def _sbatch_script(
-    work_exp_fs_manager: exp_fs.WorkManager,
-    slurm_config: slurm_cfg.Config,
+    exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
+    sh_manager: manager.Manager,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
+    slurm_opts: str,
 ) -> Path:
     """Write the sbatch script."""
-    script_path = work_exp_fs_manager.scripts_fs_manager().sbatch_script()
+    script_path = sh_manager.work_sh_fs_manager().sbatch_script()
     with script_path.open("w") as sbatch_out:
         for line in SbatchLinesBuilder.lines(
-            slurm_config,
-            work_exp_fs_manager,
+            slurm_opts,
+            sh_manager,
+            exp_manager.work_fs_manager(),
             samples_to_run,
         ):
             sbatch_out.write(line + "\n")
@@ -181,7 +173,7 @@ class StepLinesBuilder:
     @classmethod
     def set_script_path(
         cls,
-        work_exp_fs_manager: exp_fs.WorkManager,
+        sh_manager: manager.Manager,
         step: exp_bash_items.Steps,
     ) -> Iterator[str]:
         """Set script path variable."""
@@ -189,7 +181,7 @@ class StepLinesBuilder:
             f"{step}_SCRIPT_PATH",
         ).set(
             bash_items.path_to_str(
-                work_exp_fs_manager.scripts_fs_manager().step_script(step),
+                sh_manager.work_sh_fs_manager().step_script(step),
             ),
         )
 
@@ -204,7 +196,8 @@ class SbatchLinesBuilder:
     @classmethod
     def lines(
         cls,
-        slurm_config: slurm_cfg.Config,
+        slurm_opts: str,
+        sh_manager: manager.Manager,
         work_exp_fs_manager: exp_fs.WorkManager,
         samples_to_run: Iterable[smp_fs.RowNumberedItem],
     ) -> Iterator[str]:
@@ -218,7 +211,8 @@ class SbatchLinesBuilder:
                     yield from cls._pbfbench_do_lines(
                         line,
                         pbfbench_do,
-                        slurm_config,
+                        slurm_opts,
+                        sh_manager,
                         work_exp_fs_manager,
                         samples_to_run,
                     )
@@ -242,7 +236,8 @@ class SbatchLinesBuilder:
         cls,
         line: str,
         pbfbench_do: exp_bash_items.PbfbenchDo,
-        slurm_config: slurm_cfg.Config,
+        slurm_opts: str,
+        sh_manager: manager.Manager,
         work_exp_fs_manager: exp_fs.WorkManager,
         samples_to_run: Iterable[smp_fs.RowNumberedItem],
     ) -> Iterator[str]:
@@ -250,7 +245,7 @@ class SbatchLinesBuilder:
         match pbfbench_do:
             case exp_bash_items.PbfbenchDo.SBATCH_COMMENTS:
                 return slurm_bash.SbatchCommentLinesBuilder.lines(
-                    slurm_config,
+                    slurm_opts,
                     (
                         smp_fs.to_line_number_base_one(sample)
                         for sample in samples_to_run
@@ -272,7 +267,7 @@ class SbatchLinesBuilder:
             case exp_bash_items.PbfbenchDo.STEP:
                 step = cls._script_step(line)
                 return chain(
-                    StepLinesBuilder.set_script_path(work_exp_fs_manager, step),
+                    StepLinesBuilder.set_script_path(sh_manager, step),
                     StepLinesBuilder.set_step_ok_file(work_exp_fs_manager, step),
                     StepLinesBuilder.step_error_file(work_exp_fs_manager, step),
                 )
