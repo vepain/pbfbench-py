@@ -236,12 +236,13 @@ The `EXP_NAME/history.yaml` file containing the history of the runs (as a list):
 
 ```yaml
 - date: 2025-09-16
-  job_id: <str>
+  job_id: <str or None>
   stats:
-    number_of_samples: <int>
-    number_of_successfull_samples: <int>
-    number_of_samples_with_missing_input: <int>
-    number_of_failed_samples: <int>
+    total_number_of_samples: <int> # Total = NSS + NSMI + NFS + NSNR
+    number_of_successfull_samples: <int>  # NSS
+    number_of_samples_with_missing_input: <int>  # NSMI
+    number_of_failed_samples: <int>  # NFS
+    number_of_not_run_samples: <int>  # NSNR No missing inputs but cannot assess if it failed or not
 ```
 
 ### Internal process

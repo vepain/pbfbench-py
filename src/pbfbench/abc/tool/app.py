@@ -182,6 +182,9 @@ class Run[
         )
         self._error_if_experiment_is_running(exp_manager)
 
+        if slurm_opts is None:
+            slurm_opts = slurm_cfg.default_slurm_options(None)
+
         exp_run.start_new_experiment(
             exp_manager,
             self._target_samples_to_run(
@@ -191,24 +194,9 @@ class Run[
                 run_error,
                 run_all,
             ),
-            self._format_inputs,
-            slurm_opts
-            if slurm_opts is not None
-            else slurm_cfg.default_slurm_options(None),
+            slurm_opts,
         )
         # FIXME put here end print stats function
-        # _LOGGER.info(
-        #     "Total number of samples: %d\n"
-        #     "* Number of already done samples: %d\n"
-        #     "* Number of running samples: %d\n"
-        #     "  * Number of successfully run samples: %d\n"
-        #     "  * Number of samples which exit with errors: %d\n",
-        #     run_stats.number_of_samples(),
-        #     run_stats.number_of_samples() - run_stats.number_of_samples_to_run(),
-        #     run_stats.number_of_samples_to_run(),
-        #     run_stats.number_of_samples_to_run() - len(run_stats.samples_with_errors()),
-        #     len(run_stats.samples_with_errors()),
-        # )
         raise typer.Exit(0)
 
     def _error_if_experiment_is_running(
@@ -233,9 +221,6 @@ class Run[
                 )
                 _LOGGER.info("You must use the `resume` command")
                 raise typer.Exit(1)
-
-    def _format_inputs(self, exp_manager: exp_managers.WithArguments) -> None:
-        """Format inputs."""
 
     def _successfull_check_before_start_or_errror(
         self,

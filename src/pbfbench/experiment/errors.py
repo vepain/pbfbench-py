@@ -6,7 +6,7 @@ import csv
 import logging
 from contextlib import contextmanager
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Self
 
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.items as smp_items
@@ -69,6 +69,8 @@ class ErrorsTSVHeader(StrEnum):
 class ErrorsTSVReader:
     """Error samples TSV reader."""
 
+    HEADER = ErrorsTSVHeader
+
     @classmethod
     @contextmanager
     def open(cls, file: Path) -> Generator[ErrorsTSVReader]:
@@ -94,9 +96,9 @@ class ErrorsTSVReader:
     def __iter__(self) -> Iterator[SampleError]:
         """Iterate over error samples."""
         for row in self.__csv_reader:
-            exp_sample_id = self.__get_cell(row, ErrorsTSVHeader.SAMPLE_ID)
+            exp_sample_id = self.__get_cell(row, self.HEADER.SAMPLE_ID)
             error_status = smp_status.Error(
-                self.__get_cell(row, ErrorsTSVHeader.REASON),
+                self.__get_cell(row, self.HEADER.REASON),
             )
             yield SampleError(exp_sample_id, error_status)
 
@@ -112,9 +114,19 @@ class ErrorsTSVReader:
 class ErrorsTSVWriter:
     """Error samples TSV writer."""
 
+    HEADER = ErrorsTSVHeader
+
     @classmethod
     @contextmanager
-    def open(cls, file: Path, mode: Literal["w", "a"]) -> Generator[ErrorsTSVWriter]:
+    def auto_open(cls, file: Path) -> Generator[Self]:
+        """Open TSV file for writing."""
+        mode: Literal["w", "a"] = "a" if file.exists() else "w"
+        with cls.open(file, mode) as writer:
+            yield writer
+
+    @classmethod
+    @contextmanager
+    def open(cls, file: Path, mode: Literal["w", "a"]) -> Generator[Self]:
         """Open TSV file for writing."""
         match mode:
             case "w":
@@ -126,7 +138,7 @@ class ErrorsTSVWriter:
                 else:
                     columns_index = None
         with file.open(mode) as f_out:
-            writer = ErrorsTSVWriter(
+            writer = cls(
                 file,
                 csv.writer(f_out, delimiter="\t"),
                 columns_index,
@@ -169,28 +181,19 @@ class ErrorsTSVWriter:
             self.write_error_sample(error_sample)
 
     def __write_header(self) -> dict[str, int]:
-        header_names = [ErrorsTSVHeader.SAMPLE_ID, ErrorsTSVHeader.REASON]
-        if len(header_names) != len(ErrorsTSVHeader):
-            _err_msg = (
-                f"Header names do not match enum:"
-                f" {len(header_names)} != {len(ErrorsTSVHeader)}"
-            )
-            _LOGGER.error(_err_msg)
-            raise ValueError(_err_msg)
-        self.__csv_writer.writerow(header_names)
-        return {column_name: index for index, column_name in enumerate(header_names)}
+        self.__csv_writer.writerow(map(str, self.HEADER))
+        return {
+            column_name: index
+            for index, column_name in enumerate(map(str, self.HEADER))
+        }
 
 
 def write_missing_inputs(
     data_fs_manager: exp_fs.DataManager,
     samples_with_missing_inputs: Iterable[smp_fs.RowNumberedItem],
-    write_mode: Literal["w", "a"],
 ) -> None:
     """Write experiment missing inputs."""
-    with ErrorsTSVWriter.open(
-        data_fs_manager.errors_tsv(),
-        write_mode,
-    ) as out_exp_errors:
+    with ErrorsTSVWriter.auto_open(data_fs_manager.errors_tsv()) as out_exp_errors:
         out_exp_errors.write_error_samples(
             (
                 SampleError.sample_item_with_missing_inputs(
@@ -204,13 +207,9 @@ def write_missing_inputs(
 def write_errors(
     data_fs_manager: exp_fs.DataManager,
     samples_with_errors: Iterable[smp_fs.RowNumberedItem],
-    write_mode: Literal["w", "a"],
 ) -> None:
     """Write experiment errors."""
-    with ErrorsTSVWriter.open(
-        data_fs_manager.errors_tsv(),
-        write_mode,
-    ) as out_exp_errors:
+    with ErrorsTSVWriter.auto_open(data_fs_manager.errors_tsv()) as out_exp_errors:
         out_exp_errors.write_error_samples(
             (
                 SampleError.sample_item_with_error(

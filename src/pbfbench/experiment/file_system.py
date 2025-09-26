@@ -131,6 +131,9 @@ class DataManager(ManagerBase):
 class WorkManager(ManagerBase):
     """Work experiment manager."""
 
+    UNRESOLVED_SAMPLES_TSV_NAME = Path("unresolved_samples.tsv")
+    RESOLVED_SAMPLES_TSV_NAME = Path("resolved_samples.tsv")
+
     TMP_SLURM_LOG_DIR_NAME = Path("logs")
 
     @classmethod
@@ -148,6 +151,14 @@ class WorkManager(ManagerBase):
         self.__slurm_log_fs_manager = exp_slurm_fs.LogsManager(
             self.exp_dir() / self.TMP_SLURM_LOG_DIR_NAME,
         )
+
+    def unresolved_samples_tsv(self) -> Path:
+        """Get unresolved samples TSV file."""
+        return self.exp_dir() / self.UNRESOLVED_SAMPLES_TSV_NAME
+
+    def resolved_samples_tsv(self) -> Path:
+        """Get resolved samples TSV file."""
+        return self.exp_dir() / self.RESOLVED_SAMPLES_TSV_NAME
 
     #
     # Tmp sbatch logs

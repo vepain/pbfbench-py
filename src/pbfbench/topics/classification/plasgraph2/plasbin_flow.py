@@ -12,6 +12,7 @@ import pbfbench.topics.classification.plasgraph2.config as plasgraph2_cfg
 import pbfbench.topics.classification.plasgraph2.results as plasgraph2_res
 
 
+# FIXME plasgraph2 convert to Plasmidness pbf input
 def convert(
     input_data_exp_fs_manager: exp_fs.DataManager,
     sample_item: smp_items.Item,

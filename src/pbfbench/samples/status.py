@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from enum import StrEnum
 
 import pbfbench.samples.file_system as smp_fs
@@ -26,6 +27,13 @@ class Error(StrEnum):
 
 
 type Status = OK | Error
+
+
+def status_from_str(status_str: str) -> Status:
+    """Get sample experiment status from string."""
+    with suppress(ValueError):
+        return Error(status_str)
+    return OK(status_str)
 
 
 def get_status(sample_fs_manager: smp_fs.Manager) -> Status:

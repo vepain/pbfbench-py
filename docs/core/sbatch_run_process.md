@@ -28,6 +28,7 @@ WORK_DIR
             │   └── YYYY-MM-DD_HH-MM-SS_close_env.sh  # Sub run script corresponding to the finalization of the environment
             ├── config.yaml  # Configurations of the experiment on the tool for the topic
             ├── [in_progress.yaml]  # YAML file containing the run in progress (linked to the data directory)
+            ├── resolved_samples.tsv  # TSV file monitoring which samples have been already resolved  # TODO resolved_samples.tsv
             └── unresolved_samples.tsv  # TSV file monitoring which samples have not been yet resolved # TODO[2025-09-16] Sample status monitoring in exp work dir (usefull for resume purpose)
 ```
 
@@ -54,22 +55,22 @@ When the `run` subcommand is called:
     * No: copy the configuration file to `DATA_DIR/.../EXP_NAME/config.yaml` and in `WORK_DIR/.../EXP_NAME/config.yaml` to keep a trace and for further checks
 3. Get the list of samples to run (according to the options), and:
     * Remove the sample lines from `DATA_DIR/.../errors.tsv` if it corresponds to a sample to run
+    * Add the sample lines to the new `unresolved_samples.tsv` file
 4. If inputs are required:
     1. given a sample in the list of samples to run, format it if required
-        * if there is at least one of its argument for which the formatting fails:
-            1. log critical error
-            2. remove the sample from the list of samples to run
-    2. given a sample in the list of samples with format OK, if there is a missing input:
+        * log critical error if there is at least one of its argument for which the formatting fails
+    2. given a sample in the list of samples to run (even with formatting fail), if there is a missing input:
         1. reset data sample directory and write the list of missing inputs in `DATA_DIR/.../SAMPLE_DIRNAME/missing_inputs.tsv`
         2. write missing inputs in `DATA_DIR/.../errors.tsv` file
-        3. remove the concerning samples from the list of samples to run
+        3. remove the concerning samples from the list of samples to run and update files `resolved_samples.tsv` and `unresolved_samples.tsv`
 5. Create `scripts` directories (both in `DATA_DIR/.../EXP_NAME` and in `WORK_DIR/.../EXP_NAME`) and write the scripts in them.
-6. Launch the SLURM jobs associated with the samples to run #TODO [2025-09-25 23:09:58] CONTINUE HERE
+6. Launch the SLURM jobs associated with the samples to run
+    * If error: write new history event, exit with critical error
     * Extract the job ID and remove the temporary array job ID file `logs/array_job.id`
-7. Write the in-progress experiment to the `DATA_DIR/.../EXP_NAME/in_progress.yaml` file. <!-- FIXME date file is now in in_progress.yaml file -->
-8. Write the in-progress experiment to the `WORK_DIR/.../EXP_NAME/in_progress.yaml` file. <!-- FIXME date file is now in in_progress.yaml file -->
-9. Create the `unresolved_samples.tsv` file
-10. [Resolve the sample jobs](#resolve-the-sample-jobs)
+7. Write the in-progress experiment metadata files:
+    * `DATA_DIR/.../EXP_NAME/in_progress.yaml`
+    * `WORK_DIR/.../EXP_NAME/in_progress.yaml`
+8. [Resolve the sample jobs](#resolve-the-sample-jobs)  #TODO [2025-09-26 16:35:58] CONTINUE HERE
 
 ## Resume the experiment
 
@@ -82,7 +83,7 @@ When the `run` subcommand is called:
 
 `sbatch` job creates for each sample (not managed by `pbfbench` Python part):
 
-1. The sample directory  `EXP_NAME/SAMPLE_DIRNAME` <!-- DOCU Where do I create sample dir? seems to depend on the tool script -->
+1. The sample directory `EXP_NAME/SAMPLE_DIRNAME` <!-- DOCU Where do I create sample dir? seems to depend on the tool script -->
 2. Create and complete the `logs/%A_%a_...` files
 
 In parallel, `pbfbench` loops on the list of unresolved samples until this list is empty:
@@ -137,11 +138,21 @@ job_id: <str>
 > [!NOTE]
 > The `DATA_DIR/.../EXP_NAME/in_progress.yaml` file contains the working directory path while the `WORK_DIR/.../EXP_NAME/in_progress.yaml` file contains the data directory path.
 
-### Sample status TSV file
+### Monitor files `unresolved_samples.tsv` and `resolved_samples.tsv`
 
-Enables to monitor the status of each sample.
+File `unresolved_samples.tsv` keep trace of samples not yet resolved:
 
 ```html
-<samples.file_system.RowNumberedItem>   <samples.status.Status>
+row_number  species_id  sample_id
+<int>       <str>       <str>
+...
+```
+
+File `resolved_samples.tsv` gives the status of resolved sample.
+
+```html
+
+exp_sample_id       status
+<SAMPLE_DIRNAME>    <samples.status.Status>
 ...
 ```

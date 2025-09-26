@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import logging
 import shutil
-from collections.abc import Callable
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import typer
 
@@ -18,9 +17,14 @@ import pbfbench.samples.status as smp_status
 from . import checks as exp_checks
 from . import errors as exp_errors
 from . import file_system as exp_fs
+from . import history, in_progress, monitors
 from . import iter as exp_iter
 from . import managers as exp_managers
 from .bash import create as exp_bash_create
+from .slurm import run as exp_slurm_run
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,25 +49,31 @@ def start_new_experiment(
     _first_experiment_run_or_check_same_config(exp_manager)
 
     samples_to_run = _get_samples_to_run(exp_manager, target_samples_filter)
-
-    _LOGGER.info("Number of samples to run: %d", len(samples_to_run))
-
-    _remove_from_previous_error_list_samples_to_run(exp_manager, samples_to_run)
+    if not samples_to_run:
+        _LOGGER.info("No samples to run")
+        return
 
     if isinstance(exp_manager, exp_managers.WithArguments):
         samples_to_run = _manage_inputs(exp_manager, samples_to_run)
 
     if not samples_to_run:
-        return  # FIXME verify all is correctly finished
+        _LOGGER.info("No samples to run")
+        history.update_history(exp_manager)
+        return
 
-    _write_scripts(exp_manager, samples_to_run, slurm_opts)
+    _LOGGER.info(
+        "Number of samples sent to sbatch: %d",
+        len(samples_to_run),
+    )
 
-    # FIXME add this to print end stats functions
-    # if run_stats.samples_with_errors():
-    #     _LOGGER.info(
-    #         "The list of samples which exit with errors is written to file: %s",
-    #         data_exp_fs_manager.errors_tsv(),
-    #     )
+    sh_manager = exp_bash_create.run_scripts(
+        exp_manager,
+        samples_to_run,
+        slurm_opts,
+    )
+
+    exp_slurm_run.run(exp_manager, sh_manager)
+    in_progress.write_in_progress_metadata(exp_manager, sh_manager)
 
     # exp_complete.complete_experiment(
     #     samples_to_run,
@@ -110,13 +120,20 @@ def _get_samples_to_run(
     target_samples_filter: Callable[[smp_status.Status], bool],
 ) -> list[smp_fs.RowNumberedItem]:
     """Get samples to run."""
-    return [
+    samples_to_run = [
         row_numbered_item
         for row_numbered_item, status in exp_iter.samples_with_status(
             exp_manager.data_fs_manager(),
         )
         if target_samples_filter(status)
     ]
+    _LOGGER.info("Number of samples to run: %d", len(samples_to_run))
+
+    _remove_from_previous_error_list_samples_to_run(exp_manager, samples_to_run)
+
+    monitors.write_unresolved_samples(exp_manager.work_fs_manager(), samples_to_run)
+
+    return samples_to_run
 
 
 def _remove_from_previous_error_list_samples_to_run(
@@ -151,19 +168,14 @@ def _manage_inputs(
     samples_to_run: list[smp_fs.RowNumberedItem],
 ) -> list[smp_fs.RowNumberedItem]:
     """Manage inputs."""
-    # FIXME cannot check missing input if need to format before.
-    # * but we should check the missing input for the formatting
-    samples_format_ok = _format_inputs(exp_manager, samples_to_run)
-    return _filter_missing_inputs(exp_manager, samples_format_ok)
+    _format_inputs(exp_manager, samples_to_run)
+    return _filter_missing_inputs(exp_manager, samples_to_run)
 
 
 def _format_inputs[N: abc_tool_connector.Names](
     exp_manager: exp_managers.WithArguments[N],
     samples_to_run: list[smp_fs.RowNumberedItem],
-) -> list[smp_fs.RowNumberedItem]:
-    samples_format_ok: list[smp_fs.RowNumberedItem] = []
-    samples_format_err: list[smp_fs.RowNumberedItem] = []
-
+) -> None:
     tool_inputs_to_fmt: list[tuple[exp_fs.DataManager, abc_topic_res.ConvertFn]] = []
     missing_convert_fn = False
     for _, arg in exp_manager.tool_connector().arguments():
@@ -188,7 +200,7 @@ def _format_inputs[N: abc_tool_connector.Names](
             tool_inputs_to_fmt.append((in_data_exp_fs_manager, convert_fn_or_err))
 
     if missing_convert_fn:
-        return []
+        return
 
     for row_numbered_sample in samples_to_run:
         for in_data_exp_fs_manager, convert_fn in tool_inputs_to_fmt:
@@ -200,11 +212,6 @@ def _format_inputs[N: abc_tool_connector.Names](
                     "Error formatting sample %s",
                     row_numbered_sample.item().exp_sample_id(),
                 )
-                samples_format_err.append(row_numbered_sample)
-            else:
-                samples_format_ok.append(row_numbered_sample)
-
-    return samples_format_ok
 
 
 def _filter_missing_inputs[N: abc_tool_connector.Names](
@@ -247,43 +254,13 @@ def _filter_missing_inputs[N: abc_tool_connector.Names](
         exp_errors.write_missing_inputs(
             exp_manager.data_fs_manager(),
             samples_with_missing_inputs,
-            "a",
+        )
+        monitors.update_samples_resolution_status(
+            exp_manager.work_fs_manager(),
+            ((s, smp_status.Error.MISSING_INPUTS) for s in samples_with_missing_inputs),
         )
 
     return samples_without_missing_inputs
 
 
 # FIXME WORK IN PROGRESS ---
-
-
-def _write_scripts(
-    exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
-    samples_to_run: list[smp_fs.RowNumberedItem],
-    slurm_opts: str,
-) -> None:
-    """Write the scripts."""
-    if not samples_to_run:
-        _LOGGER.info("No samples to run")
-        return
-
-    _LOGGER.info(
-        "Number of samples sent to sbatch: %d",
-        len(samples_to_run),
-    )
-
-    sbatch_script = exp_bash_create.run_scripts(
-        exp_manager,
-        samples_to_run,
-        slurm_opts,
-    )
-
-    # cmd_path = subprocess_lib.command_path(slurm_bash.SBATCH_CMD)
-    # result = subprocess.run(
-    #     [str(x) for x in [cmd_path, sbatch_script]],
-    #     capture_output=True,
-    #     text=True,
-    #     check=False,
-    # )
-    # # FIXME should check and return Error if failed
-    # _LOGGER.debug("%s stdout: %s", slurm_bash.SBATCH_CMD, result.stdout)
-    # _LOGGER.debug("%s stderr: %s", slurm_bash.SBATCH_CMD, result.stderr)

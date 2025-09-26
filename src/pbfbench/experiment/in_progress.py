@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Self, final
 
 from pbfbench.yaml_interface import YAMLInterface
+
+from . import file_system as exp_fs
+from . import managers as exp_managers
+from .bash import manager as bash_manager
 
 
 class Base(YAMLInterface, ABC):
@@ -93,3 +98,40 @@ class InWorkingDirectory(Base):
 def get_today_format_string() -> str:
     """Get date format string."""
     return datetime.now(tz=UTC).strftime("%Y-%m-%d_%H-%M-%S")
+
+
+def write_in_progress_metadata(
+    exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
+    sh_manager: bash_manager.Manager,
+) -> None:
+    """Write in progress metadata."""
+    job_id = _get_array_job_id(exp_manager.work_fs_manager())
+
+    data_in_progress = InDataDirectory(
+        sh_manager.date_str(),
+        exp_manager.work_fs_manager().root_dir(),
+        job_id,
+    )
+    work_in_progress = InWorkingDirectory(
+        sh_manager.date_str(),
+        exp_manager.data_fs_manager().root_dir(),
+        job_id,
+    )
+
+    data_in_progress.to_yaml(exp_manager.work_fs_manager().in_progress_yaml())
+    work_in_progress.to_yaml(exp_manager.work_fs_manager().in_progress_yaml())
+
+
+def _get_array_job_id(work_exp_fs_manager: exp_fs.WorkManager) -> str:
+    """Wait the tmp array job id file is created and extract the array job id."""
+    tmp_job_id_file = (
+        work_exp_fs_manager.slurm_log_fs_manager().job_id_file_manager().path()
+    )
+    while not tmp_job_id_file.exists():
+        time.sleep(5)
+
+    job_id = (
+        work_exp_fs_manager.slurm_log_fs_manager().job_id_file_manager().get_job_id()
+    )
+    tmp_job_id_file.unlink()
+    return job_id

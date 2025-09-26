@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import TYPE_CHECKING, final
 
 import pbfbench.abc.tool.connector as abc_tool_connector
-import pbfbench.experiment.file_system as exp_fs
+
+if TYPE_CHECKING:
+    from . import file_system as exp_fs
 
 
 class WithOptions[C: abc_tool_connector.WithOptions]:
