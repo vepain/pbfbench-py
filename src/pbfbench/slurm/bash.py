@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 import pbfbench.bash.items as bash_items
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.experiment.slurm.file_system as exp_slurm_fs
-import pbfbench.slurm.config as slurm_cfg
 from pbfbench import subprocess_lib
 from pbfbench.slurm import sacct
 
@@ -48,7 +47,7 @@ class SbatchCommentLinesBuilder:
     @classmethod
     def lines(
         cls,
-        slurm_config: slurm_cfg.Config,
+        slurm_opts: str,
         samples_to_run_indices: Iterable[int],
         work_exp_fs_manager: exp_fs.WorkManager,
     ) -> Iterator[str]:
@@ -61,7 +60,7 @@ class SbatchCommentLinesBuilder:
                 cls._sbatch_option_log_lines(
                     work_exp_fs_manager.slurm_log_fs_manager(),
                 ),
-                iter(slurm_config),
+                iter((slurm_opts,)),
             )
         )
 

@@ -16,11 +16,11 @@ import pbfbench.samples.missing_inputs as smp_miss_in
 import pbfbench.samples.status as smp_status
 
 from . import checks as exp_checks
-from . import complete as exp_complete
 from . import errors as exp_errors
 from . import file_system as exp_fs
 from . import iter as exp_iter
 from . import managers as exp_managers
+from .bash import create as exp_bash_create
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,7 +53,10 @@ def start_new_experiment(
     if isinstance(exp_manager, exp_managers.WithArguments):
         samples_to_run = _manage_inputs(exp_manager, samples_to_run)
 
-    _manage_samples_to_send_to_sbatch(exp_manager, samples_to_run)
+    if not samples_to_run:
+        return  # FIXME verify all is correctly finished
+
+    _write_scripts(exp_manager, samples_to_run, slurm_opts)
 
     # FIXME add this to print end stats functions
     # if run_stats.samples_with_errors():
@@ -61,6 +64,12 @@ def start_new_experiment(
     #         "The list of samples which exit with errors is written to file: %s",
     #         data_exp_fs_manager.errors_tsv(),
     #     )
+
+    # exp_complete.complete_experiment(
+    #     samples_to_run,
+    #     exp_manager.data_fs_manager(),
+    #     exp_manager.work_fs_manager(),
+    # )
 
 
 def _reset_experiment_working_directory(exp_manager: exp_managers.WithOptions) -> None:
@@ -93,11 +102,6 @@ def _first_experiment_run_or_check_same_config(
         )
         exp_manager.tool_connector().to_config().to_yaml(
             exp_manager.work_fs_manager().config_yaml(),
-        )
-        # Create scripts directory
-        exp_manager.data_fs_manager().scripts_fs_manager().scripts_dir().mkdir(
-            parents=True,
-            exist_ok=True,
         )
 
 
@@ -253,21 +257,11 @@ def _filter_missing_inputs[N: abc_tool_connector.Names](
 
 
 def _write_scripts(
-    exp_manager: exp_managers.WithArguments,
-    samples_to_run: list[smp_fs.RowNumberedItem],
-):
-    """Write the scripts."""
-    exp_manager.work_fs_manager().scripts_fs_manager().scripts_dir().mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-
-def _manage_samples_to_send_to_sbatch(
     exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
     samples_to_run: list[smp_fs.RowNumberedItem],
+    slurm_opts: str,
 ) -> None:
-    """Manage samples to send to sbatch."""
+    """Write the scripts."""
     if not samples_to_run:
         _LOGGER.info("No samples to run")
         return
@@ -277,59 +271,11 @@ def _manage_samples_to_send_to_sbatch(
         len(samples_to_run),
     )
 
-    exp_manager.work_fs_manager().scripts_fs_manager().scripts_dir().mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    _refresh_data_date(
-        exp_manager.data_fs_manager(),
-        exp_manager.work_fs_manager(),
-    )  # FIXME move it, prehaps will change
-
-    _create_and_run_sbatch_script(
-        exp_manager.tool_connector(),
+    sbatch_script = exp_bash_create.run_scripts(
+        exp_manager,
         samples_to_run,
-        exp_manager.data_fs_manager(),
-        exp_manager.work_fs_manager(),
+        slurm_opts,
     )
-
-    exp_complete.complete_experiment(
-        samples_to_run,
-        exp_manager.data_fs_manager(),
-        exp_manager.work_fs_manager(),
-    )
-
-    # FIXME use in print stats end function
-    # if run_stats.samples_with_errors():
-    #     _LOGGER.error(
-    #         "Samples with errors: %d",
-    #         len(run_stats.samples_with_errors()),
-    #     )
-
-
-def _refresh_data_date(
-    data_exp_fs_manager: exp_fs.DataManager,
-    work_exp_fs_manager: exp_fs.WorkManager,
-) -> None:
-    data_exp_fs_manager.date_txt().unlink(missing_ok=True)
-    shutil.copy(work_exp_fs_manager.date_txt(), data_exp_fs_manager.date_txt())
-
-
-def _create_and_run_sbatch_script(
-    tool_connector: abc_tool_connector.WithOptions,
-    checked_inputs_samples_to_run: list[smp_fs.RowNumberedItem],
-    data_exp_fs_manager: exp_fs.DataManager,
-    work_exp_fs_manager: exp_fs.WorkManager,
-) -> None:
-    """Run sbatch script."""
-    # sbatch_script = exp_bash_create.run_scripts(
-    #     data_exp_fs_manager,
-    #     work_exp_fs_manager,
-    #     checked_inputs_samples_to_run,
-    #     exp_config,
-    #     tool_connector,
-    # )
 
     # cmd_path = subprocess_lib.command_path(slurm_bash.SBATCH_CMD)
     # result = subprocess.run(

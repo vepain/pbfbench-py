@@ -63,8 +63,8 @@ When the `run` subcommand is called:
         1. reset data sample directory and write the list of missing inputs in `DATA_DIR/.../SAMPLE_DIRNAME/missing_inputs.tsv`
         2. write missing inputs in `DATA_DIR/.../errors.tsv` file
         3. remove the concerning samples from the list of samples to run
-5. Create `scripts` directories (both in `DATA_DIR/.../EXP_NAME` and in `WORK_DIR/.../EXP_NAME`) and write the scripts in them. #TODO [2025-09-19 18:20:38] CONTINUE HERE
-6. Launch the SLURM jobs associated with the samples to run
+5. Create `scripts` directories (both in `DATA_DIR/.../EXP_NAME` and in `WORK_DIR/.../EXP_NAME`) and write the scripts in them.
+6. Launch the SLURM jobs associated with the samples to run #TODO [2025-09-25 23:09:58] CONTINUE HERE
     * Extract the job ID and remove the temporary array job ID file `logs/array_job.id`
 7. Write the in-progress experiment to the `DATA_DIR/.../EXP_NAME/in_progress.yaml` file. <!-- FIXME date file is now in in_progress.yaml file -->
 8. Write the in-progress experiment to the `WORK_DIR/.../EXP_NAME/in_progress.yaml` file. <!-- FIXME date file is now in in_progress.yaml file -->
