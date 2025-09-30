@@ -6,8 +6,10 @@ import csv
 import logging
 from contextlib import contextmanager
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Self
 
+import pbfbench.samples.file_system as smp_fs
+import pbfbench.samples.items as smp_items
 import pbfbench.samples.status as smp_status
 
 if TYPE_CHECKING:
@@ -15,26 +17,44 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Iterator
     from pathlib import Path
 
+    from . import file_system as exp_fs
+
 _LOGGER = logging.getLogger(__name__)
 
 
 class SampleError:
     """Sample error."""
 
+    @classmethod
+    def sample_item_with_missing_inputs(
+        cls,
+        sample_item: smp_items.Item,
+    ) -> SampleError:
+        """Instantiate a sample error with a missing inputs reason."""
+        return cls(sample_item.exp_sample_id(), smp_status.Error.MISSING_INPUTS)
+
+    @classmethod
+    def sample_item_with_error(
+        cls,
+        sample_item: smp_items.Item,
+    ) -> SampleError:
+        """Instantiate a sample error with an error reason."""
+        return cls(sample_item.exp_sample_id(), smp_status.Error.ERROR)
+
     def __init__(
         self,
-        sample_id: str,
-        reason: smp_status.ErrorStatus,
+        exp_sample_id: str,
+        reason: smp_status.Error,
     ) -> None:
         """Initialize."""
-        self.__sample_id = sample_id
+        self.__exp_sample_id = exp_sample_id
         self.__reason = reason
 
-    def sample_id(self) -> str:
-        """Get sample ID."""
-        return self.__sample_id
+    def exp_sample_id(self) -> str:
+        """Get experiment sample ID."""
+        return self.__exp_sample_id
 
-    def reason(self) -> smp_status.ErrorStatus:
+    def reason(self) -> smp_status.Error:
         """Get reason."""
         return self.__reason
 
@@ -48,6 +68,8 @@ class ErrorsTSVHeader(StrEnum):
 
 class ErrorsTSVReader:
     """Error samples TSV reader."""
+
+    HEADER = ErrorsTSVHeader
 
     @classmethod
     @contextmanager
@@ -74,11 +96,11 @@ class ErrorsTSVReader:
     def __iter__(self) -> Iterator[SampleError]:
         """Iterate over error samples."""
         for row in self.__csv_reader:
-            sample_id = self.__get_cell(row, ErrorsTSVHeader.SAMPLE_ID)
-            error_status = smp_status.ErrorStatus(
-                self.__get_cell(row, ErrorsTSVHeader.REASON),
+            exp_sample_id = self.__get_cell(row, self.HEADER.SAMPLE_ID)
+            error_status = smp_status.Error(
+                self.__get_cell(row, self.HEADER.REASON),
             )
-            yield SampleError(sample_id, error_status)
+            yield SampleError(exp_sample_id, error_status)
 
     def __get_cell(self, row: list[str], column_id: ErrorsTSVHeader) -> str:
         return row[self.__columns_index[column_id]]
@@ -92,9 +114,19 @@ class ErrorsTSVReader:
 class ErrorsTSVWriter:
     """Error samples TSV writer."""
 
+    HEADER = ErrorsTSVHeader
+
     @classmethod
     @contextmanager
-    def open(cls, file: Path, mode: Literal["w", "a"]) -> Generator[ErrorsTSVWriter]:
+    def auto_open(cls, file: Path) -> Generator[Self]:
+        """Open TSV file for writing."""
+        mode: Literal["w", "a"] = "a" if file.exists() else "w"
+        with cls.open(file, mode) as writer:
+            yield writer
+
+    @classmethod
+    @contextmanager
+    def open(cls, file: Path, mode: Literal["w", "a"]) -> Generator[Self]:
         """Open TSV file for writing."""
         match mode:
             case "w":
@@ -106,7 +138,7 @@ class ErrorsTSVWriter:
                 else:
                     columns_index = None
         with file.open(mode) as f_out:
-            writer = ErrorsTSVWriter(
+            writer = cls(
                 file,
                 csv.writer(f_out, delimiter="\t"),
                 columns_index,
@@ -138,7 +170,7 @@ class ErrorsTSVWriter:
         """Write error sample."""
         self.__csv_writer.writerow(
             [
-                error_sample.sample_id(),
+                error_sample.exp_sample_id(),
                 error_sample.reason(),
             ],
         )
@@ -149,13 +181,40 @@ class ErrorsTSVWriter:
             self.write_error_sample(error_sample)
 
     def __write_header(self) -> dict[str, int]:
-        header_names = [ErrorsTSVHeader.SAMPLE_ID, ErrorsTSVHeader.REASON]
-        if len(header_names) != len(ErrorsTSVHeader):
-            _err_msg = (
-                f"Header names do not match enum:"
-                f" {len(header_names)} != {len(ErrorsTSVHeader)}"
-            )
-            _LOGGER.error(_err_msg)
-            raise ValueError(_err_msg)
-        self.__csv_writer.writerow(header_names)
-        return {column_name: index for index, column_name in enumerate(header_names)}
+        self.__csv_writer.writerow(map(str, self.HEADER))
+        return {
+            column_name: index
+            for index, column_name in enumerate(map(str, self.HEADER))
+        }
+
+
+def write_missing_inputs(
+    data_fs_manager: exp_fs.DataManager,
+    samples_with_missing_inputs: Iterable[smp_fs.RowNumberedItem],
+) -> None:
+    """Write experiment missing inputs."""
+    with ErrorsTSVWriter.auto_open(data_fs_manager.errors_tsv()) as out_exp_errors:
+        out_exp_errors.write_error_samples(
+            (
+                SampleError.sample_item_with_missing_inputs(
+                    row_numbered_item.item(),
+                )
+                for row_numbered_item in samples_with_missing_inputs
+            ),
+        )
+
+
+def write_errors(
+    data_fs_manager: exp_fs.DataManager,
+    samples_with_errors: Iterable[smp_fs.RowNumberedItem],
+) -> None:
+    """Write experiment errors."""
+    with ErrorsTSVWriter.auto_open(data_fs_manager.errors_tsv()) as out_exp_errors:
+        out_exp_errors.write_error_samples(
+            (
+                SampleError.sample_item_with_error(
+                    row_numbered_item.item(),
+                )
+                for row_numbered_item in samples_with_errors
+            ),
+        )

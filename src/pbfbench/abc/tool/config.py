@@ -1,96 +1,71 @@
-"""Tool config module."""
+"""Tool config YAML interface."""
 
 from __future__ import annotations
 
-import logging
-from abc import ABC, abstractmethod
-from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Self, final
+from typing import TYPE_CHECKING, Self, final
 
 from pbfbench.yaml_interface import YAMLInterface
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
-    import pbfbench.abc.topic.visitor as abc_topic_visitor
+    import yaml  # type: ignore[import-untyped]
 
-_LOGGER = logging.getLogger(__name__)
-
-
-class Names(StrEnum):
-    """Tool names."""
-
-    @abstractmethod
-    def topic_tools(self) -> type[abc_topic_visitor.Tools]:
-        """Get topic tools."""
-        raise NotImplementedError
+from abc import ABC
 
 
-class Arguments[N: Names](YAMLInterface, ABC):
-    """Tool arguments configuration."""
+@final
+class Arg(YAMLInterface):
+    """Tool config argument."""
 
     @classmethod
-    @abstractmethod
-    def names_type(cls) -> type[N]:
-        """Get names type."""
-        raise NotImplementedError
+    def from_yaml_load(cls, pyyaml_obj: list[str]) -> Self:
+        """Convert dict to object."""
+        return cls(*pyyaml_obj)
+
+    def __init__(self, tool_name: str, exp_name: str) -> None:
+        self._tool_name = tool_name
+        self._exp_name = exp_name
+
+    def tool_name(self) -> str:
+        """Get tool name."""
+        return self._tool_name
+
+    def exp_name(self) -> str:
+        """Get experiment name."""
+        return self._exp_name
+
+    def to_yaml_dump(self) -> list[str]:
+        """Convert to yaml dump."""
+        return [self._tool_name, self._exp_name]
+
+
+@final
+class Arguments(YAMLInterface):
+    """Tool config arguments."""
 
     @classmethod
     def from_yaml_load(cls, pyyaml_obj: dict[str, list[str]]) -> Self:
         """Convert dict to object."""
-        arg_dict: dict[N, Arg] = {}
-        for name_str, yaml_data in pyyaml_obj.items():
-            try:
-                name = cls.names_type()(name_str)
-            except ValueError:
-                _LOGGER.critical(
-                    "Unknown argument name: `%s`. Known names: {%s}",
-                    name_str,
-                    ", ".join(str(name) for name in cls.names_type()),
-                )
-                raise
-            arg_dict[name] = Arg.from_yaml_load(yaml_data)
-        return cls(arg_dict)
+        return cls({name: Arg.from_yaml_load(arg) for name, arg in pyyaml_obj.items()})
 
-    def __init__(self, arguments: dict[N, Arg]) -> None:
-        self.__arguments = arguments
+    def __init__(self, arguments: dict[str, Arg]) -> None:
+        self._arguments = arguments
 
-    def __getitem__(self, name: N) -> Arg:
+    def arguments(self) -> dict[str, Arg]:
+        """Get arguments."""
+        return self._arguments
+
+    def __getitem__(self, name: str) -> Arg:
         """Get argument."""
-        return self.__arguments[name]
+        return self._arguments[name]
 
-    def to_yaml_dump(self) -> dict[str, Any]:
-        """Convert to dict."""
-        return {str(name): arg.to_yaml_dump() for name, arg in self.__arguments.items()}
-
-
-class Arg(YAMLInterface):
-    """Tool argument configuration."""
-
-    @classmethod
-    def from_yaml_load(cls, yaml_data: list[str]) -> Self:
-        """Convert dict to object."""
-        tool_name, exp_name = yaml_data
-        return cls(tool_name, exp_name)
-
-    def __init__(self, tool_name: str, exp_name: str) -> None:
-        """Initialize."""
-        self.__tool_name = tool_name
-        self.__exp_name = exp_name
-
-    def tool_name(self) -> str:
-        """Get tool name."""
-        return self.__tool_name
-
-    def exp_name(self) -> str:
-        """Get experiment name."""
-        return self.__exp_name
-
-    def to_yaml_dump(self) -> list[str]:
+    def to_yaml_dump(self) -> dict[str, list[str]]:
         """Convert to yaml dump."""
-        return [self.__tool_name, self.__exp_name]
+        return {name: arg.to_yaml_dump() for name, arg in self._arguments.items()}
 
 
+@final
 class StringOpts(YAMLInterface):
     """String options.
 
@@ -98,9 +73,9 @@ class StringOpts(YAMLInterface):
     """
 
     @classmethod
-    def from_yaml_load(cls, obj_list: list[str] | None) -> Self:
+    def from_yaml_load(cls, obj_list: list[str]) -> Self:
         """Convert dict to object."""
-        return cls(obj_list if obj_list is not None else [])
+        return cls(obj_list)
 
     def __init__(self, options: Iterable[str]) -> None:
         self.__options = list(options)
@@ -122,74 +97,73 @@ class StringOpts(YAMLInterface):
         return self.__options
 
 
-class ConfigWithOptions(YAMLInterface, ABC):
+class WithOptions(YAMLInterface, ABC):
     """Tool config with options."""
 
     KEY_OPTIONS = "options"
 
     @classmethod
-    def _get_options_from_yaml_load(cls, obj_dict: dict[str, Any]) -> StringOpts:
-        if cls.KEY_OPTIONS not in obj_dict:
-            return StringOpts([])
-        return StringOpts.from_yaml_load(obj_dict[cls.KEY_OPTIONS])
+    def _get_options_from_yaml_load(
+        cls,
+        yaml_obj: dict[str, yaml.YAMLObject],
+    ) -> StringOpts:
+        return StringOpts.from_yaml_load(yaml_obj.get(cls.KEY_OPTIONS, []))
 
     def __init__(self, options: StringOpts) -> None:
-        """Initialize."""
         self._options = options
 
     def options(self) -> StringOpts:
         """Get options."""
         return self._options
 
-    def _options_to_yaml_dump(self) -> dict[str, Any]:
+    def _options_to_yaml_dump(self) -> dict[str, list[str]]:
         if not self._options:
             return {}
         return {self.KEY_OPTIONS: self._options.to_yaml_dump()}
 
+    def is_same(self, other: Self) -> bool:
+        """Check if configs are the same."""
+        return self.to_yaml_dump() == other.to_yaml_dump()
+
 
 @final
-class ConfigOnlyOptions(ConfigWithOptions):
+class OnlyOptions(WithOptions):
     """Tool config without arguments."""
 
     @classmethod
-    def from_yaml_load(cls, obj_dict: dict[str, Any]) -> Self:
+    def from_yaml_load(cls, obj_dict: dict[str, yaml.YAMLObject]) -> Self:
         """Convert dict to object."""
         return cls(cls._get_options_from_yaml_load(obj_dict))
 
-    def to_yaml_dump(self) -> dict[str, Any]:
+    def to_yaml_dump(self) -> dict[str, yaml.YAMLObject]:
         """Convert to dict."""
         return self._options_to_yaml_dump()
 
 
-class ConfigWithArguments[N: Names](ConfigWithOptions):
+@final
+class WithArguments(WithOptions):
     """Tool config with arguments."""
 
     KEY_ARGUMENTS = "arguments"
 
     @classmethod
-    @abstractmethod
-    def arguments_type(cls) -> type[Arguments[N]]:
-        """Get argument arguments type."""
-        raise NotImplementedError
-
-    @classmethod
-    def from_yaml_load(cls, obj_dict: dict[str, Any]) -> Self:
+    def from_yaml_load(cls, obj_dict: dict[str, yaml.YAMLObject]) -> Self:
         """Convert dict to object."""
         return cls(
-            cls.arguments_type().from_yaml_load(obj_dict[cls.KEY_ARGUMENTS]),
+            Arguments.from_yaml_load(obj_dict[cls.KEY_ARGUMENTS]),
             cls._get_options_from_yaml_load(obj_dict),
         )
 
-    def __init__(self, arguments: Arguments[N], options: StringOpts) -> None:
+    def __init__(self, arguments: Arguments, options: StringOpts) -> None:
         """Initialize."""
         super().__init__(options)
         self.__arguments = arguments
 
-    def arguments(self) -> Arguments[N]:
+    def arguments(self) -> Arguments:
         """Get arguments."""
         return self.__arguments
 
-    def to_yaml_dump(self) -> dict[str, Any]:
+    def to_yaml_dump(self) -> dict[str, yaml.YAMLObject]:
         """Convert to dict."""
         return {
             self.KEY_ARGUMENTS: self.__arguments.to_yaml_dump(),

@@ -1,1 +1,0 @@
-"""Plasmidness topic results logics."""

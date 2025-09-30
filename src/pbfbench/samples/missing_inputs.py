@@ -9,13 +9,14 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 import pbfbench.abc.app as abc_app
-import pbfbench.abc.tool.config as abc_tool_cfg
+import pbfbench.abc.tool.connector as abc_tool_connector
 import pbfbench.abc.tool.description as abc_tool_desc
-import pbfbench.abc.tool.visitor as abc_tool_visitor
-import pbfbench.abc.topic.results.items as abc_topic_res_items
-import pbfbench.samples.file_system as smp_fs
-import pbfbench.samples.items as smp_items
-import pbfbench.samples.status as smp_status
+import pbfbench.abc.topic.results as abc_topic_res
+import pbfbench.experiment.managers as exp_managers
+
+from . import file_system as smp_fs
+from . import items as smp_items
+from . import status as smp_status
 
 if TYPE_CHECKING:
     import _csv
@@ -28,14 +29,12 @@ _LOGGER = logging.getLogger(__name__)
 class MissingInput:
     """Missing input item."""
 
-    # REFACTOR may take as input topic and tool descriptions
-    # When tool and topic will be separated
     @classmethod
     def from_tool_input(
         cls,
         arg_name: str,
-        tool_input: abc_topic_res_items.Result,
-        reason: smp_status.ErrorStatus,
+        tool_input: abc_topic_res.Result,
+        reason: smp_status.Error,
         help_string: str,
     ) -> MissingInput:
         """Create missing input from tool input."""
@@ -54,7 +53,7 @@ class MissingInput:
         topic_name: str,
         tool_name: str,
         experiment_name: str,
-        reason: smp_status.ErrorStatus,
+        reason: smp_status.Error,
         help_string: str,
     ) -> None:
         """Initialize."""
@@ -81,7 +80,7 @@ class MissingInput:
         """Get experiment name."""
         return self.__exp_name
 
-    def reason(self) -> smp_status.ErrorStatus:
+    def reason(self) -> smp_status.Error:
         """Get reason."""
         return self.__reason
 
@@ -134,7 +133,7 @@ class MissingInputsTSVReader:
                 self.__get_cell(row, MissingInputsTSVHeader.TOPIC),
                 self.__get_cell(row, MissingInputsTSVHeader.TOOL),
                 self.__get_cell(row, MissingInputsTSVHeader.TOOL),
-                smp_status.ErrorStatus(
+                smp_status.Error(
                     self.__get_cell(row, MissingInputsTSVHeader.REASON),
                 ),
                 self.__get_cell(row, MissingInputsTSVHeader.HELP),
@@ -213,27 +212,32 @@ class MissingInputsTSVWriter:
 
 
 def write_sample_missing_inputs(
-    sample_fs_manager: smp_fs.Manager,
+    exp_manager: exp_managers.WithArguments,
+    row_numbered_sample: smp_fs.RowNumberedItem,
     sample_missing_inputs: Iterable[MissingInput],
 ) -> None:
     """Write sample missing inputs."""
+    data_sample_fs_manager = exp_manager.data_fs_manager().sample_fs_manager(
+        row_numbered_sample.item(),
+    )
+    smp_fs.reset_sample_dir(data_sample_fs_manager)
     with MissingInputsTSVWriter.open(
-        sample_fs_manager.missing_inputs_tsv(),
+        data_sample_fs_manager.missing_inputs_tsv(),
     ) as out_miss_inputs:
         out_miss_inputs.write_missing_inputs(sample_missing_inputs)
 
 
-def sample_list[N: abc_tool_cfg.Names](
-    tool_inputs: dict[N, abc_topic_res_items.Result],
+def for_sample[N: abc_tool_connector.Names](
+    tool_inputs: dict[N, abc_topic_res.Result],
     sample_item: smp_items.Item,
-    connector: abc_tool_visitor.ConnectorWithArguments,
+    connector: abc_tool_connector.WithArguments,
 ) -> list[MissingInput]:
     """Get a list of missing inputs."""
     list_missing_inputs: list[MissingInput] = []
     for arg_name, tool_input in tool_inputs.items():
         input_status = tool_input.check(sample_item)
         match input_status:
-            case smp_status.ErrorStatus():
+            case smp_status.Error():
                 list_missing_inputs.append(
                     MissingInput.from_tool_input(
                         str(arg_name),
@@ -246,12 +250,14 @@ def sample_list[N: abc_tool_cfg.Names](
 
 
 def _get_help_str(
-    tool_input: abc_topic_res_items.Result,
+    tool_input: abc_topic_res.Result,
     requesting_tool_description: abc_tool_desc.Description,
 ) -> str:
     """Get help string."""
+    # REFACTOR ugly pattern because in one case requesting_tool_description is not used
+    # Could be solve if put Result visitor logic in config(?)
     match tool_input:
-        case abc_topic_res_items.Original():
+        case abc_topic_res.Original():
             return (
                 "pbfbench"
                 f" {tool_input.exp_fs_manager().tool_description().topic().cmd()}"
@@ -259,7 +265,7 @@ def _get_help_str(
                 f" {abc_app.FinalCommands.RUN}"
                 " --help"
             )
-        case abc_topic_res_items.Formatted():
+        case abc_topic_res.Formatted():
             return (
                 "pbfbench"
                 f" {requesting_tool_description.topic().cmd()}"
@@ -268,5 +274,5 @@ def _get_help_str(
                 " --help"
             )
 
-        case _:  # REFACTOR Result should be a Protocol?
+        case _:
             raise NotImplementedError

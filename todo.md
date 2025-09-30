@@ -1,23 +1,38 @@
 # To-dos
 
-* [ ] Run exp config checks (and config subcmd) are not the same as exp config checks for init subcmd (difference of tool coverage in visitors)
-* [ ] PBF format seeds (`pbf_seeds.tsv`)
-* [ ] PBF format plasmidness (`pbf_plasmidness.tsv`)
+## Tasks stack
 
->[!WARNING]
-> It seems some tools (MLPlasmids) need the full name of the species, which thus must be specified in the `samples.tsv` file
-> MLPlasmids is not the priority for this project.
+*From top to bottom:*
+
+* [x] Move experiment name from the configuration to the command lines
+  * [x] Update the doc
+  * [x] Be careful of comparing properly two tool configurations
+* [x] Separate experiment config from SLURM configuration
+  * [x] Change the doc
+  * [x] Be careful of comparing properly two tool configurations
+* [x] Refactoring tool config to tool connector (merge of config and connector)
+* [x] Fix run/format/resume stages
+* [ ] Verify data dire and work dir are not the same!
+  * [ ] Update doc
+* [ ] Do `pbfbench topic-cmd tool-cmd env $DATA_DIR` to create a template of the environment wrapper script
+  * [ ] Help to know which variables to set
+  * [ ] Update doc
+
+## Refactoring
+
+* [ ] Uniformize: `run` exp config checks (and `config` subcmd) are not the same as in `init` exp config checks (difference of tool coverage in visitors)
+* [ ] Bad pattern design: connector links experiment `ConfigWithArguments` with tool `Results` visitor, while the validity of the config depends on the visitor. The config should be directly linked to the visitor and check its validity during its construction.
 
 ## Logs
 
 * [ ] Add sbatch error status to sample error reasons (except error close env which can be a sample warning status file)
   * [ ] Add list of sample warnings in exp warning tsv file
 
-## Limitations
-
-* [ ] (To document) The environment wrapper logics are not robust for commands with inline comments (do not finish a command with a comment)
-
 ## Features
+
+### User interface
+
+* [ ] Add `--all` option for `init` subcommand
 
 ### Assembly Topic
 
@@ -42,6 +57,11 @@ Both run and result logics
 * [ ] RFPlasmid
 * [ ] MLPlasmids (R managment and species name)
 
+  >[!WARNING]
+  > It seems some tools (MLPlasmids) need the full name of the species, which thus must be specified in the `samples.tsv` file.
+  > Or instead Python should set the variable according the column header used (enables type verification).
+  > MLPlasmids is not the priority for this project.
+
 ### BINNING Topic
 
 * [ ] Format seeds results
@@ -54,3 +74,54 @@ Both run and result logics
 Help for Cedar `env_wrapper.sh` files in `tmp_vepain/features/env_wrappers_helps`
 
 Help for running scripts lines builders in `tmp_vepain/features/run_scripts`
+
+## In progress
+
+* [ ] Get stats of last running experiment
+  * [ ] In progress or not
+  * [ ] Number of success / error details etc.
+* [ ] Get DAG of experiments with summary on success and errors (mermaid diagramm)
+
+### Core
+
+#### Monitoring status
+
+* [x] Check experiment has been launched
+  * [x] check `date.txt` or `config.yaml` files exist: use instead `in_progress.yaml` file
+    * [x] #FIXME be sure to write these files at the really beggining of the exp launch
+* [x] Check experiment is running
+  * [x] Use `sacct`
+* [x] Check experiment is finished
+  * [x] No `sacct` or `sacct` returned finish state
+* [x] Check success of samples (in the `data` directory)
+  * With `done.txt`
+
+#### Already running experiment
+
+* [x] Check if the experiment is not already running ~~but with a different working directory~~
+  * [x] ~~transform `date.txt` -> `last_run.yaml` which would contain the date and the working directory~~
+
+### User-friendly
+
+* [x] Command `pbfbench topic-cmd tool-cmd run $EXP_NAME $DATA_DIR $WORK_DIR $CONFIG_YAML [--not-run] [--missing-inputs] [--error] [--success] [--all]` (by default, `--not-run`)
+  * Cumulative options `--not-run` `--missing-inputs` `--error` `--success`
+  * Option `--all` rerun all the samples (does not consider the above cumulative options)
+* [x] Be sure `run` also `init` when required
+* [ ] Command `pbfbench topic-cmd tool-cmd status $EXP_NAME $DATA_DIR [--report/-r=YAML]`
+  * [ ] `In progress` or `Finished`
+    * print done (success, errors), not done
+  * [ ] `No experiment of name... for topic... and tool...`
+  * [ ] API to read report YAML file
+* [x] Command `pbfbench topic-cmd tool-cmd resume $EXP_NAME $DATA_DIR`
+
+## To Fix
+
+* [x] #FIXME samples with missing inputs should not stay in the work dir
+  * Use of `WORK_DIR/.../$exp_name/sample_status.tsv` file
+* [x] #FIXME when resume a run, be sure to take into account the samples with missing inputs
+  * Use of `WORK_DIR/.../$exp_name/sample_status.tsv` file
+* [x] #FIXME if not in progress, and work/topic/tool/exp dir already exists, clean it.
+* [x] #DOCU what happens if sacct do not return a state for a sample (e.g. during a run resume)?
+  * Return error status
+* [x] #FIXME Remove samples in data when they rerun
+  * At the end of their resolve

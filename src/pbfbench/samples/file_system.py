@@ -1,14 +1,16 @@
-"""Sample input-output module."""
+"""Sample file system manager."""
 
 from __future__ import annotations
 
 import csv
+import shutil
 from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pbfbench.samples.items as smp_items
+import pbfbench.samples.slurm.file_system as smp_slurm_fs
 
 if TYPE_CHECKING:
     import _csv
@@ -18,23 +20,27 @@ if TYPE_CHECKING:
 class Manager:
     """Sample file system manager."""
 
-    SBATCH_STATS_PSV_NAME = Path("sbatch_stats.psv")
-
     MISSING_INPUTS_TSV_NAME = Path("missing_inputs.tsv")
     ERRORS_LOG_NAME = Path("errors.log")
     DONE_LOG_NAME = Path("done.log")
 
+    @classmethod
+    def from_exp_dir_and_sample_item(
+        cls,
+        exp_dir: Path,
+        sample_item: smp_items.Item,
+    ) -> Manager:
+        """Get sample experiment file system manager."""
+        return cls(exp_dir / sample_item.exp_sample_id())
+
     def __init__(self, sample_dir: Path) -> None:
         """Inititialize."""
         self.__sample_dir = sample_dir
+        self.__slurm_fs_manager = smp_slurm_fs.Manager(self.__sample_dir)
 
     def sample_dir(self) -> Path:
         """Get sample directory path."""
         return self.__sample_dir
-
-    def sbatch_stats_psv(self) -> Path:
-        """Get sbatch stats file path."""
-        return self.__sample_dir / self.SBATCH_STATS_PSV_NAME
 
     def missing_inputs_tsv(self) -> Path:
         """Get missing_inputs file path."""
@@ -48,11 +54,15 @@ class Manager:
         """Get done file."""
         return self.__sample_dir / self.DONE_LOG_NAME
 
+    def slurm_fs_manager(self) -> smp_slurm_fs.Manager:
+        """Get slurm file system manager."""
+        return self.__slurm_fs_manager
 
-def clean_error_logs(sample_fs_manager: Manager) -> None:
-    """Clean experiment logs."""
-    sample_fs_manager.missing_inputs_tsv().unlink(missing_ok=True)
-    sample_fs_manager.errors_log().unlink(missing_ok=True)
+
+def reset_sample_dir(manager: Manager) -> None:
+    """Reset sample directory."""
+    shutil.rmtree(manager.sample_dir(), ignore_errors=True)
+    manager.sample_dir().mkdir(parents=True, exist_ok=True)
 
 
 class TSVHeader(StrEnum):

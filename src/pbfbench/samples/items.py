@@ -32,3 +32,9 @@ def fmt_exp_sample_id(species_id: str, sample_id: str) -> str:
     * `sample_id` can be directly the sample ID or a variable name.
     """
     return f"{species_id}{EXP_SAMPLE_ID_SEP}{sample_id}"
+
+
+def exp_sample_id_to_item(exp_sample_id: str) -> Item:
+    """Get species-sample ID from experiment sample ID."""
+    species_id, sample_id = exp_sample_id.split(EXP_SAMPLE_ID_SEP)
+    return Item(species_id, sample_id)

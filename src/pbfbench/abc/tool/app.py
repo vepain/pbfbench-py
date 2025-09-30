@@ -1,81 +1,99 @@
 """Tool abstract application module."""
 
 # Due to typer usage:
-# ruff: noqa: TC001, TC003, UP007, FBT001, FBT002, PLR0913
+# ruff: noqa: TC003, FBT002, FBT001
 
 from __future__ import annotations
 
+import datetime
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated, final
+from typing import Annotated, TypeVar, cast, final
 
 import typer
 
 import pbfbench.abc.app as abc_app
-import pbfbench.abc.tool.config as abc_tool_config
-import pbfbench.abc.tool.visitor as abc_tool_visitor
-import pbfbench.abc.topic.visitor as abc_topic_visitor
 import pbfbench.experiment.checks as exp_checks
-import pbfbench.experiment.config as exp_cfg
 import pbfbench.experiment.file_system as exp_fs
+import pbfbench.experiment.in_progress as exp_in_progress
+import pbfbench.experiment.managers as exp_managers
+import pbfbench.experiment.resume as exp_resume
 import pbfbench.experiment.run as exp_run
+import pbfbench.samples.status as smp_status
 import pbfbench.slurm.config as slurm_cfg
 from pbfbench import root_logging
+
+from . import config as abc_tool_cfg
+from . import connector as abc_tool_connector
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def build_application_only_options(
-    connector: abc_tool_visitor.ConnectorOnlyOptions,
+def log_filename() -> Path:
+    """Get log filename."""
+    return Path(
+        "pbfbench_"
+        + datetime.datetime.now(tz=None).strftime("%Y-%m-%dT%H_%M_%S")  # noqa: DTZ005
+        + ".log",
+    )
+
+
+def build_application(
+    connector_type: type[
+        abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments
+    ],
 ) -> typer.Typer:
-    """Build tool application when tool has only options."""
-    tool_description = connector.description()
+    """Build tool application."""
+    tool_description = connector_type.description()
     app = typer.Typer(
         name=tool_description.cmd(),
         help=f"Subcommand for tool `{tool_description.name()}`",
         rich_markup_mode="rich",
     )
-    run_app = RunAppOnlyOptions(connector)
+    #
+    # Run app
+    #
+    run_app = Run(connector_type)
     app.command(name=run_app.NAME, help=run_app.help())(run_app.main)
-    config_app = ConfigAppOnlyOptions(connector)
+    #
+    # Resume app
+    #
+    resume_app = Resume(connector_type)
+    app.command(name=resume_app.NAME, help=resume_app.help())(resume_app.main)
+    #
+    # Config app
+    #
+    config_app: ConfigAppWithOptions
+    if connector_type is abc_tool_connector.OnlyOptions:
+        config_app = ConfigAppOnlyOptions(
+            cast("type[abc_tool_connector.OnlyOptions]", connector_type),
+        )
+    else:
+        config_app = ConfigAppWithArguments(
+            cast("type[abc_tool_connector.WithArguments]", connector_type),
+        )
     app.command(name=config_app.NAME, help=config_app.help())(config_app.main)
     # TODO add check when ready
     return app
-
-
-def build_application_with_arguments(
-    connector: abc_tool_visitor.ConnectorWithArguments,
-) -> typer.Typer:
-    """Build tool application when tool has arguments."""
-    tool_description = connector.description()
-    app = typer.Typer(
-        name=tool_description.cmd(),
-        help=f"Subcommand for tool `{tool_description.name()}`",
-        rich_markup_mode="rich",
-    )
-    run_app = RunAppWithArguments(connector)
-    app.command(name=run_app.NAME, help=run_app.help())(run_app.main)
-    config_app = ConfigAppWithArguments(connector)
-    app.command(name=config_app.NAME, help=config_app.help())(config_app.main)
-    # TODO add check when ready
-    return app
-
-
-def add_init(app: typer.Typer, init_app: InitAPP) -> None:
-    """Build topic init application."""
-    app.command(name=init_app.NAME, help=init_app.help())(init_app.main)
-
-
-# FIXME add init app: do not remove existing experiments because it adds only new files
 
 
 class Arguments:
-    """Tool aaplication arguments."""
+    """Tool application arguments."""
+
+    EXP_NAME = typer.Argument(
+        help="Name of the experiment",
+    )
 
     DATA_DIR = typer.Argument(
         help="Path to the data directory (preferably absolute)",
     )
+
+
+class RunArgs:
+    """Run command arguments."""
+
     WORK_DIR = typer.Argument(
         help="Path to the working directory (preferably absolute)",
     )
@@ -84,358 +102,397 @@ class Arguments:
     )
 
 
-class RunAppWithOptions[C: abc_tool_visitor.ConnectorWithOptions](ABC):
+class RunOptions:
+    """Run command options."""
+
+    __RUN_CATEGORY = "Samples to run"
+    __SLURM_OPTS = "SLURM configurations"
+
+    # FEATURE Implement run options
+    RUN_SUCCESS = typer.Option(
+        "--success/--skip-success",
+        help="Run the experiment for samples that succeeded",
+        rich_help_panel=__RUN_CATEGORY,
+    )
+    RUN_NOT_RUN = typer.Option(
+        "--not-run/--skip-not-run",
+        help="Run the experiment for samples that were not run (default)",
+        rich_help_panel=__RUN_CATEGORY,
+    )
+    RUN_MISSING_INPUTS = typer.Option(
+        "--missing-inputs/--skip-missing-inputs",
+        help="Run the experiment for samples that have missing inputs",
+        rich_help_panel=__RUN_CATEGORY,
+    )
+    RUN_ERROR = typer.Option(
+        "--error/--skip-error",
+        help="Run the experiment for failed samples",
+        rich_help_panel=__RUN_CATEGORY,
+    )
+    RUN_ALL = typer.Option(
+        "--all",
+        help="Run the experiment for all samples",
+        rich_help_panel=__RUN_CATEGORY,
+    )
+    SLURM_OPTIONS = typer.Option(
+        "--slurm-opts",
+        help="SLURM options",
+        rich_help_panel=__SLURM_OPTS,
+    )
+
+
+Connector = TypeVar(
+    "Connector",
+    bound=abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments,
+)
+
+
+class Run[
+    CType: type[abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments],
+]:
     """Run application."""
 
     NAME = abc_app.FinalCommands.RUN
 
-    def __init__(self, connector: C) -> None:
+    def __init__(
+        self,
+        tool_connector_type: CType,
+    ) -> None:
         """Initialize."""
-        self._connector = connector
+        self._tool_connector_type = tool_connector_type
 
-    def connector(self) -> C:
+    def connector_type(
+        self,
+    ) -> CType:
         """Get connector."""
-        return self._connector
+        return self._tool_connector_type
 
     def help(self) -> str:
         """Get help string."""
-        return f"Run {self._connector.description().name()} tool."
+        return (
+            "Run"
+            f" {self.connector_type().description().name()}"
+            f" ({self.connector_type().description().topic().name()}) tool."
+        )
 
-    @abstractmethod
-    def main(
+    def main(  # noqa: PLR0913
         self,
+        exp_name: Annotated[str, Arguments.EXP_NAME],
         data_dir: Annotated[Path, Arguments.DATA_DIR],
-        work_dir: Annotated[Path, Arguments.WORK_DIR],
-        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
+        work_dir: Annotated[Path, RunArgs.WORK_DIR],
+        exp_config_yaml: Annotated[Path, RunArgs.EXP_CONFIG_YAML],
+        run_success: Annotated[bool, RunOptions.RUN_SUCCESS] = False,
+        run_not_run: Annotated[bool, RunOptions.RUN_NOT_RUN] = True,
+        run_missing_inputs: Annotated[bool, RunOptions.RUN_MISSING_INPUTS] = False,
+        run_error: Annotated[bool, RunOptions.RUN_ERROR] = False,
+        run_all: Annotated[bool, RunOptions.RUN_ALL] = False,
+        slurm_opts: Annotated[str | None, RunOptions.SLURM_OPTIONS] = None,
         debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
     ) -> None:
         """Run tool."""
-        raise NotImplementedError
-
-
-@final
-class RunAppOnlyOptions(RunAppWithOptions[abc_tool_visitor.ConnectorOnlyOptions]):
-    """Run application."""
-
-    def main(
-        self,
-        data_dir: Annotated[Path, Arguments.DATA_DIR],
-        work_dir: Annotated[Path, Arguments.WORK_DIR],
-        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
-        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
-    ) -> None:
-        """Run tool."""
-        root_logging.init_logger(_LOGGER, "Run tool", debug)
-
-        (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
-            _check_experiment_success_only_options(
-                data_dir,
-                work_dir,
-                exp_config_yaml,
-                self._connector,
-            )
+        root_logging.init_logger(
+            _LOGGER,
+            (
+                f"Run experiment `{exp_name}`"
+                f" for tool {self.connector_type().description().name()}"
+                f" for topic {self.connector_type().description().topic().name()}"
+            ),
+            debug,
+            log_file=log_filename(),
         )
-        #
-        # Use the tool connector to run the experiment
-        #
-        run_stats = exp_run.run_experiment_on_samples_only_options(
-            data_exp_fs_manager,
-            work_exp_fs_manager,
-            exp_config,
-            self._connector,
+
+        exp_manager = self._successfull_check_before_start_or_errror(
+            exp_name,
+            data_dir,
+            work_dir,
+            exp_config_yaml,
         )
-        _LOGGER.info(
-            "Total number of samples: %d\n"
-            "* Number of already done samples: %d\n"
-            "* Number of running samples: %d\n"
-            "  * Number of successfully run samples: %d\n"
-            "  * Number of samples which exit with errors: %d\n",
-            run_stats.number_of_samples(),
-            run_stats.number_of_samples() - run_stats.number_of_samples_to_run(),
-            run_stats.number_of_samples_to_run(),
-            run_stats.number_of_samples_to_run() - len(run_stats.samples_with_errors()),
-            len(run_stats.samples_with_errors()),
+        self._error_if_experiment_is_running(exp_manager)
+
+        if slurm_opts is None:
+            slurm_opts = slurm_cfg.default_slurm_options(None)
+
+        exp_run.start_new_experiment(
+            exp_manager,
+            self._target_samples_to_run(
+                run_success,
+                run_not_run,
+                run_missing_inputs,
+                run_error,
+                run_all,
+            ),
+            slurm_opts,
         )
+        # FIXME put here end print stats function
         raise typer.Exit(0)
 
+    def _error_if_experiment_is_running(
+        self,
+        exp_manager: exp_managers.WithOptions,
+    ) -> None:
+        """Exit with error if the experiment is already running."""
+        match running_exp := exp_checks.experiment_is_running(
+            exp_manager.data_fs_manager(),
+        ):
+            case exp_checks.RunningExperiment():
+                _LOGGER.critical(
+                    "The experiment is already in progress\n"
+                    "* Experiment launched the: %s\n"
+                    "* Working directory root path: %s\n"
+                    "* SLURM job ID: %s\n"
+                    "* SACCT state: %s\n",
+                    running_exp.in_progress_data().date(),
+                    running_exp.in_progress_data().working_directory(),
+                    running_exp.in_progress_data().job_id(),
+                    running_exp.sacct_state(),
+                )
+                _LOGGER.info("You must use the `resume` command")
+                raise typer.Exit(1)
 
-@final
-class RunAppWithArguments(RunAppWithOptions[abc_tool_visitor.ConnectorWithArguments]):
-    """Run application."""
+    def _successfull_check_before_start_or_errror(
+        self,
+        exp_name: str,
+        data_dir: Path,
+        work_dir: Path,
+        tool_config_yaml: Path,
+    ) -> exp_managers.OnlyOptions | exp_managers.WithArguments:
+        #
+        # Resolve absolute paths
+        #
+        data_dir = data_dir.resolve()
+        work_dir = work_dir.resolve()
+        tool_config_yaml = tool_config_yaml.resolve()
+
+        match check_result := exp_checks.check_before_start(
+            exp_name,
+            data_dir,
+            work_dir,
+            tool_config_yaml,
+            self._tool_connector_type,
+        ):
+            case exp_checks.RunOK():
+                return check_result.exp_manager()
+            case exp_checks.RunErrors():
+                _LOGGER.critical("The experiment checkers found errors")
+                raise typer.Exit(1)
+
+    def _target_samples_to_run(
+        self,
+        run_success: bool,
+        run_not_run: bool,
+        run_missing_inputs: bool,
+        run_error: bool,
+        run_all: bool,
+    ) -> Callable[[smp_status.Status], bool]:
+        targets_to_run_filter: dict[smp_status.Status, bool] = dict.fromkeys(
+            (
+                smp_status.OK.OK,
+                smp_status.Error.NOT_RUN,
+                smp_status.Error.MISSING_INPUTS,
+                smp_status.Error.ERROR,
+            ),
+            run_all,
+        )
+        if not run_all:
+            targets_to_run_filter[smp_status.OK.OK] = run_success
+            targets_to_run_filter[smp_status.Error.NOT_RUN] = run_not_run
+            targets_to_run_filter[smp_status.Error.MISSING_INPUTS] = run_missing_inputs
+            targets_to_run_filter[smp_status.Error.ERROR] = run_error
+        return lambda status: targets_to_run_filter[status]
+
+
+class Resume[
+    CType: (type[abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments]),
+]:
+    """Resume application class."""
+
+    NAME = "resume"
+
+    def __init__(
+        self,
+        tool_connector_type: CType,
+    ) -> None:
+        """Initialize."""
+        self._tool_connector_type: CType = tool_connector_type
+
+    def connector_type(
+        self,
+    ) -> CType:
+        """Get connector."""
+        return self._tool_connector_type
 
     def main(
         self,
+        exp_name: Annotated[str, Arguments.EXP_NAME],
         data_dir: Annotated[Path, Arguments.DATA_DIR],
-        work_dir: Annotated[Path, Arguments.WORK_DIR],
-        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
         debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
     ) -> None:
-        """Run tool."""
-        root_logging.init_logger(_LOGGER, "Run tool", debug)
+        """Resume the tool jobs."""
+        root_logging.init_logger(
+            _LOGGER,
+            (
+                f"Resume experiment `{exp_name}`"
+                f" for tool {self.connector_type().description().name()}"
+                f" for topic {self.connector_type().description().topic().name()}"
+            ),
+            debug,
+            log_file=log_filename(),
+        )
 
-        (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
-            _check_experiment_success_with_arguments(
-                data_dir,
-                work_dir,
-                exp_config_yaml,
-                self._connector,
-            )
+        exp_manager, array_job_id = self._retrieve_exp_manager_array_job_id(
+            exp_name,
+            data_dir,
         )
-        #
-        # Use the tool connector to run the experiment
-        #
-        run_stats = exp_run.run_experiment_on_samples_with_arguments(
-            data_exp_fs_manager,
-            work_exp_fs_manager,
-            exp_config,
-            self._connector,
-        )
-        _number_of_running_samples = run_stats.number_of_samples_to_run() - len(
-            run_stats.samples_with_missing_inputs(),
-        )
-        _LOGGER.info(
-            "Total number of samples: %d\n"
-            "* Number of already done samples: %d\n"
-            "* Samples with missing inputs: %d\n"
-            "* Number of running samples: %d\n"
-            "  * Number of successfully run samples: %d\n"
-            "  * Number of samples which exit with errors: %d\n",
-            run_stats.number_of_samples(),
-            run_stats.number_of_samples() - run_stats.number_of_samples_to_run(),
-            len(run_stats.samples_with_missing_inputs()),
-            _number_of_running_samples,
-            _number_of_running_samples - len(run_stats.samples_with_errors()),
-            len(run_stats.samples_with_errors()),
-        )
+
+        exp_resume.resume(exp_manager, array_job_id)
+
         raise typer.Exit(0)
+
+    def _retrieve_exp_manager_array_job_id(
+        self,
+        exp_name: str,
+        data_dir: Path,
+    ) -> tuple[exp_managers.OnlyOptions | exp_managers.WithArguments, str]:
+        #
+        # Resolve absolute paths
+        #
+        data_fs_manager = exp_fs.DataManager(
+            data_dir.resolve(),
+            self.connector_type().description(),
+            exp_name,
+        )
+        if not data_fs_manager.in_progress_yaml().exists():
+            _LOGGER.critical(
+                "The experiment `%s` is not in progress for the data directory `%s`",
+                exp_name,
+                data_fs_manager.root_dir(),
+            )
+            raise typer.Exit(1)
+        data_in_progress = exp_in_progress.InDataDirectory.from_yaml(
+            data_fs_manager.in_progress_yaml(),
+        )
+        work_fs_manager = exp_fs.WorkManager(
+            data_in_progress.working_directory(),
+            self.connector_type().description(),
+            exp_name,
+        )
+        connector = exp_checks.instantiate_connector(
+            self.connector_type(),
+            data_fs_manager.config_yaml(),
+        )
+        match connector:
+            case abc_tool_connector.OnlyOptions():
+                return exp_managers.OnlyOptions(
+                    exp_name,
+                    data_fs_manager,
+                    work_fs_manager,
+                    connector,
+                ), data_in_progress.job_id()
+            case abc_tool_connector.WithArguments():
+                return exp_managers.WithArguments(
+                    exp_name,
+                    data_fs_manager,
+                    work_fs_manager,
+                    connector,
+                ), data_in_progress.job_id()
+            case exp_checks.RunErrors():
+                _LOGGER.critical("Cannot instantiate connector")
+                raise typer.Exit(1)
+
+    def help(self) -> str:
+        """Get help string."""
+        return (
+            "Complete pbfbench jobs for"
+            f" {self.connector_type().description().name()}"
+            f" ({self.connector_type().description().topic().name()}) tool."
+        )
 
 
 class ConfigAppWithOptions[
-    Connector: abc_tool_visitor.ConnectorWithOptions,
-    ToolConfig: abc_tool_config.ConfigWithOptions,
+    Connector: abc_tool_connector.WithOptions,
+    Config: abc_tool_cfg.WithOptions,
 ](ABC):
     """Config application base class."""
 
     NAME = "config"
 
-    def __init__(self, connector: Connector) -> None:
+    def __init__(self, connector_type: type[Connector]) -> None:
         """Initialize."""
-        self._connector = connector
+        self._connector_type = connector_type
 
-    def connector(self) -> Connector:
+    def connector_type(self) -> type[Connector]:
         """Get connector."""
-        return self._connector
+        return self._connector_type
 
     def help(self) -> str:
         """Get help string."""
         return (
-            "Get draft " + self._connector.description().name() + " tool configuration."
+            "Get draft "
+            + self._connector_type.description().name()
+            + " tool configuration."
         )
 
     def main(
         self,
-        config_exp_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
+        config_exp_yaml: Annotated[Path, RunArgs.EXP_CONFIG_YAML],
         debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
     ) -> None:
         """Get draft config."""
-        root_logging.init_logger(_LOGGER, "Tool config helper", debug)
-        _cfg_type: type[exp_cfg.ConfigWithArguments] = self._connector.config_type()
-
-        config = _cfg_type(
-            "$experiment_name",
-            self._create_tool_cfg(_cfg_type.tool_cfg_type()),
-            self._create_slurm_cfg(),
+        root_logging.init_logger(
+            _LOGGER,
+            "Generating a configuration file draft"
+            f" for topic: {self._connector_type.description().topic().name()}"
+            f" tool: {self._connector_type.description().name()}",
+            debug,
         )
+
+        config = self._fake_config()
 
         config.to_yaml(config_exp_yaml)
         _LOGGER.info("Tool configuration written to %s", config_exp_yaml)
 
     @abstractmethod
-    def _create_tool_cfg(self, tool_cfg_type: type[ToolConfig]) -> ToolConfig:
-        """Create tool config."""
+    def _fake_config(self) -> Config:
+        """Create fake tool config."""
         raise NotImplementedError
 
-    def _create_options(self) -> abc_tool_config.StringOpts:
-        return abc_tool_config.StringOpts(
+    def _fake_options_config(self) -> abc_tool_cfg.StringOpts:
+        return abc_tool_cfg.StringOpts(
             ("--options1=value1", "--options2=value2"),
-        )
-
-    def _create_slurm_cfg(self) -> slurm_cfg.Config:
-        return slurm_cfg.Config(
-            [
-                "--mem=4096",
-                "--cpus-per-task=4",
-                "--time=1:00:00",
-                "--account=my-account_name",
-            ],
         )
 
 
 @final
 class ConfigAppOnlyOptions(
-    ConfigAppWithOptions[
-        abc_tool_visitor.ConnectorWithOptions,
-        abc_tool_config.ConfigWithOptions,
-    ],
+    ConfigAppWithOptions[abc_tool_connector.OnlyOptions, abc_tool_cfg.OnlyOptions],
 ):
-    """Config application for tools with options."""
+    """Config application for tools with only options."""
 
-    def _create_tool_cfg(
-        self,
-        tool_cfg_type: type[abc_tool_config.ConfigWithOptions],
-    ) -> abc_tool_config.ConfigWithOptions:
-        return tool_cfg_type(self._create_options())
+    def _fake_config(self) -> abc_tool_cfg.OnlyOptions:
+        return self._connector_type.config_type()(self._fake_options_config())
 
 
 @final
 class ConfigAppWithArguments(
-    ConfigAppWithOptions[
-        abc_tool_visitor.ConnectorWithArguments,
-        abc_tool_config.ConfigWithArguments,
-    ],
+    ConfigAppWithOptions[abc_tool_connector.WithArguments, abc_tool_cfg.WithArguments],
 ):
     """Config application for tools with arguments."""
 
-    def _create_tool_cfg(
-        self,
-        tool_cfg_type: type[abc_tool_config.ConfigWithArguments],
-    ) -> abc_tool_config.ConfigWithArguments:
-        _tool_args_type: type[abc_tool_config.Arguments] = (
-            tool_cfg_type.arguments_type()
+    def _fake_config(self) -> abc_tool_cfg.WithArguments:
+        return self._connector_type.config_type()(
+            self._fake_arguments_config(),
+            self._fake_options_config(),
         )
-        return tool_cfg_type(self._create_args(_tool_args_type), self._create_options())
 
-    def _create_args(
-        self,
-        tool_args_type: type[abc_tool_config.Arguments],
-    ) -> abc_tool_config.Arguments:
+    def _fake_arguments_config(self) -> abc_tool_cfg.Arguments:
         """Create arguments."""
-        args: dict[abc_tool_config.Names, abc_tool_config.Arg] = {}
-        for arg_name, arg_path in self._connector.arg_names_and_paths():
-            topic_tools: type[abc_topic_visitor.Tools] = arg_path.topic_tools()
-            tool_choices = [
-                tool.to_description().name()
-                for tool in topic_tools
-                if arg_path.check_tool_implement_result(tool)
-            ]
-            tool_choice_str = " | ".join(tool_choices)
-            args[arg_name] = abc_tool_config.Arg(
+        args: dict[str, abc_tool_cfg.Arg] = {}
+        for arg_type in self._connector_type.arguments_type().arg_types():
+            tool_choice_str = " | ".join(map(str, arg_type.valid_tools()))
+            if not tool_choice_str:
+                tool_choice_str = "ERROR: no tool implements this argument"
+            args[str(arg_type.name())] = abc_tool_cfg.Arg(
                 tool_choice_str,
                 "$input_experiment_name",
             )
-        return tool_args_type(args)
-
-
-class InitAPP(ABC):
-    """Init application."""
-
-    NAME = abc_app.FinalCommands.INIT
-
-    def __init__(
-        self,
-        connector: abc_tool_visitor.ConnectorWithArguments,
-    ) -> None:
-        """Initialize."""
-        self.__connector = connector
-
-    def connector(self) -> abc_tool_visitor.ConnectorWithArguments:
-        """Get connector."""
-        return self.__connector
-
-    def help(self) -> str:
-        """Get help string."""
-        return f"Initialize inputs for {self.__connector.description().name()} tool."
-
-    def main(
-        self,
-        data_dir: Annotated[Path, Arguments.DATA_DIR],
-        work_dir: Annotated[Path, Arguments.WORK_DIR],
-        exp_config_yaml: Annotated[Path, Arguments.EXP_CONFIG_YAML],
-        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
-    ) -> None:
-        """Init tool."""
-        root_logging.init_logger(_LOGGER, "Initialize inputs for the tool", debug)
-
-        (data_exp_fs_manager, work_exp_fs_manager, exp_config) = (
-            _check_experiment_success_with_arguments(
-                data_dir,
-                work_dir,
-                exp_config_yaml,
-                self.__connector,
-            )
-        )
-
-        # TODO copy config in data dir (already created it seems)
-        # REFACTOR generalize with runApp
-
-        self._init(data_exp_fs_manager, work_exp_fs_manager, exp_config)
-
-    @abstractmethod
-    def _init(
-        self,
-        data_exp_fs_manager: exp_fs.DataManager,
-        work_exp_fs_manager: exp_fs.WorkManager,
-        config: exp_cfg.ConfigWithArguments,
-    ) -> None:
-        """Init tool."""
-        raise NotImplementedError
-
-
-def _check_experiment_success_only_options(
-    data_dir: Path,
-    work_dir: Path,
-    exp_config_yaml: Path,
-    tool_connector: abc_tool_visitor.ConnectorOnlyOptions,
-) -> tuple[exp_fs.DataManager, exp_fs.WorkManager, exp_cfg.ConfigOnlyOptions]:
-    #
-    # Resolve absolute paths
-    #
-    data_dir = data_dir.resolve()
-    work_dir = work_dir.resolve()
-    exp_config_yaml = exp_config_yaml.resolve()
-
-    match check_result := exp_checks.check_experiment_with_only_options(
-        data_dir,
-        work_dir,
-        exp_config_yaml,
-        tool_connector,
-    ):
-        case exp_checks.OKOnlyOptions():
-            return (
-                check_result.data_exp_fs_manager(),
-                check_result.work_exp_fs_manager(),
-                check_result.exp_config(),
-            )
-        case exp_checks.ErrorOnlyOptions():
-            _LOGGER.critical("The experiment checkers found errors")
-            raise typer.Exit(1)
-
-
-def _check_experiment_success_with_arguments(
-    data_dir: Path,
-    work_dir: Path,
-    exp_config_yaml: Path,
-    tool_connector: abc_tool_visitor.ConnectorWithArguments,
-) -> tuple[exp_fs.DataManager, exp_fs.WorkManager, exp_cfg.ConfigWithArguments]:
-    #
-    # Resolve absolute paths
-    #
-    data_dir = data_dir.resolve()
-    work_dir = work_dir.resolve()
-    exp_config_yaml = exp_config_yaml.resolve()
-
-    match check_result := exp_checks.check_experiment_with_arguments(
-        data_dir,
-        work_dir,
-        exp_config_yaml,
-        tool_connector,
-    ):
-        case exp_checks.OKWithArguments():
-            return (
-                check_result.data_exp_fs_manager(),
-                check_result.work_exp_fs_manager(),
-                check_result.exp_config(),
-            )
-        case exp_checks.ErrorsWithArguments():
-            _LOGGER.critical("The experiment checkers found errors")
-            raise typer.Exit(1)
+        return abc_tool_cfg.Arguments(args)

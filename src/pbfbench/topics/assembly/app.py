@@ -1,7 +1,6 @@
 """Concrete topic application module."""
 
 # Due to typer usage:
-# ruff: noqa: TC001, TC003, UP007, FBT001, FBT002, PLR0913
 
 from __future__ import annotations
 

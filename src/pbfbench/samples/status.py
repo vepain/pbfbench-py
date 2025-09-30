@@ -2,41 +2,75 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from enum import StrEnum
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import pbfbench.samples.file_system as smp_fs
+import pbfbench.samples.file_system as smp_fs
+from pbfbench.slurm import sacct
 
 
-class OKStatus(StrEnum):
+class OK(StrEnum):
     """Sample experiment OK status."""
 
     OK = "ok"
 
 
-class ErrorStatus(StrEnum):
+class Error(StrEnum):
     """Sample experiment error status."""
 
     # The sample experiment has never been run or exit before log
     NOT_RUN = "not_run"
     # One of the input is missing
     MISSING_INPUTS = "missing_inputs"
-    # An error occur during the sample experiment run
+    # An error occur during the sample experiment run or sacct state is unknown
     ERROR = "error"
 
 
-type Status = OKStatus | ErrorStatus
+type Status = OK | Error
+
+
+def status_from_str(status_str: str) -> Status:
+    """Get sample experiment status from string."""
+    with suppress(ValueError):
+        return Error(status_str)
+    return OK(status_str)
 
 
 def get_status(sample_fs_manager: smp_fs.Manager) -> Status:
     """Get sample experiment status."""
     if not sample_fs_manager.sample_dir().exists():
-        return ErrorStatus.NOT_RUN
+        return Error.NOT_RUN
     if sample_fs_manager.missing_inputs_tsv().exists():
-        return ErrorStatus.MISSING_INPUTS
+        return Error.MISSING_INPUTS
     if sample_fs_manager.errors_log().exists():
-        return ErrorStatus.ERROR
+        return Error.ERROR
     if sample_fs_manager.done_log().exists():
-        return OKStatus.OK
-    return ErrorStatus.NOT_RUN
+        return OK.OK
+    return Error.NOT_RUN
+
+
+def from_sacct_state(status: sacct.State) -> Status:
+    """Get sample experiment status from sacct state."""
+    match status:
+        case (
+            sacct.State.BOOT_FAIL
+            | sacct.State.CANCELLED
+            | sacct.State.DEADLINE
+            | sacct.State.FAILED
+            | sacct.State.NODE_FAIL
+            | sacct.State.OUT_OF_MEMORY
+            | sacct.State.REVOKED
+            | sacct.State.TIMEOUT
+        ):
+            return Error.ERROR
+        case sacct.State.COMPLETED:
+            return OK.OK
+        case (
+            sacct.State.PENDING
+            | sacct.State.PREEMPTED
+            | sacct.State.RUNNING
+            | sacct.State.REQUEUED
+            | sacct.State.RESIZING
+            | sacct.State.SUSPENDED
+        ):
+            return Error.NOT_RUN
