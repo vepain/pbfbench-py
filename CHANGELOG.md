@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.5.1] - 2025-09-30
+
+### Fixed
+
+* Wrong biopython version constraint
+
 ## [0.5.0] - 2025-09-30
 
 ### Added
