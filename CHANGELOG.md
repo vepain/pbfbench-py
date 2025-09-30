@@ -24,11 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
-## [Unreleased] - yyyy-mm-dd
+## [0.5.0] - 2025-09-30
 
 ### Added
 
-* When `init` subcommand exists, add it to `run` subcommand process (with option to not initialize the experiment)
+* `resume` command
 
 ### Changed
 
