@@ -6,12 +6,12 @@
 
 * [x] Move experiment name from the configuration to the command lines
   * [x] Update the doc
-  * [x] Be carefull of comparing properly two tool configurations
+  * [x] Be careful of comparing properly two tool configurations
 * [x] Separate experiment config from SLURM configuration
   * [x] Change the doc
-  * [x] Be carefull of comparing properly two tool configurations
+  * [x] Be careful of comparing properly two tool configurations
 * [x] Refactoring tool config to tool connector (merge of config and connector)
-* [ ] Fix run/format/resume stages
+* [x] Fix run/format/resume stages
 * [ ] Verify data dire and work dir are not the same!
   * [ ] Update doc
 
@@ -83,33 +83,33 @@ Help for running scripts lines builders in `tmp_vepain/features/run_scripts`
 
 #### Monitoring status
 
-* [ ] Check experiment has been launched
-  * [ ] check `date.txt` or `config.yaml` files exist
-    * [ ] #FIXME be sure to write these files at the really beggining of the exp launch
-* [ ] Check experiment is running
-  * [ ] Use `sacct`
-* [ ] Check experiment is finished
-  * [ ] No `sacct` or `sacct` returned finish state
-* [ ] Check success of samples (in the `data` directory)
+* [x] Check experiment has been launched
+  * [x] check `date.txt` or `config.yaml` files exist: use instead `in_progress.yaml` file
+    * [x] #FIXME be sure to write these files at the really beggining of the exp launch
+* [x] Check experiment is running
+  * [x] Use `sacct`
+* [x] Check experiment is finished
+  * [x] No `sacct` or `sacct` returned finish state
+* [x] Check success of samples (in the `data` directory)
   * With `done.txt`
 
 #### Already running experiment
 
-* [ ] Check if the experiment is not already running but with a different working directory
-  * [ ] transform `date.txt` -> `last_run.yaml` which would contain the date and the working directory
+* [x] Check if the experiment is not already running ~~but with a different working directory~~
+  * [x] ~~transform `date.txt` -> `last_run.yaml` which would contain the date and the working directory~~
 
 ### User-friendly
 
-* [ ] Command `pbfbench topic-cmd tool-cmd run $EXP_NAME $DATA_DIR $WORK_DIR $CONFIG_YAML [--not-run] [--missing-inputs] [--error] [--success] [--all]` (by default, `--not-run`)
+* [x] Command `pbfbench topic-cmd tool-cmd run $EXP_NAME $DATA_DIR $WORK_DIR $CONFIG_YAML [--not-run] [--missing-inputs] [--error] [--success] [--all]` (by default, `--not-run`)
   * Cumulative options `--not-run` `--missing-inputs` `--error` `--success`
   * Option `--all` rerun all the samples (does not consider the above cumulative options)
-* [ ] Be sure `run` also `init` when required
+* [x] Be sure `run` also `init` when required
 * [ ] Command `pbfbench topic-cmd tool-cmd status $EXP_NAME $DATA_DIR [--report/-r=YAML]`
   * [ ] `In progress` or `Finished`
     * print done (success, errors), not done
   * [ ] `No experiment of name... for topic... and tool...`
   * [ ] API to read report YAML file
-* [ ] Command `pbfbench topic-cmd tool-cmd resume $EXP_NAME $DATA_DIR`
+* [x] Command `pbfbench topic-cmd tool-cmd resume $EXP_NAME $DATA_DIR`
 
 ## To Fix
 

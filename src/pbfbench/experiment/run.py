@@ -17,7 +17,7 @@ import pbfbench.samples.status as smp_status
 from . import checks as exp_checks
 from . import errors as exp_errors
 from . import file_system as exp_fs
-from . import history, in_progress, monitors
+from . import history, in_progress, monitors, resolve
 from . import iter as exp_iter
 from . import managers as exp_managers
 from .bash import create as exp_bash_create
@@ -73,13 +73,10 @@ def start_new_experiment(
     )
 
     exp_slurm_run.run(exp_manager, sh_manager)
-    in_progress.write_in_progress_metadata(exp_manager, sh_manager)
 
-    # exp_complete.complete_experiment(
-    #     samples_to_run,
-    #     exp_manager.data_fs_manager(),
-    #     exp_manager.work_fs_manager(),
-    # )
+    job_id = in_progress.write_in_progress_metadata(exp_manager, sh_manager)
+
+    resolve.resolve_running_samples(exp_manager, samples_to_run, job_id)
 
 
 def _reset_experiment_working_directory(exp_manager: exp_managers.WithOptions) -> None:
@@ -261,6 +258,3 @@ def _filter_missing_inputs[N: abc_tool_connector.Names](
         )
 
     return samples_without_missing_inputs
-
-
-# FIXME WORK IN PROGRESS ---

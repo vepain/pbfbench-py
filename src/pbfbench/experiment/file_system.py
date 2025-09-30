@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
 from pathlib import Path
 from typing import final
 
@@ -10,7 +9,6 @@ import pbfbench.abc.tool.description as abc_tool_desc
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.items as smp_items
 
-from . import in_progress as exp_in_progress
 from .bash import file_system as exp_bash_fs
 from .slurm import file_system as exp_slurm_fs
 
@@ -22,12 +20,6 @@ class ManagerBase:
     IN_PROGRESS_YAML_NAME = Path("in_progress.yaml")
 
     SCRIPT_DIR_NAME = Path("scripts")
-
-    @classmethod
-    @abstractmethod
-    def in_progress_yaml_type(cls) -> type[exp_in_progress.Base]:
-        """Get in progress metadata type."""
-        raise NotImplementedError
 
     def __init__(
         self,
@@ -105,11 +97,6 @@ class DataManager(ManagerBase):
     ERRORS_TSV_NAME = Path("errors.tsv")
     HISTORY_YAML_NAME = Path("history.yaml")
 
-    @classmethod
-    def in_progress_yaml_type(cls) -> type[exp_in_progress.InDataDirectory]:
-        """Get in progress metadata type."""
-        return exp_in_progress.InDataDirectory
-
     def samples_tsv(self) -> Path:
         """Get samples TSV file."""
         return self.root_dir() / self.SAMPLES_TSV_NAME
@@ -135,11 +122,6 @@ class WorkManager(ManagerBase):
     RESOLVED_SAMPLES_TSV_NAME = Path("resolved_samples.tsv")
 
     TMP_SLURM_LOG_DIR_NAME = Path("logs")
-
-    @classmethod
-    def in_progress_yaml_type(cls) -> type[exp_in_progress.InWorkingDirectory]:
-        """Get in progress metadata type."""
-        return exp_in_progress.InWorkingDirectory
 
     def __init__(
         self,

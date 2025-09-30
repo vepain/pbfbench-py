@@ -16,7 +16,10 @@ import typer
 
 import pbfbench.abc.app as abc_app
 import pbfbench.experiment.checks as exp_checks
+import pbfbench.experiment.file_system as exp_fs
+import pbfbench.experiment.in_progress as exp_in_progress
 import pbfbench.experiment.managers as exp_managers
+import pbfbench.experiment.resume as exp_resume
 import pbfbench.experiment.run as exp_run
 import pbfbench.samples.status as smp_status
 import pbfbench.slurm.config as slurm_cfg
@@ -50,12 +53,17 @@ def build_application(
         rich_markup_mode="rich",
     )
     #
-    # Run apps
+    # Run app
     #
     run_app = Run(connector_type)
     app.command(name=run_app.NAME, help=run_app.help())(run_app.main)
     #
-    # Config apps
+    # Resume app
+    #
+    resume_app = Resume(connector_type)
+    app.command(name=resume_app.NAME, help=resume_app.help())(resume_app.main)
+    #
+    # Config app
     #
     config_app: ConfigAppWithOptions
     if connector_type is abc_tool_connector.OnlyOptions:
@@ -155,7 +163,11 @@ class Run[
 
     def help(self) -> str:
         """Get help string."""
-        return f"Run {self._tool_connector_type.description().name()} tool."
+        return (
+            "Run"
+            f" {self.connector_type().description().name()}"
+            f" ({self.connector_type().description().topic().name()}) tool."
+        )
 
     def main(  # noqa: PLR0913
         self,
@@ -172,7 +184,16 @@ class Run[
         debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
     ) -> None:
         """Run tool."""
-        root_logging.init_logger(_LOGGER, "Run tool", debug, log_file=log_filename())
+        root_logging.init_logger(
+            _LOGGER,
+            (
+                f"Run experiment `{exp_name}`"
+                f" for tool {self.connector_type().description().name()}"
+                f" for topic {self.connector_type().description().topic().name()}"
+            ),
+            debug,
+            log_file=log_filename(),
+        )
 
         exp_manager = self._successfull_check_before_start_or_errror(
             exp_name,
@@ -274,59 +295,110 @@ class Run[
         return lambda status: targets_to_run_filter[status]
 
 
-class ResumeOpts:
-    """Resume command options."""
-
-    # FEATURE add resume options
-    EXP_NAME = typer.Option(
-        "--name",
-        "-n",
-        help="Name of the experiment to resume.",
-    )
-    CONFIG_YAML = typer.Option(
-        "--config",
-        "-c",
-        help="Path to the experiment configuration YAML file.",
-    )
-
-
-class ResumeApp[C: abc_tool_connector.WithOptions]:
-    """Resume application base class."""
+class Resume[
+    CType: (type[abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments]),
+]:
+    """Resume application class."""
 
     NAME = "resume"
 
-    def __init__(self, connector: C) -> None:
+    def __init__(
+        self,
+        tool_connector_type: CType,
+    ) -> None:
         """Initialize."""
-        self._connector = connector
+        self._tool_connector_type: CType = tool_connector_type
+
+    def connector_type(
+        self,
+    ) -> CType:
+        """Get connector."""
+        return self._tool_connector_type
 
     def main(
         self,
+        exp_name: Annotated[str, Arguments.EXP_NAME],
         data_dir: Annotated[Path, Arguments.DATA_DIR],
-        exp_name: Annotated[str | None, ResumeOpts.EXP_NAME] = None,
-        config_yaml: Annotated[Path | None, ResumeOpts.CONFIG_YAML] = None,
         debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
     ) -> None:
         """Resume the tool jobs."""
         root_logging.init_logger(
             _LOGGER,
-            "Resume tool jobs",
+            (
+                f"Resume experiment `{exp_name}`"
+                f" for tool {self.connector_type().description().name()}"
+                f" for topic {self.connector_type().description().topic().name()}"
+            ),
             debug,
             log_file=log_filename(),
         )
 
-        # TODO continue here
+        exp_manager, array_job_id = self._retrieve_exp_manager_array_job_id(
+            exp_name,
+            data_dir,
+        )
 
-        # exp_checks.compare_config_vs_config_in_data(
-        #     work_exp_fs_manager,
-        #     exp_config,
-        # )
+        exp_resume.resume(exp_manager, array_job_id)
 
         raise typer.Exit(0)
+
+    def _retrieve_exp_manager_array_job_id(
+        self,
+        exp_name: str,
+        data_dir: Path,
+    ) -> tuple[exp_managers.OnlyOptions | exp_managers.WithArguments, str]:
+        #
+        # Resolve absolute paths
+        #
+        data_fs_manager = exp_fs.DataManager(
+            data_dir.resolve(),
+            self.connector_type().description(),
+            exp_name,
+        )
+        if not data_fs_manager.in_progress_yaml().exists():
+            _LOGGER.critical(
+                "The experiment `%s` is not in progress for the data directory `%s`",
+                exp_name,
+                data_fs_manager.root_dir(),
+            )
+            raise typer.Exit(1)
+        data_in_progress = exp_in_progress.InDataDirectory.from_yaml(
+            data_fs_manager.in_progress_yaml(),
+        )
+        work_fs_manager = exp_fs.WorkManager(
+            data_in_progress.working_directory(),
+            self.connector_type().description(),
+            exp_name,
+        )
+        connector = exp_checks.instantiate_connector(
+            self.connector_type(),
+            data_fs_manager.config_yaml(),
+        )
+        match connector:
+            case abc_tool_connector.OnlyOptions():
+                return exp_managers.OnlyOptions(
+                    exp_name,
+                    data_fs_manager,
+                    work_fs_manager,
+                    connector,
+                ), data_in_progress.job_id()
+            case abc_tool_connector.WithArguments():
+                return exp_managers.WithArguments(
+                    exp_name,
+                    data_fs_manager,
+                    work_fs_manager,
+                    connector,
+                ), data_in_progress.job_id()
+            case exp_checks.RunErrors():
+                _LOGGER.critical("Cannot instantiate connector")
+                raise typer.Exit(1)
 
     def help(self) -> str:
         """Get help string."""
         return (
-            f"Complete pbfbench jobs for {self._connector.description().name()} tool."
+            "Complete pbfbench jobs for"
+            f" {self.connector_type().description().name()}"
+            f" ({self.connector_type().description().topic().name()}) tool."
         )
 
 

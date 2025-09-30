@@ -55,7 +55,7 @@ def check_before_start(
         case PermissionErrors():
             return RunErrors.NO_PERMISSION
 
-    connector_or_error = _instantiate_connector(tool_connector_type, tool_config_yaml)
+    connector_or_error = instantiate_connector(tool_connector_type, tool_config_yaml)
 
     match connector_or_error:
         case RunErrors():
@@ -162,12 +162,14 @@ def _check_read_write_access_work(work_dir: Path) -> PermissionStatus:
     return PermissionOK.READ_WRITE
 
 
-def _instantiate_connector(
+# REFACTOR common function so use common ERROR
+def instantiate_connector(
     tool_connector_type: type[
         abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments
     ],
     tool_config_yaml: Path,
 ) -> abc_tool_connector.OnlyOptions | abc_tool_connector.WithArguments | RunErrors:
+    """Instantiate connector."""
     if tool_connector_type is abc_tool_connector.OnlyOptions:
         tool_connector_type = cast(
             "type[abc_tool_connector.OnlyOptions]",

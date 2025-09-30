@@ -70,10 +70,10 @@ When the `run` subcommand is called:
 7. Write the in-progress experiment metadata files:
     * `DATA_DIR/.../EXP_NAME/in_progress.yaml`
     * `WORK_DIR/.../EXP_NAME/in_progress.yaml`
-8. [Resolve the sample jobs](#resolve-the-sample-jobs)  #TODO [2025-09-26 16:35:58] CONTINUE HERE
+8. [Resolve the sample jobs](#resolve-the-sample-jobs)
 
 ## Resume the experiment
-
+<!-- TODO[2025-09-30 11:38:08] CONTINUE HERE -->
 1. Check if the experiment is running (by checking existence of the `DATA_DIR/.../EXP_NAME/in_progress.yaml` file)
     * No: exit with warning (message to say already resolved)
 2. Get the list of unresolved samples (thanks to the `unresolved_samples.tsv` file)
@@ -96,30 +96,33 @@ In parallel, `pbfbench` loops on the list of unresolved samples until this list 
     * `sacct` does not return a state:
         * If closing environment is a success (file `%A_%a_close_env.ok` exists): return success status
         * Else: return error status
-2. If success or error:
-    * [Move to the data sample directory and clean the working sample directory](#resolve-the-sample)
+2. [Manage the new resolved samples](#manage-the-new-resolved-samples)
 3. Loop until all samples are resolved, then [clean the working experiment directory](#clean-the-working-experiment-directory)
 
-### Resolve the sample
+### Manage the new resolved samples
 
 Once the sample job finishes, sample status files are created and the corresponding slurm log files are moved to the sample directory and renamed:
 
-1. Create `SAMPLE_DIRNAME/slurm/job_state.{SACCT_STATE}` file (can be empty depending on `sacct` output)
-2. Create `SAMPLE_DIRNAME/slurm/stats.psv` file (if `sacct` returns a state) <!-- FIXME verify stats.psv behaviour if no sacct return  -->
-3. Move `logs/%A_%a_stdout.log` -> `SAMPLE_DIRNAME/slurm/stdout.log`
-4. Move `logs/%A_%a_stderr.log` -> `SAMPLE_DIRNAME/slurm/stderr.log`
-5. Transform `logs/%A_%a_init_env.{ok|error}`, `logs/%A_%a_command.{ok|error}` and `logs/%A_%a_close_env.{ok|error}` -> `SAMPLE_DIRNAME/slurm/command_steps_status.yaml`
-6. Create `SAMPLE_DIRNAME/done.log` or `SAMPLE_DIRNAME/errors.log` files according to the status determined by `sacct` or by the command steps status if `sacct` did not return any state for the job
-7. Update the sample status in the `unresolved_samples.tsv` file
-8. Remove `DATA_DIR/.../SAMPLE_DIRNAME` (if exists) and move `WORK_DIR/.../SAMPLE_DIRNAME` to `DATA_DIR/.../SAMPLE_DIRNAME`.
+1. Manage specificities of OK resolved samples:
+    1. Copy the content of `logs/%A_%a_stdout.log` to `SAMPLE_DIRNAME/done.log`
+2. Manage specificities of error resolved samples:
+    1. Copy the content of `logs/%A_%a_stderr.log` to `SAMPLE_DIRNAME/errors.log`
+    2. Add their line to the `errors.tsv` file
+3. For all the resolved samples:
+    1. Create `SAMPLE_DIRNAME/slurm/job_state.{SACCT_STATE}` file (exists only if there is a `sacct`)
+    2. Create `SAMPLE_DIRNAME/slurm/stats.psv` file (if `sacct` returns a state) <!-- DOCU can only contain the header if job ID not found by sacct  -->
+    3. Copy the content of `logs/%A_%a_stdout.log` to `SAMPLE_DIRNAME/slurm/stdout.log`
+    4. Copy the content of `logs/%A_%a_stderr.log` to `SAMPLE_DIRNAME/slurm/stderr.log`
+    5. Transform `logs/%A_%a_init_env.{ok|error}`, `logs/%A_%a_command.{ok|error}` and `logs/%A_%a_close_env.{ok|error}` -> `SAMPLE_DIRNAME/slurm/command_steps_status.yaml`
+    6. Remove `DATA_DIR/.../SAMPLE_DIRNAME` (if exists) and move `WORK_DIR/.../SAMPLE_DIRNAME` to `DATA_DIR/.../SAMPLE_DIRNAME`.
+    7. Remove the resolved sample from `unresolved_samples.tsv` file and add it with its status in the `resolved_samples.tsv` file
 
 ### Clean the working experiment directory
 
 When all the samples finish:
 
 1. Add the new complete experiment entry to `DATA_DIR/.../EXP_NAME/history.yaml`
-2. Remove the `DATA_DIR/.../EXP_NAME/in_progress.yaml` file
-3. Remove the whole `WORK_DIR/.../EXP_NAME` directory
+2. Remove the whole `WORK_DIR/.../EXP_NAME` directory and try to remove empty parent directories
 
 ## File formats
 

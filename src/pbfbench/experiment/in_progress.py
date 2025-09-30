@@ -103,7 +103,7 @@ def get_today_format_string() -> str:
 def write_in_progress_metadata(
     exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
     sh_manager: bash_manager.Manager,
-) -> None:
+) -> str:
     """Write in progress metadata."""
     job_id = _get_array_job_id(exp_manager.work_fs_manager())
 
@@ -120,6 +120,8 @@ def write_in_progress_metadata(
 
     data_in_progress.to_yaml(exp_manager.work_fs_manager().in_progress_yaml())
     work_in_progress.to_yaml(exp_manager.work_fs_manager().in_progress_yaml())
+
+    return job_id
 
 
 def _get_array_job_id(work_exp_fs_manager: exp_fs.WorkManager) -> str:
