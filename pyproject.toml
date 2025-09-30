@@ -17,8 +17,8 @@
     dependencies = [
         "PyYAML >=6.0, < 6.1",
         "typer >=0.15, <0.16",
-        "pandas >=2.2,<2.3",
-        "biopython >=1.85, <1.9",
+        "pandas >=2.2, <2.3",
+        "biopython >=1.85, <1.90",
         "mermaid-py >=0.8, <0.9",
     ]
 
