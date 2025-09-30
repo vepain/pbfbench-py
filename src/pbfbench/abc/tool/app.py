@@ -105,33 +105,39 @@ class RunArgs:
 class RunOptions:
     """Run command options."""
 
+    __RUN_CATEGORY = "Samples to run"
+    __SLURM_OPTS = "SLURM configurations"
+
     # FEATURE Implement run options
     RUN_SUCCESS = typer.Option(
         "--success/--skip-success",
         help="Run the experiment for samples that succeeded",
+        rich_help_panel=__RUN_CATEGORY,
     )
     RUN_NOT_RUN = typer.Option(
         "--not-run/--skip-not-run",
         help="Run the experiment for samples that were not run (default)",
+        rich_help_panel=__RUN_CATEGORY,
     )
     RUN_MISSING_INPUTS = typer.Option(
         "--missing-inputs/--skip-missing-inputs",
         help="Run the experiment for samples that have missing inputs",
+        rich_help_panel=__RUN_CATEGORY,
     )
     RUN_ERROR = typer.Option(
         "--error/--skip-error",
         help="Run the experiment for failed samples",
+        rich_help_panel=__RUN_CATEGORY,
     )
     RUN_ALL = typer.Option(
         "--all",
-        help=(
-            "Run the experiment for all samples"
-            " (can be completed with other flags to reduce the set of samples to run)"
-        ),
+        help="Run the experiment for all samples",
+        rich_help_panel=__RUN_CATEGORY,
     )
     SLURM_OPTIONS = typer.Option(
         "--slurm-opts",
         help="SLURM options",
+        rich_help_panel=__SLURM_OPTS,
     )
 
 

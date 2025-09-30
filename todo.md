@@ -14,6 +14,9 @@
 * [x] Fix run/format/resume stages
 * [ ] Verify data dire and work dir are not the same!
   * [ ] Update doc
+* [ ] Do `pbfbench topic-cmd tool-cmd env $DATA_DIR` to create a template of the environment wrapper script
+  * [ ] Help to know which variables to set
+  * [ ] Update doc
 
 ## Refactoring
 
