@@ -155,11 +155,11 @@ class History(list[Event], YAMLInterface):
 
 def update_history(
     exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
-) -> None:
+) -> Event:
     """Update history."""
     event = Event(*_date_and_job_id(exp_manager), _stats_from_monitors(exp_manager))
-
     _add_event_to_history_yaml(exp_manager, event)
+    return event
 
 
 def _date_and_job_id(

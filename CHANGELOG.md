@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [Unreleased] - yyyy-mm-dd
+
+### Added
+
+* Print stats when conclude the experiment and make sure the working directory is deleted.
+
 ## [0.5.7] - 2025-10-01
 
 ### Fixed

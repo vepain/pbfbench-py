@@ -38,8 +38,7 @@ def resolve_running_samples(
 ) -> None:
     """Complete experiment."""
     _finished_job_deamon(exp_manager, unresolved_samples, array_job_id)
-    history.update_history(exp_manager)
-    _clean_work_directory(exp_manager)
+    conclude_experiment(exp_manager)
 
 
 def _finished_job_deamon(
@@ -397,6 +396,30 @@ def _move_work_sample_dir_to_data_dir(
         data_sample_fs_manager.sample_dir(),
     )
     shutil.rmtree(work_sample_fs_manager.sample_dir(), ignore_errors=True)
+
+
+def conclude_experiment(
+    exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
+) -> None:
+    """Conclude the experiment."""
+    event = history.update_history(exp_manager)
+    _LOGGER.info("Experiment `%s` finished", exp_manager.exp_name())
+    _LOGGER.info(
+        (
+            "Experiment stats:\n"
+            "* Total number of samples: %d\n"
+            "* Number of successful samples: %d\n"
+            "* Number of samples with missing inputs: %d\n"
+            "* Number of failed samples: %d\n"
+            "* Number of not run samples: %d\n"
+        ),
+        event.stats().total_number_of_samples(),
+        event.stats().number_of_successful_samples(),
+        event.stats().number_of_samples_with_missing_inputs(),
+        event.stats().number_of_failed_samples(),
+        event.stats().number_of_not_run_samples(),
+    )
+    _clean_work_directory(exp_manager)
 
 
 def _clean_work_directory(
