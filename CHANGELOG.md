@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.5.5] - 2025-10-01
+
+### Fixed
+
+* Convert Path to str for YAML dump
+
 ## [0.5.4] - 2025-10-01
 
 ### Fixed
