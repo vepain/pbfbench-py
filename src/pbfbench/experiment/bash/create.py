@@ -86,7 +86,6 @@ def _command_script(
         exp_bash_items.Steps.COMMAND,
     )
     with script_path.open("w") as command_out:
-        command_out.write(f"{bash_items.BASH_SHEBANG}\n\n")
         for line in CommandLinesBuilder.lines(exp_manager.data_fs_manager(), tool_cmd):
             command_out.write(line + "\n")
     return script_path
@@ -177,9 +176,7 @@ class StepLinesBuilder:
         step: exp_bash_items.Steps,
     ) -> Iterator[str]:
         """Set script path variable."""
-        yield bash_items.Variable(
-            f"{step}_SCRIPT_PATH",
-        ).set(
+        yield bash_items.Variable(f"{step}_SCRIPT").set(
             bash_items.path_to_str(
                 sh_manager.work_sh_fs_manager().step_script(step),
             ),
