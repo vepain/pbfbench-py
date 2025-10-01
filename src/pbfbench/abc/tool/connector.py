@@ -154,7 +154,7 @@ class Arg[N: Names, T: abc_topic_visitor.Tools, R: abc_topic_res.Result](ABC):
 
     def to_config(self) -> abc_tool_cfg.Arg:
         """Convert to config."""
-        return abc_tool_cfg.Arg(self._tool, self._exp_name)
+        return abc_tool_cfg.Arg(str(self._tool), self._exp_name)
 
 
 class MissingArgumentNameError[N: Names]:
