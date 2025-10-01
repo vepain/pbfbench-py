@@ -62,7 +62,7 @@ class Base(YAMLInterface, ABC):
         """Convert to dict."""
         return {
             self.KEY_DATE: self._date,
-            self.root_directory_key(): self._twin_root_directory,
+            self.root_directory_key(): str(self._twin_root_directory),
             self.KEY_JOB_ID: self._job_id,
         }
 
