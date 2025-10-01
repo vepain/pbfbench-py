@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.5.3] - 2025-10-01
+
+### Fixed
+
+* Wrong path for sbatch template sh file
+
 ## [0.5.2] - 2025-10-01
 
 ### Fixed
