@@ -13,17 +13,17 @@ import pbfbench.slurm.bash as slurm_bash
 class SpeSmpIDLinesBuilder:
     """Species-sample ID bash lines builder.
 
-    The bash variable name is: `cls.SPE_SAM_ID_VARNAME`
+    The bash variable name is: `cls.SPE_SMP_ID_VAR`
 
     The species-sample id is defined as:
     `{species_id}-{sample_id}`
     """
 
-    SAMPLES_FILE_VAR = bash_items.Variable("samples_file")
+    SAMPLES_TSV_VAR = bash_items.Variable("SAMPLES_TSV")
 
-    SPECIES_ID_VAR = bash_items.Variable("species_id")
-    SAMPLE_ID_VAR = bash_items.Variable("sample_id")
-    SPE_SMP_ID_VAR = bash_items.Variable("species_sample_id")
+    SPECIES_ID_VAR = bash_items.Variable("SPECIES_ID")
+    SAMPLE_ID_VAR = bash_items.Variable("SAMPLE_ID")
+    SPE_SMP_ID_VAR = bash_items.Variable("SAMPLE_DIRNAME")
 
     def __init__(self, samples_file: Path) -> None:
         """Initialize."""
@@ -35,7 +35,7 @@ class SpeSmpIDLinesBuilder:
 
     def lines(self) -> Iterator[str]:
         """Give the bash lines defining the species-sample id variable."""
-        yield self.SAMPLES_FILE_VAR.set(bash_items.path_to_str(self.__samples_file))
+        yield self.SAMPLES_TSV_VAR.set(bash_items.path_to_str(self.__samples_file))
         yield self.SAMPLE_ID_VAR.set(
             get_sample_attribute(self.__samples_file, smp_fs.TSVHeader.SAMPLE_ID),
         )
@@ -57,7 +57,7 @@ def get_sample_attribute(samples_file: Path, attribute: smp_fs.TSVHeader) -> str
     return (
         f"$("
         f'sed -n "{slurm_bash.SLURM_ARRAY_TASK_ID_VAR.eval()}p"'
-        f" {SpeSmpIDLinesBuilder.SAMPLES_FILE_VAR.eval()}"
+        f" {SpeSmpIDLinesBuilder.SAMPLES_TSV_VAR.eval()}"
         f" | cut -f{1 + attribute_column_index}"
         f")"
     )
