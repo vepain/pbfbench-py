@@ -189,7 +189,7 @@ class StepLinesBuilder:
 class SbatchLinesBuilder:
     """Sbatch lines builder."""
 
-    TEMPLATE_SCRIPT = Path(__file__) / "sbatch_template.sh"
+    TEMPLATE_SCRIPT = Path(__file__).parent / "sbatch_template.sh"
 
     PBFBENCH_DO_PREFIX = "# PBFBENCH_DO:"
 
