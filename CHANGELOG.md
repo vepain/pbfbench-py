@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.5.4] - 2025-10-01
+
+### Fixed
+
+* Create sample directories for resolved samples (both if ok or error)
+
 ## [0.5.3] - 2025-10-01
 
 ### Fixed
