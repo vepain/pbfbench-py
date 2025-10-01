@@ -47,16 +47,14 @@ def run_scripts(
         exp_manager.data_fs_manager().tool_env_script_sh(),
     )
 
-    for sub_script_path in (
+    for script_path in (
         _init_env_script(sh_manager, tool_bash_env_wrapper),
         _command_script(sh_manager, tool_commands),
         _close_env_script(sh_manager, tool_bash_env_wrapper),
+        _sbatch_script(exp_manager, sh_manager, samples_to_run, slurm_opts),
     ):
-        _add_x_permissions(sub_script_path)
-
-        shutil.copy(sub_script_path, sh_manager.data_sh_fs_manager().scripts_dir())
-
-    _write_sbatch_script(exp_manager, sh_manager, samples_to_run, slurm_opts)
+        _add_x_permissions(script_path)
+        shutil.copy(script_path, sh_manager.data_sh_fs_manager().scripts_dir())
 
     return sh_manager
 
@@ -120,14 +118,15 @@ def _add_x_permissions(cmd_sh_path: Path) -> None:
     cmd_sh_path.chmod(st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
-def _write_sbatch_script(
+def _sbatch_script(
     exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
     sh_manager: manager.Manager,
     samples_to_run: Iterable[smp_fs.RowNumberedItem],
     slurm_opts: str,
-) -> None:
+) -> Path:
     """Write the sbatch script."""
-    with sh_manager.work_sh_fs_manager().sbatch_script().open("w") as sbatch_out:
+    sbatch_script = sh_manager.work_sh_fs_manager().sbatch_script()
+    with sbatch_script.open("w") as sbatch_out:
         for line in SbatchLinesBuilder.lines(
             slurm_opts,
             sh_manager,
@@ -135,6 +134,7 @@ def _write_sbatch_script(
             samples_to_run,
         ):
             sbatch_out.write(line + "\n")
+    return sbatch_script
 
 
 class StepLinesBuilder:

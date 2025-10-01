@@ -223,7 +223,6 @@ class Run[
             ),
             slurm_opts,
         )
-        # FIXME put here end print stats function
         raise typer.Exit(0)
 
     def _error_if_experiment_is_running(

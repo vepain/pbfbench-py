@@ -17,7 +17,7 @@ import pbfbench.samples.status as smp_status
 from . import checks as exp_checks
 from . import errors as exp_errors
 from . import file_system as exp_fs
-from . import history, in_progress, monitors, resolve
+from . import in_progress, monitors, resolve
 from . import iter as exp_iter
 from . import managers as exp_managers
 from .bash import create as exp_bash_create
@@ -58,13 +58,10 @@ def start_new_experiment(
 
     if not samples_to_run:
         _LOGGER.info("No samples to run")
-        history.update_history(exp_manager)
+        resolve.conclude_experiment(exp_manager)
         return
 
-    _LOGGER.info(
-        "Number of samples sent to sbatch: %d",
-        len(samples_to_run),
-    )
+    _LOGGER.info("Number of samples sent to sbatch: %d", len(samples_to_run))
 
     sh_manager = exp_bash_create.run_scripts(
         exp_manager,
@@ -72,7 +69,7 @@ def start_new_experiment(
         slurm_opts,
     )
 
-    exp_slurm_run.run(exp_manager, sh_manager)
+    exp_slurm_run.run(sh_manager)
 
     job_id = in_progress.write_in_progress_metadata(exp_manager, sh_manager)
 
