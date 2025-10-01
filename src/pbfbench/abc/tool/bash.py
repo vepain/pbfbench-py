@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 
 import pbfbench.abc.module_meta as abc_meta_mod
 import pbfbench.abc.topic.results as abc_topic_res
@@ -81,10 +81,9 @@ class Options:
         )
 
 
-class CommandsWithOptions:
+class CommandsWithOptions(ABC):
     """Commands with options."""
 
-    SAMPLES_TSV_VAR = bash_items.Variable("SAMPLES_TSV")
     WORK_EXP_SAMPLE_DIR_VAR = bash_items.Variable("WORK_EXP_SAMPLE_DIR")
 
     CORE_COMMAND_SH_FILENAME = "core_command.sh"
@@ -100,17 +99,32 @@ class CommandsWithOptions:
         self._data_exp_fs_manager = data_exp_fs_manager
         self._work_exp_fs_manager = work_exp_fs_manager
 
+    @abstractmethod
+    def init_lines(self) -> Iterator[str]:
+        """Iterate over core command shell input init lines."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def close_lines(self) -> Iterator[str]:
+        """Iterate over core command shell input close lines."""
+        raise NotImplementedError
+
     def commands(self) -> Iterator[str]:
         """Iterate over the tool commands."""
         # DOCU say WORK_EXP_SAMPLE_DIR variable is set
         # DOCU say SAMPLES_TSV variable is set
-        yield from self.set_samples_tsv_var()
-        yield ("")
+        yield from smp_sh.SpeSmpIDLinesBuilder(
+            self._data_exp_fs_manager.samples_tsv(),
+        ).lines()
+        yield ""
         yield from self.set_work_sample_exp_dir()
-        yield ("")
+        yield from self.mkdir_work_sample_exp_dir()
+        yield ""
         yield from self._opts_sh_lines_builder.set_options()
-        yield ("")
+        yield ""
+        yield from self.init_lines()
         yield from self.core_commands()
+        yield from self.close_lines()
 
     def opts_sh_lines_builder(self) -> Options:
         """Get options bash lines builder."""
@@ -124,12 +138,6 @@ class CommandsWithOptions:
         """Get working experiment file system manager."""
         return self._work_exp_fs_manager
 
-    def set_samples_tsv_var(self) -> Iterator[str]:
-        """Set samples tsv variable."""
-        yield self.SAMPLES_TSV_VAR.set(
-            bash_items.path_to_str(self._data_exp_fs_manager.samples_tsv()),
-        )
-
     def set_work_sample_exp_dir(self) -> Iterator[str]:
         """Set working experiment sample directory."""
         work_exp_sample_dir = smp_sh.sample_shell_fs_manager(
@@ -138,6 +146,10 @@ class CommandsWithOptions:
         yield self.WORK_EXP_SAMPLE_DIR_VAR.set(
             bash_items.path_to_str(work_exp_sample_dir),
         )
+
+    def mkdir_work_sample_exp_dir(self) -> Iterator[str]:
+        """Mkdir working experiment sample directory."""
+        yield f"mkdir -p {self.WORK_EXP_SAMPLE_DIR_VAR.eval()} 2>/dev/null"
 
     def core_commands(self) -> Iterator[str]:
         """Iterate over the tool command lines."""
@@ -157,10 +169,20 @@ class CommandsWithOptions:
         )
 
 
+@final
 class CommandsOnlyOptions(CommandsWithOptions):
     """Tool commands when the tool has no arguments."""
 
+    def init_lines(self) -> Iterator[str]:
+        """Iterate over core command shell input init lines."""
+        yield from ()
 
+    def close_lines(self) -> Iterator[str]:
+        """Iterate over core command shell input close lines."""
+        yield from ()
+
+
+@final
 class CommandsWithArguments(CommandsWithOptions):
     """Tool commands with options and arguments."""
 
@@ -183,10 +205,12 @@ class CommandsWithArguments(CommandsWithOptions):
         """Get argument bash lines builders."""
         yield from self._arg_sh_lines_builders
 
-    def commands(self) -> Iterator[str]:
-        """Iterate over the tool commands."""
+    def init_lines(self) -> Iterator[str]:
+        """Iterate over core command shell input init lines."""
         for result_lines_builder in self._arg_sh_lines_builders:
             yield from result_lines_builder.init_lines()
-        yield from super().commands()
+
+    def close_lines(self) -> Iterator[str]:
+        """Iterate over core command shell input close lines."""
         for result_lines_builder in self._arg_sh_lines_builders:
             yield from result_lines_builder.close_lines()

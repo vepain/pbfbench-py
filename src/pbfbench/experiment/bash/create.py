@@ -14,7 +14,6 @@ import pbfbench.bash.items as bash_items
 import pbfbench.experiment.file_system as exp_fs
 import pbfbench.experiment.managers as exp_managers
 import pbfbench.experiment.slurm.status as exp_slurm_status
-import pbfbench.samples.bash as smp_sh
 import pbfbench.samples.file_system as smp_fs
 import pbfbench.slurm.bash as slurm_bash
 
@@ -50,7 +49,7 @@ def run_scripts(
 
     for sub_script_path in (
         _init_env_script(sh_manager, tool_bash_env_wrapper),
-        _command_script(exp_manager, sh_manager, tool_commands),
+        _command_script(sh_manager, tool_commands),
         _close_env_script(sh_manager, tool_bash_env_wrapper),
     ):
         _add_x_permissions(sub_script_path)
@@ -77,7 +76,6 @@ def _init_env_script(
 
 
 def _command_script(
-    exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
     sh_manager: manager.Manager,
     tool_cmd: abc_tool_bash.CommandsWithOptions,
 ) -> Path:
@@ -86,9 +84,20 @@ def _command_script(
         exp_bash_items.Steps.COMMAND,
     )
     with script_path.open("w") as command_out:
-        for line in CommandLinesBuilder.lines(exp_manager.data_fs_manager(), tool_cmd):
+        for line in _tool_command_script_lines(tool_cmd):
             command_out.write(line + "\n")
     return script_path
+
+
+def _tool_command_script_lines(
+    tool_cmd: abc_tool_bash.CommandsWithOptions,
+) -> Iterator[str]:
+    """Return command lines."""
+    yield bash_items.BASH_SHEBANG
+    yield ""
+    yield "set -e"  # exit error at the first command failing
+    yield ""
+    yield from tool_cmd.commands()
 
 
 def _close_env_script(
@@ -269,24 +278,3 @@ class SbatchLinesBuilder:
                     StepLinesBuilder.step_error_file(work_exp_fs_manager, step),
                 )
         assert_never(pbfbench_do)
-
-
-class CommandLinesBuilder:
-    """Command lines builder."""
-
-    @classmethod
-    def lines(
-        cls,
-        data_exp_fs_manager: exp_fs.DataManager,
-        tool_cmd: abc_tool_bash.CommandsWithOptions,
-    ) -> Iterator[str]:
-        """Return command lines."""
-        yield bash_items.BASH_SHEBANG
-        yield ""
-        yield "set -e"  # exit error at the first command failing
-        yield ""
-        yield from smp_sh.SpeSmpIDLinesBuilder(
-            data_exp_fs_manager.samples_tsv(),
-        ).lines()
-        yield ""
-        yield from tool_cmd.commands()
