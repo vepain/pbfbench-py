@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.5.2] - 2025-10-01
+
+### Fixed
+
+* Do not return a generator based on opened file
+* Convert Tools instance to string
+
 ## [0.5.1] - 2025-09-30
 
 ### Fixed
