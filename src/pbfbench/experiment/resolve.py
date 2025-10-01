@@ -289,6 +289,7 @@ def _manage_finished_ok_jobs(
         sample_fs_manager = exp_manager.work_fs_manager().sample_fs_manager(
             resolved_job_id.row_numbered_item().item(),
         )
+        sample_fs_manager.sample_dir().mkdir(parents=True, exist_ok=True)
         shutil.copy(slurm_stdout, sample_fs_manager.done_log())
 
 
@@ -297,14 +298,15 @@ def _manage_finished_error_jobs(
     exp_manager: exp_managers.OnlyOptions | exp_managers.WithArguments,
 ) -> None:
     for error_job_id in resolved_samples.error_samples():
-        sample_fs_manager = exp_manager.work_fs_manager().sample_fs_manager(
-            error_job_id.row_numbered_item().item(),
-        )
         slurm_stderr = (
             exp_manager.work_fs_manager()
             .slurm_log_fs_manager()
             .stderr(error_job_id.job_id())
         )
+        sample_fs_manager = exp_manager.work_fs_manager().sample_fs_manager(
+            error_job_id.row_numbered_item().item(),
+        )
+        sample_fs_manager.sample_dir().mkdir(parents=True, exist_ok=True)
         shutil.copy(slurm_stderr, sample_fs_manager.errors_log())
 
     if resolved_samples.error_samples():
