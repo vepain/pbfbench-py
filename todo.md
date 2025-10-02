@@ -13,10 +13,12 @@
 * [x] Refactoring tool config to tool connector (merge of config and connector)
 * [x] Fix run/format/resume stages
 * [ ] Verify data dire and work dir are not the same!
-  * [ ] Update doc
-* [ ] Do `pbfbench topic-cmd tool-cmd env $DATA_DIR` to create a template of the environment wrapper script
-  * [ ] Help to know which variables to set
-  * [ ] Update doc
+  * [ ] #DOCU Update doc
+* [x] Do `pbfbench topic-cmd tool-cmd draft-env $DATA_DIR` to create a template of the environment wrapper script
+  * [x] Help to know which variables to set
+  * [ ] #DOCU Update doc
+* [ ] #DOCU the use of "" in core_command.sh tool scripts `"${USER_TOOL_OPTIONS[@]}"`
+* [ ] #DOCU tell to put block of comment at the really beggining of the `core_command.sh` tool script to say which things must be done in the environment wrapper script
 
 ## Refactoring
 
@@ -107,11 +109,11 @@ Help for running scripts lines builders in `tmp_vepain/features/run_scripts`
   * Cumulative options `--not-run` `--missing-inputs` `--error` `--success`
   * Option `--all` rerun all the samples (does not consider the above cumulative options)
 * [x] Be sure `run` also `init` when required
-* [ ] Command `pbfbench topic-cmd tool-cmd status $EXP_NAME $DATA_DIR [--report/-r=YAML]`
-  * [ ] `In progress` or `Finished`
-    * print done (success, errors), not done
-  * [ ] `No experiment of name... for topic... and tool...`
-  * [ ] API to read report YAML file
+* [x] Command `pbfbench topic-cmd tool-cmd report $EXP_NAME $DATA_DIR [--yaml/-o=YAML]`
+  * [ ] #DOCU `report` command
+  * [x] `No experiment of name... for topic... and tool...`
+  * [x] API to read report YAML file
+    * [ ] #DOCU `report` API
 * [x] Command `pbfbench topic-cmd tool-cmd resume $EXP_NAME $DATA_DIR`
 
 ## To Fix

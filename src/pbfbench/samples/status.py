@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from contextlib import suppress
 from enum import StrEnum
+from typing import TYPE_CHECKING, Self, assert_never
 
-import pbfbench.samples.file_system as smp_fs
 from pbfbench.slurm import sacct
+
+if TYPE_CHECKING:
+    import pbfbench.samples.file_system as smp_fs
 
 
 class OK(StrEnum):
@@ -27,6 +30,55 @@ class Error(StrEnum):
 
 
 type Status = OK | Error
+
+
+class StatusMap[T]:
+    """Status map."""
+
+    @classmethod
+    def default(cls, default_value: T) -> Self:
+        """Get default status map."""
+        return cls(default_value, default_value, default_value, default_value)
+
+    def __init__(self, ok: T, missing_inputs: T, error: T, not_run: T) -> None:
+        self._ok = ok
+        self._missing_inputs = missing_inputs
+        self._error = error
+        self._not_run = not_run
+
+    def get(self, status: Status) -> T:
+        """Get status map value."""
+        match status:
+            case OK.OK:
+                return self._ok
+            case Error.MISSING_INPUTS:
+                return self._missing_inputs
+            case Error.ERROR:
+                return self._error
+            case Error.NOT_RUN:
+                return self._not_run
+
+    def set(self, status: Status, value: T) -> None:
+        """Set status map value."""
+        match status:
+            case OK.OK:
+                self._ok = value
+            case Error.MISSING_INPUTS:
+                self._missing_inputs = value
+            case Error.ERROR:
+                self._error = value
+            case Error.NOT_RUN:
+                self._not_run = value
+            case _:
+                assert_never(status)
+
+    def __getitem__(self, status: Status) -> T:
+        """Get status map value."""
+        return self.get(status)
+
+    def __setitem__(self, status: Status, value: T) -> None:
+        """Set status map value."""
+        self.set(status, value)
 
 
 def status_from_str(status_str: str) -> Status:

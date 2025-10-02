@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, final
 
 import pbfbench.abc.module_meta as abc_meta_mod
+import pbfbench.abc.tool.description as abc_tool_desc
 import pbfbench.abc.topic.results as abc_topic_res
 import pbfbench.bash.items as bash_items
 import pbfbench.experiment.file_system as exp_fs
@@ -88,6 +89,17 @@ class CommandsWithOptions(ABC):
 
     CORE_COMMAND_SH_FILENAME = "core_command.sh"
 
+    @classmethod
+    def core_command_sh_path(cls, tool_description: abc_tool_desc.Description) -> Path:
+        """Get core command shell path."""
+        return (
+            abc_meta_mod.tool_module_path_from_descriptions(
+                tool_description.topic(),
+                tool_description,
+            )
+            / cls.CORE_COMMAND_SH_FILENAME
+        )
+
     def __init__(
         self,
         opts_sh_lines_builder: Options,
@@ -155,20 +167,12 @@ class CommandsWithOptions(ABC):
 
     def core_commands(self) -> Iterator[str]:
         """Iterate over the tool command lines."""
-        core_command_shell_path = self._core_command_shell_path()
+        core_command_shell_path = self.core_command_sh_path(
+            self._data_exp_fs_manager.tool_description(),
+        )
         with core_command_shell_path.open("r") as in_core_cmd:
             for line in in_core_cmd:
                 yield line.rstrip()
-
-    def _core_command_shell_path(self) -> Path:
-        """Get result."""
-        return (
-            abc_meta_mod.tool_module_path_from_descriptions(
-                self._work_exp_fs_manager.tool_description().topic(),
-                self._work_exp_fs_manager.tool_description(),
-            )
-            / self.CORE_COMMAND_SH_FILENAME
-        )
 
 
 @final
