@@ -123,7 +123,9 @@ class CommandsWithOptions(ABC):
         yield from self._opts_sh_lines_builder.set_options()
         yield ""
         yield from self.init_lines()
+        yield ""
         yield from self.core_commands()
+        yield ""
         yield from self.close_lines()
 
     def opts_sh_lines_builder(self) -> Options:

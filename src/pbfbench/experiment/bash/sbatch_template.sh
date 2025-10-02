@@ -16,13 +16,15 @@ fi
 # ------------------------------------------------------------------------------------ #
 # Step status functions
 # ------------------------------------------------------------------------------------ #
+set -e # Exit at the first command failing
+
 function log_step_ok {
     local TMP_STATUS_FILE=${1}
-    touch ${TMP_STATUS_FILE}
+    touch "${TMP_STATUS_FILE}"
 }
 function exit_step_error {
     local TMP_STATUS_FILE=${1}
-    touch ${TMP_STATUS_FILE}
+    touch "${TMP_STATUS_FILE}"
     exit 1
 }
 
@@ -31,21 +33,25 @@ function exit_step_error {
 # ------------------------------------------------------------------------------------ #
 # PBFBENCH_DO:STEP:INIT_ENV
 
-bash -e ${INIT_ENV_SCRIPT} || exit_step_error ${INIT_ENV_STEP_ERROR_FILE}
-log_step_ok ${INIT_ENV_STEP_OK_FILE}
+trap 'exit_step_error "${INIT_ENV_STEP_ERROR_FILE}"' ERR
+# shellcheck source=/dev/null
+source "${INIT_ENV_SCRIPT}"
+log_step_ok "${INIT_ENV_STEP_OK_FILE}"
 
 # ------------------------------------------------------------------------------------ #
 # Run the tool
 # ------------------------------------------------------------------------------------ #
 # PBFBENCH_DO:STEP:COMMAND
 
-srun ${COMMAND_SCRIPT} || exit_step_error ${COMMAND_STEP_ERROR_FILE}
-log_step_ok ${COMMAND_STEP_OK_FILE}
+srun "${COMMAND_SCRIPT}" || exit_step_error "${COMMAND_STEP_ERROR_FILE}"
+log_step_ok "${COMMAND_STEP_OK_FILE}"
 
 # ------------------------------------------------------------------------------------ #
 # Close the tool environment
 # ------------------------------------------------------------------------------------ #
 # PBFBENCH_DO:STEP:CLOSE_ENV
 
-bash -e ${CLOSE_ENV_SCRIPT} || exit_step_error ${CLOSE_ENV_STEP_ERROR_FILE}
-log_step_ok ${CLOSE_ENV_STEP_OK_FILE}
+trap 'exit_step_error "${CLOSE_ENV_STEP_ERROR_FILE}"' ERR
+# shellcheck source=/dev/null
+source "${CLOSE_ENV_SCRIPT}"
+log_step_ok "${CLOSE_ENV_STEP_OK_FILE}"

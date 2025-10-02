@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [0.5.9] - 2025-10-02
+
+### Fixed
+
+* Source subscripts and trap errors in the template bash script.
+
 ## [0.5.8] - 2025-10-01
 
 ### Added
