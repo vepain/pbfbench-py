@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
+# REFACTOR create builder
+# TODO error check when create
 class BashEnvWrapper:
     """Wrapper to run a bash script in a specific environment."""
 

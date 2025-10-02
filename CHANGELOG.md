@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -->
 
 <!-- next-header -->
+## [Unreleased] - yyyy-mm-dd
+
+### Added
+
+* `draft-env` tool command
+
+### Fixed
+
+* Enclose bash variables in tools script templates with double quotes
+
 ## [0.5.9] - 2025-10-02
 
 ### Fixed
