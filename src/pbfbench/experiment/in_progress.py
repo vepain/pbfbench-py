@@ -6,13 +6,14 @@ import time
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Self, final
+from typing import TYPE_CHECKING, Any, Self, final
 
 from pbfbench.yaml_interface import YAMLInterface
 
-from . import file_system as exp_fs
-from . import managers as exp_managers
-from .bash import manager as bash_manager
+if TYPE_CHECKING:
+    from . import file_system as exp_fs
+    from . import managers as exp_managers
+    from .bash import manager as bash_manager
 
 
 class Base(YAMLInterface, ABC):

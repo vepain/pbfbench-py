@@ -109,11 +109,11 @@ Help for running scripts lines builders in `tmp_vepain/features/run_scripts`
   * Cumulative options `--not-run` `--missing-inputs` `--error` `--success`
   * Option `--all` rerun all the samples (does not consider the above cumulative options)
 * [x] Be sure `run` also `init` when required
-* [ ] Command `pbfbench topic-cmd tool-cmd status $EXP_NAME $DATA_DIR [--report/-r=YAML]`
-  * [ ] `In progress` or `Finished`
-    * print done (success, errors), not done
-  * [ ] `No experiment of name... for topic... and tool...`
-  * [ ] API to read report YAML file
+* [x] Command `pbfbench topic-cmd tool-cmd report $EXP_NAME $DATA_DIR [--yaml/-o=YAML]`
+  * [ ] #DOCU `report` command
+  * [x] `No experiment of name... for topic... and tool...`
+  * [x] API to read report YAML file
+    * [ ] #DOCU `report` API
 * [x] Command `pbfbench topic-cmd tool-cmd resume $EXP_NAME $DATA_DIR`
 
 ## To Fix

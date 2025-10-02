@@ -18,8 +18,8 @@ import typer
 import pbfbench.abc.app as abc_app
 import pbfbench.experiment.checks as exp_checks
 import pbfbench.experiment.file_system as exp_fs
-import pbfbench.experiment.in_progress as exp_in_progress
 import pbfbench.experiment.managers as exp_managers
+import pbfbench.experiment.report as exp_report
 import pbfbench.experiment.resume as exp_resume
 import pbfbench.experiment.run as exp_run
 import pbfbench.samples.status as smp_status
@@ -106,8 +106,15 @@ def build_application(
         help=draft_env_sh_app.help(),
         rich_help_panel=RichHelp.UTILS_CMD,
     )(draft_env_sh_app.main)
-
-    # TODO status app when ready
+    #
+    # Report app
+    #
+    report_app = Report(connector_type)
+    app.command(
+        name=report_app.NAME,
+        help=report_app.help(),
+        rich_help_panel=RichHelp.UTILS_CMD,
+    )(report_app.main)
     return app
 
 
@@ -262,10 +269,10 @@ class Run[
         exp_manager: exp_managers.WithOptions,
     ) -> None:
         """Exit with error if the experiment is already running."""
-        match running_exp := exp_checks.experiment_is_running(
+        match running_exp := exp_report.running_experiment(
             exp_manager.data_fs_manager(),
         ):
-            case exp_checks.RunningExperiment():
+            case exp_report.RunningExperiment():
                 _LOGGER.critical(
                     "The experiment is already in progress\n"
                     "* Experiment launched the: %s\n"
@@ -392,18 +399,18 @@ class Resume[
             self.connector_type().description(),
             exp_name,
         )
-        if not data_fs_manager.in_progress_yaml().exists():
+        running_experiment = exp_report.running_experiment(data_fs_manager)
+        if running_experiment is None:
             _LOGGER.critical(
-                "The experiment `%s` is not in progress for the data directory `%s`",
+                "The experiment `%s` is not in progress for tool `%s` and topic `%s`",
                 exp_name,
-                data_fs_manager.root_dir(),
+                self.connector_type().description().name(),
+                self.connector_type().description().topic().name(),
             )
             raise typer.Exit(1)
-        data_in_progress = exp_in_progress.InDataDirectory.from_yaml(
-            data_fs_manager.in_progress_yaml(),
-        )
+
         work_fs_manager = exp_fs.WorkManager(
-            data_in_progress.working_directory(),
+            running_experiment.in_progress_data().working_directory(),
             self.connector_type().description(),
             exp_name,
         )
@@ -418,14 +425,14 @@ class Resume[
                     data_fs_manager,
                     work_fs_manager,
                     connector,
-                ), data_in_progress.job_id()
+                ), running_experiment.in_progress_data().job_id()
             case abc_tool_connector.WithArguments():
                 return exp_managers.WithArguments(
                     exp_name,
                     data_fs_manager,
                     work_fs_manager,
                     connector,
-                ), data_in_progress.job_id()
+                ), running_experiment.in_progress_data().job_id()
             case exp_checks.RunErrors():
                 _LOGGER.critical("Cannot instantiate connector")
                 raise typer.Exit(1)
@@ -481,6 +488,7 @@ class ConfigAppWithOptions[
 
         config.to_yaml(config_exp_yaml)
         _LOGGER.info("Tool configuration written to %s", config_exp_yaml)
+        raise typer.Exit(0)
 
     @abstractmethod
     def _fake_config(self) -> Config:
@@ -538,7 +546,6 @@ class ToolEnvWrapperOpts:
     )
 
 
-@final
 class ToolEnvWrapper[CType: type[abc_tool_connector.WithOptions]]:
     """Draft tool environnment wrapper script."""
 
@@ -617,11 +624,78 @@ class ToolEnvWrapper[CType: type[abc_tool_connector.WithOptions]]:
             "Tool environnment wrapper draft script written to %s",
             env_wrapper_sh_path,
         )
+        raise typer.Exit(0)
 
     def help(self) -> str:
         """Get help string."""
         return (
             "Generate a draft environnment wrapper script"
+            f" for tool {self._tool_connector_type.description().name()}"
+            f" for topic {self._tool_connector_type.description().topic().name()}"
+        )
+
+
+class ReportOpts:
+    """Report command options."""
+
+    YAML_FILE = typer.Option(
+        "--yaml",
+        "-o",
+        help="YAML output file",
+    )
+
+
+class Report[CType: type[abc_tool_connector.WithOptions]]:
+    """Report command."""
+
+    NAME = "report"
+
+    def __init__(self, tool_connector_type: CType) -> None:
+        self._tool_connector_type = tool_connector_type
+
+    def main(
+        self,
+        exp_name: Annotated[str, Arguments.EXP_NAME],
+        data_dir: Annotated[Path, Arguments.DATA_DIR],
+        yaml_file: Annotated[Path | None, ReportOpts.YAML_FILE] = None,
+        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
+    ) -> None:
+        """Generate report."""
+        root_logging.init_logger(
+            _LOGGER,
+            (
+                f"Generating a report"
+                f" for tool {self._tool_connector_type.description().name()}"
+                f" for topic {self._tool_connector_type.description().topic().name()}"
+            ),
+            debug,
+        )
+        data_exp_manager = exp_fs.DataManager(
+            data_dir.resolve(),
+            self._tool_connector_type.description(),
+            exp_name,
+        )
+        if not data_exp_manager.exp_dir().exists():
+            _LOGGER.critical(
+                "There is no experiment nammed `%s` for tool `%s` and topic `%s`",
+                data_exp_manager.experiment_name(),
+                self._tool_connector_type.description().name(),
+                self._tool_connector_type.description().topic().name(),
+            )
+            raise typer.Exit(1)
+
+        report = exp_report.Report.from_data_exp_fs_manager(data_exp_manager)
+
+        _LOGGER.info("Report:\n%s", exp_report.report_to_string(report))
+        if yaml_file is not None:
+            _LOGGER.info("Writing report to `%s`", yaml_file)
+            report.to_yaml(yaml_file)
+        raise typer.Exit(0)
+
+    def help(self) -> str:
+        """Get help string."""
+        return (
+            "Generate a report"
             f" for tool {self._tool_connector_type.description().name()}"
             f" for topic {self._tool_connector_type.description().topic().name()}"
         )

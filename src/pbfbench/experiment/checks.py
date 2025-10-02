@@ -8,16 +8,13 @@ from typing import TYPE_CHECKING, cast
 
 import pbfbench.abc.tool.config as abc_tool_cfg
 import pbfbench.abc.tool.connector as abc_tool_connector
-import pbfbench.slurm.bash as slurm_bash
 
 from . import file_system as exp_fs
-from . import in_progress
 from . import managers as exp_managers
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from pbfbench.slurm import sacct
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -249,42 +246,6 @@ def _missing_env_wrapper_script(data_exp_fs_manager: exp_fs.DataManager) -> bool
         # TODO add help here (propose command to print script with requirements)
         return True
     return False
-
-
-class RunningExperiment:
-    """Running experiment metadata."""
-
-    def __init__(
-        self,
-        in_progress_data: in_progress.InDataDirectory,
-        sacct_state: sacct.State | None,
-    ) -> None:
-        self._in_progress_data = in_progress_data
-        self._sacct_state = sacct_state
-
-    def in_progress_data(self) -> in_progress.InDataDirectory:
-        """Get in progress metadata in the data directory."""
-        return self._in_progress_data
-
-    def sacct_state(self) -> sacct.State | None:
-        """Get sacct state."""
-        return self._sacct_state
-
-
-def experiment_is_running(
-    data_exp_fs_manager: exp_fs.DataManager,
-) -> None | RunningExperiment:
-    """Check if experiment is running."""
-    if not data_exp_fs_manager.in_progress_yaml().exists():
-        return None
-
-    in_progress_data = in_progress.InDataDirectory.from_yaml(
-        data_exp_fs_manager.in_progress_yaml(),
-    )
-    return RunningExperiment(
-        in_progress_data,
-        slurm_bash.get_state(in_progress_data.job_id()),
-    )
 
 
 class SameExperimentConfigs(StrEnum):

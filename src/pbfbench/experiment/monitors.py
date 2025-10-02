@@ -11,12 +11,12 @@ import pbfbench.samples.file_system as smp_fs
 import pbfbench.samples.items as smp_items
 import pbfbench.samples.status as smp_status
 
-from . import file_system as exp_fs
-
 if TYPE_CHECKING:
     import _csv
     from collections.abc import Generator, Iterable, Iterator
     from pathlib import Path
+
+    from . import file_system as exp_fs
 
 
 class UnresolvedSamplesTSVHeader(StrEnum):

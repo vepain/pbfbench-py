@@ -2,94 +2,89 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Self
+from typing import Self, final
 
-import pbfbench.experiment.file_system as exp_fs
-import pbfbench.samples.file_system as smp_fs
-import pbfbench.samples.items as smp_items
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
+import pbfbench.samples.status as smp_status
+from pbfbench.yaml_interface import YAMLInterface
 
 
-class RunStatsWithOptions:
-    """Experiment run stats for tools with options."""
+@final
+class Samples(YAMLInterface):
+    """Stats of samples for an experiment."""
+
+    KEY_TOTAL_NUMBER_OF_SAMPLES = "total_number_of_samples"
+    KEY_NUMBER_OF_SUCCESSFUL_SAMPLES = "number_of_successful_samples"
+    KEY_NUMBER_OF_SAMPLES_WITH_MISSING_INPUTS = "number_of_samples_with_missing_inputs"
+    KEY_NUMBER_OF_FAILED_SAMPLES = "number_of_failed_samples"
+    KEY_NUMBER_OF_NOT_RUN_SAMPLES = "number_of_not_run_samples"
 
     @classmethod
-    def new(cls, data_exp_fs_manager: exp_fs.DataManager) -> Self:
-        """Create new run stats."""
-        with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
-            number_of_samples = sum(1 for _ in smp_tsv_in.iter_row_numbered_items())
-        return cls(number_of_samples, 0, None)
+    def from_status_map(cls, status_map: smp_status.StatusMap[int]) -> Self:
+        """Convert status map to stats."""
+        return cls(
+            status_map[smp_status.OK.OK],
+            status_map[smp_status.Error.MISSING_INPUTS],
+            status_map[smp_status.Error.ERROR],
+            status_map[smp_status.Error.NOT_RUN],
+        )
+
+    @classmethod
+    def from_yaml_load(cls, pyyaml_obj: dict[str, int]) -> Self:
+        """Convert dict to object."""
+        return cls(
+            int(pyyaml_obj[cls.KEY_NUMBER_OF_SUCCESSFUL_SAMPLES]),
+            int(pyyaml_obj[cls.KEY_NUMBER_OF_SAMPLES_WITH_MISSING_INPUTS]),
+            int(pyyaml_obj[cls.KEY_NUMBER_OF_FAILED_SAMPLES]),
+            int(pyyaml_obj[cls.KEY_NUMBER_OF_NOT_RUN_SAMPLES]),
+        )
 
     def __init__(
         self,
-        number_of_samples: int,
-        number_of_samples_to_run: int,
-        samples_with_errors: Iterable[str] | None,
+        number_of_successful_samples: int,
+        number_of_samples_with_missing_inputs: int,
+        number_of_failed_samples: int,
+        number_of_not_run_samples: int,
     ) -> None:
-        """Init run stats."""
-        self.__number_of_samples = number_of_samples
-        self.__number_of_samples_to_run = number_of_samples_to_run
+        self._number_of_successful_samples = number_of_successful_samples
+        self._number_of_samples_with_missing_inputs = (
+            number_of_samples_with_missing_inputs
+        )
+        self._number_of_failed_samples = number_of_failed_samples
+        self._number_of_not_run_samples = number_of_not_run_samples
 
-        self.__samples_with_errors = (
-            list(samples_with_errors) if samples_with_errors is not None else []
+    def total_number_of_samples(self) -> int:
+        """Get total number of samples."""
+        return (
+            self._number_of_successful_samples
+            + self._number_of_samples_with_missing_inputs
+            + self._number_of_failed_samples
+            + self._number_of_not_run_samples
         )
 
-    def number_of_samples(self) -> int:
-        """Get number of samples."""
-        return self.__number_of_samples
+    def number_of_successful_samples(self) -> int:
+        """Get number of successful samples."""
+        return self._number_of_successful_samples
 
-    def number_of_samples_to_run(self) -> int:
-        """Get number of samples to run."""
-        return self.__number_of_samples_to_run
+    def number_of_samples_with_missing_inputs(self) -> int:
+        """Get number of samples with missing inputs."""
+        return self._number_of_samples_with_missing_inputs
 
-    def samples_with_errors(self) -> list[str]:
-        """Get samples with errors."""
-        return self.__samples_with_errors
+    def number_of_failed_samples(self) -> int:
+        """Get number of failed samples."""
+        return self._number_of_failed_samples
 
-    def add_samples_to_run(self, addition: int) -> None:
-        """Add samples to run."""
-        self.__number_of_samples_to_run += addition
+    def number_of_not_run_samples(self) -> int:
+        """Get number of not run samples."""
+        return self._number_of_not_run_samples
 
-    def add_samples_with_errors(self, samples: Iterable[smp_items.Item]) -> None:
-        """Add samples with errors."""
-        self.__samples_with_errors.extend(sample.exp_sample_id() for sample in samples)
-
-
-class RunStatsOnlyOptions(RunStatsWithOptions):
-    """Experiment run stats for tools with only options."""
-
-
-class RunStatsWithArguments(RunStatsWithOptions):
-    """Experiment run stats for tools with arguments."""
-
-    @classmethod
-    def new(cls, data_exp_fs_manager: exp_fs.DataManager) -> Self:
-        """Create new run stats."""
-        with smp_fs.TSVReader.open(data_exp_fs_manager.samples_tsv()) as smp_tsv_in:
-            number_of_samples = sum(1 for _ in smp_tsv_in.iter_row_numbered_items())
-        return cls(number_of_samples, 0, None, None)
-
-    def __init__(
-        self,
-        number_of_samples: int,
-        number_of_samples_to_run: int,
-        samples_with_missing_inputs: Iterable[str] | None,
-        samples_with_errors: Iterable[str] | None,
-    ) -> None:
-        """Init run stats."""
-        super().__init__(
-            number_of_samples,
-            number_of_samples_to_run,
-            samples_with_errors,
-        )
-        self.__samples_with_missing_inputs = (
-            list(samples_with_missing_inputs)
-            if samples_with_missing_inputs is not None
-            else []
-        )
-
-    def samples_with_missing_inputs(self) -> list[str]:
-        """Get samples with missing inputs."""
-        return self.__samples_with_missing_inputs
+    def to_yaml_dump(self) -> dict[str, int]:
+        """Convert to dict."""
+        return {
+            self.KEY_TOTAL_NUMBER_OF_SAMPLES: self.total_number_of_samples(),
+            self.KEY_NUMBER_OF_SUCCESSFUL_SAMPLES: self._number_of_successful_samples,
+            self.KEY_NUMBER_OF_SAMPLES_WITH_MISSING_INPUTS: (
+                self._number_of_samples_with_missing_inputs
+            ),
+            self.KEY_NUMBER_OF_FAILED_SAMPLES: self._number_of_failed_samples,
+            self.KEY_NUMBER_OF_NOT_RUN_SAMPLES: self._number_of_not_run_samples,
+        }
