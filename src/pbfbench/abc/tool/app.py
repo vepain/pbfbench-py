@@ -9,6 +9,7 @@ import datetime
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, TypeVar, cast, final
 
@@ -25,8 +26,10 @@ import pbfbench.samples.status as smp_status
 import pbfbench.slurm.config as slurm_cfg
 from pbfbench import root_logging
 
+from . import bash as abc_tool_bash
 from . import config as abc_tool_cfg
 from . import connector as abc_tool_connector
+from . import environments as abc_tool_env
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +41,13 @@ def log_filename() -> Path:
         + datetime.datetime.now(tz=None).strftime("%Y-%m-%dT%H_%M_%S")  # noqa: DTZ005
         + ".log",
     )
+
+
+class RichHelp(StrEnum):
+    """Rich help categories."""
+
+    MAIN_CMD = "Main commands"
+    UTILS_CMD = "Utilities"
 
 
 def build_application(
@@ -56,12 +66,20 @@ def build_application(
     # Run app
     #
     run_app = Run(connector_type)
-    app.command(name=run_app.NAME, help=run_app.help())(run_app.main)
+    app.command(
+        name=run_app.NAME,
+        help=run_app.help(),
+        rich_help_panel=RichHelp.MAIN_CMD,
+    )(run_app.main)
     #
     # Resume app
     #
     resume_app = Resume(connector_type)
-    app.command(name=resume_app.NAME, help=resume_app.help())(resume_app.main)
+    app.command(
+        name=resume_app.NAME,
+        help=resume_app.help(),
+        rich_help_panel=RichHelp.MAIN_CMD,
+    )(resume_app.main)
     #
     # Config app
     #
@@ -74,8 +92,22 @@ def build_application(
         config_app = ConfigAppWithArguments(
             cast("type[abc_tool_connector.WithArguments]", connector_type),
         )
-    app.command(name=config_app.NAME, help=config_app.help())(config_app.main)
-    # TODO add check when ready
+    app.command(
+        name=config_app.NAME,
+        help=config_app.help(),
+        rich_help_panel=RichHelp.UTILS_CMD,
+    )(config_app.main)
+    #
+    # Draft tool environment script app
+    #
+    draft_env_sh_app = ToolEnvWrapper(connector_type)
+    app.command(
+        name=draft_env_sh_app.NAME,
+        help=draft_env_sh_app.help(),
+        rich_help_panel=RichHelp.UTILS_CMD,
+    )(draft_env_sh_app.main)
+
+    # TODO status app when ready
     return app
 
 
@@ -495,3 +527,101 @@ class ConfigAppWithArguments(
                 "$input_experiment_name",
             )
         return abc_tool_cfg.Arguments(args)
+
+
+class ToolEnvWrapperOpts:
+    """Tool environnment wrapper options."""
+
+    ERASE = typer.Option(
+        "--erase/--do-not-erase",
+        help="Erase existing tool environnment wrapper script",
+    )
+
+
+@final
+class ToolEnvWrapper[CType: type[abc_tool_connector.WithOptions]]:
+    """Draft tool environnment wrapper script."""
+
+    NAME = "draft-env"
+
+    def __init__(self, tool_connector_type: CType) -> None:
+        self._tool_connector_type = tool_connector_type
+
+    def main(
+        self,
+        data_dir: Annotated[Path, Arguments.DATA_DIR],
+        erase: Annotated[bool, ToolEnvWrapperOpts.ERASE] = False,
+        debug: Annotated[bool, root_logging.OPT_DEBUG] = False,
+    ) -> None:
+        """Generate environnment wrapper script."""
+        root_logging.init_logger(
+            _LOGGER,
+            (
+                f"Generating an environnment wrapper script"
+                f" for tool {self._tool_connector_type.description().name()}"
+                f" for topic {self._tool_connector_type.description().topic().name()}"
+            ),
+            debug,
+        )
+        data_exp_manager = exp_fs.DataManager(
+            data_dir.resolve(),
+            self._tool_connector_type.description(),
+            "fake_exp",
+        )
+        core_command_sh_path = abc_tool_bash.CommandsWithOptions.core_command_sh_path(
+            self._tool_connector_type.description(),
+        )
+        env_wrapper_sh_path = data_exp_manager.tool_env_script_sh()
+        if env_wrapper_sh_path.exists() and not erase:
+            _LOGGER.critical(
+                "The environnment wrapper script %s already exists",
+                env_wrapper_sh_path,
+            )
+            raise typer.Exit(1)
+
+        if not data_exp_manager.tool_dir().exists():
+            _LOGGER.info(
+                "Create non-existing tool directory %s",
+                data_exp_manager.tool_dir(),
+            )
+            data_exp_manager.tool_dir().mkdir(parents=True)
+
+        to_do_lines: list[str] = []
+        with core_command_sh_path.open() as f_in:
+            in_block_comment = True
+            iter_lines = iter(f_in)
+            while in_block_comment:
+                line = next(iter_lines, None)
+                if line is None or not line.startswith("#"):
+                    in_block_comment = False
+                else:
+                    to_do_lines.append(line.rstrip())
+
+        with env_wrapper_sh_path.open("w") as f_out:
+            f_out.write("# Tips from the tool core commands:\n")
+            f_out.write("\n".join(to_do_lines))
+            if to_do_lines:
+                f_out.write("\n")
+            f_out.write("\n")
+            f_out.write(abc_tool_env.BashEnvWrapper.BEGIN_ENV_MAGIC_COMMENT + " ===\n")
+            f_out.write("\n")
+            f_out.write("# Commands to initialize the environment\n")
+            f_out.write("\n")
+            f_out.write(abc_tool_env.BashEnvWrapper.MID_ENV_MAGIC_COMMENT + " ---\n")
+            f_out.write("\n")
+            f_out.write("# Commands to close the environment\n")
+            f_out.write("\n")
+            f_out.write(abc_tool_env.BashEnvWrapper.END_ENV_MAGIC_COMMENT + " ===\n")
+
+        _LOGGER.info(
+            "Tool environnment wrapper draft script written to %s",
+            env_wrapper_sh_path,
+        )
+
+    def help(self) -> str:
+        """Get help string."""
+        return (
+            "Generate a draft environnment wrapper script"
+            f" for tool {self._tool_connector_type.description().name()}"
+            f" for topic {self._tool_connector_type.description().topic().name()}"
+        )

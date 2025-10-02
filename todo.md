@@ -13,10 +13,12 @@
 * [x] Refactoring tool config to tool connector (merge of config and connector)
 * [x] Fix run/format/resume stages
 * [ ] Verify data dire and work dir are not the same!
-  * [ ] Update doc
-* [ ] Do `pbfbench topic-cmd tool-cmd env $DATA_DIR` to create a template of the environment wrapper script
-  * [ ] Help to know which variables to set
-  * [ ] Update doc
+  * [ ] #DOCU Update doc
+* [x] Do `pbfbench topic-cmd tool-cmd draft-env $DATA_DIR` to create a template of the environment wrapper script
+  * [x] Help to know which variables to set
+  * [ ] #DOCU Update doc
+* [ ] #DOCU the use of "" in core_command.sh tool scripts `"${USER_TOOL_OPTIONS[@]}"`
+* [ ] #DOCU tell to put block of comment at the really beggining of the `core_command.sh` tool script to say which things must be done in the environment wrapper script
 
 ## Refactoring
 
