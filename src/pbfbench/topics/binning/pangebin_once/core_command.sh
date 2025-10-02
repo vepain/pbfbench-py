@@ -2,4 +2,4 @@
 #
 # Nothing
 
-pangebin asm-pbf once ${GFA} ${SEEDS} ${PLASMIDNESS} --outdir ${WORK_EXP_SAMPLE_DIR} ${USER_TOOL_OPTIONS[@]}
+pangebin asm-pbf once "${GFA}" "${SEEDS}" "${PLASMIDNESS}" --outdir "${WORK_EXP_SAMPLE_DIR}" "${USER_TOOL_OPTIONS[@]}"
